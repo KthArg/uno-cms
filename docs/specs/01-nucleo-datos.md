@@ -85,8 +85,19 @@ Regla única, y de ella se derivan tanto los tipos como los dos esquemas Zod:
 | `default: x`     | `V`              | opcional, se rellena con `x` | opcional, se rellena con `x` |
 | ninguno          | `V \| undefined` | opcional                     | opcional                     |
 
-"No vacío" significa: cadena distinta de `''` tras recortar espacios; `RichTextDoc` con al
-menos un nodo con texto; `ImageValue` con `url`.
+**Qué significa "no vacío", por tipo.** Se define para los ocho, porque en dos de ellos la
+interpretación mecánica de "no vacío" da la respuesta equivocada:
+
+| Tipo                              | Un requerido se satisface con…                                                                                                                        |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `text`, `link`, `color`, `select` | cadena distinta de `''` **tras recortar espacios**                                                                                                    |
+| `richtext`                        | un `RichTextDoc` con al menos un nodo con texto                                                                                                       |
+| `image`                           | un `ImageValue` con `url`                                                                                                                             |
+| `boolean`                         | **estar presente**. `false` es un valor válido: si "no vacío" significara "verdadero", un booleano obligatorio no se podría publicar nunca en `false` |
+| `number`                          | **estar presente**. `0` es un valor válido: `rating: 0` o `precio: 0` son legítimos, y un `if (!valor)` los trataría como ausentes                    |
+
+Las dos últimas filas existen porque son el error que se escribe solo. Quien implemente #39
+no debe usar una comprobación de veracidad genérica sobre el valor.
 
 El **laxo** existe porque el editor guarda continuamente mientras escribe (autosave de
 `SPEC.md` §8) y un borrador a medias tiene que poder guardarse. El **estricto** es la puerta
@@ -147,6 +158,11 @@ Contrato: función idempotente en `cms/core/seed.ts` que, dada la config, insert
 que falten con el draft resultante de aplicar los `default` sobre un objeto vacío, `status`
 `'draft'`, `published` `null` y `version` `0`. **No toca las filas existentes**: un seed que
 sobreescriba un borrador ajeno destruye trabajo del editor.
+
+**El draft sembrado no pasa el esquema estricto** si el singleton tiene campos `required`
+sin `default`, y eso es lo correcto: es un borrador vacío, todavía no publicable. Se dice
+aquí porque el primer `VALIDATION_FAILED` justo después de sembrar parece un seed roto y no
+lo es.
 
 Cuándo se ejecuta no se decide aquí (es de M2/M4, con el arranque y el panel). M1 entrega la
 función y sus tests.

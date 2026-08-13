@@ -267,9 +267,15 @@ publicar— más los tipos TypeScript. Qué significa cada combinación no está
 | `default: x`     | `V`              | opcional, se rellena | opcional, se rellena       |
 | ninguno          | `V \| undefined` | opcional             | opcional                   |
 
-"No vacío" es más que "presente": una cadena de espacios no cuenta, un `RichTextDoc` sin
-texto tampoco, y una imagen sin `url` tampoco. Un editor que teclea un espacio en el título
-y publica no debería pasar la puerta.
+"No vacío" es más que "presente" **para los tipos que llevan contenido**: una cadena de
+espacios no cuenta, un `RichTextDoc` sin texto tampoco, y una imagen sin `url` tampoco. Un
+editor que teclea un espacio en el título y publica no debería pasar la puerta.
+
+Para `boolean` y `number`, en cambio, **presente es suficiente**. `false` y `0` son valores
+legítimos, y aplicarles una comprobación de veracidad haría imposible publicar un booleano
+obligatorio en `false` o una valoración de `0`. La tabla completa por tipo está en el
+documento de fase §3.2; se detalla ahí y no aquí porque es donde la va a leer quien
+implemente.
 
 `required` junto a `default` se **rechaza** al construir la config, con un mensaje que
 nombra el campo: la combinación no tiene sentido —el default satisface siempre el
