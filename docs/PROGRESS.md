@@ -53,6 +53,12 @@ allí; ningún caso quedó dado por bueno estando en rojo.
    vez, para borrar el commit basura que dejó el primer T-08-1 fallido. No es hipotético.
 7. **La caché de navegadores de Playwright no tiene acierto verificado.** Todas las
    ejecuciones hasta ahora han sido con la clave recién creada.
+8. **Un pipeline verde no significa que un cambio sea correcto**, y hay demostración. El
+   primer lote de Dependabot abrió un PR proponiendo subir `eslint-config-next` a la serie
+   16 con `next` fijado en la 15 por ADR-100. **El PR estaba en verde**: `ci` no puede
+   detectar esa desalineación, porque el config de la 16 lintaría igual el código de la 15
+   hasta el día que dejara de hacerlo. Corregido en el issue #34, pero la lección se queda:
+   las barreras de M0 atrapan errores mecánicos, no errores de criterio.
 
 ### Qué probaría a mano
 
