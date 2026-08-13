@@ -200,3 +200,83 @@ server-side en save".
   allowlist. Es más estricta que el criterio de aceptación original del issue, no más laxa.
 - **Pendiente de verificación:** que la salida C se sostenga en la práctica no se sabrá
   hasta implementar el renderizador en M5. El issue #19 queda abierto hasta entonces.
+
+---
+
+## ADR-200 — Driver de base de datos según el destino
+
+**Contexto.** Registrado en detalle en el issue #43 (`spec-question`). ADR-002 fija
+`@neondatabase/serverless` (HTTP) con un motivo real: en serverless, un driver TCP abriría
+una conexión por invocación y agotaría el free tier de Neon. `SPEC.md` §11.4 exige tests de
+integración contra Postgres efímero. El driver HTTP de Neon no habla con un `postgres:16`
+en un runner: no son el mismo protocolo.
+
+Se descartaron: usar `node-postgres` en todas partes (rompe el motivo de ADR-002) y montar
+el proxy HTTP de Neon en CI (una imagen de terceros en el camino crítico de todos los PR,
+imposible de arreglar desde este proyecto si se rompe).
+
+**Decisión.** `cms/db/index.ts` selecciona el driver y expone **el mismo tipo** de Drizzle
+hacia arriba. La selección es explícita —variable de entorno `DB_DRIVER` con valores
+`neon` y `pg`— y la detección por host solo actúa como valor por defecto cuando no se
+declara. Adivinar el driver sin poder forzarlo sería frágil justo donde no conviene.
+
+Esto no es un rodeo a ADR-002: es la costura que ADR-002 ya describía cuando decía
+"detrás de una interfaz `db/` para no acoplar".
+
+**Consecuencias.**
+
+- El esquema, las consultas y las acciones no saben qué driver hay debajo. Si los tipos de
+  Drizzle divergieran entre ramas, lo detecta `typecheck`.
+- **Brecha residual honesta:** los tests de integración ejercitan esquema, consultas y
+  migraciones, pero **no el driver de producción**. Un fallo específico del driver HTTP de
+  Neon no lo atraparía CI. Lo cubre el despliegue de verificación de M6, no los tests, y
+  por eso el issue #43 queda abierto hasta entonces.
+- Una dependencia más (`pg`), solo en desarrollo y test.
+
+---
+
+## ADR-201 — Unicidad de email por índice sobre `lower(email)`, sin `citext`
+
+**Contexto.** `SPEC.md` §4 comenta, junto a la columna `email`, "citext en migración; unique
+lower(email)". Las dos cosas a la vez son redundantes: `citext` es un tipo que ignora
+mayúsculas, y un índice único sobre `lower(email)` consigue lo mismo sin cambiar el tipo.
+
+**Decisión.** Solo el índice único sobre `lower(email)`, sobre una columna `text`. Las
+consultas de búsqueda por email comparan también por `lower()`.
+
+**Consecuencias.** No se depende de que la extensión `citext` esté disponible ni instalada
+en el Postgres de destino, cosa que no controlamos en un despliegue auto-hospedado. A
+cambio, cualquier consulta que busque por email debe acordarse de usar `lower()`: si alguien
+lo olvida, la consulta no fallará, simplemente no encontrará al usuario. Es un fallo
+silencioso, y por eso el acceso por email se concentrará en una única función en `cms/auth/`
+en M2 en lugar de repartirse por el código.
+
+---
+
+## ADR-202 — Regla de presencia: `required`, `default` y opcionalidad
+
+**Contexto.** `SPEC.md` §5.1 usa `required: true` en unos campos y `default: true` en otro,
+y §5.1 exige derivar dos esquemas Zod —laxo para guardar borradores, estricto para
+publicar— más los tipos TypeScript. Qué significa cada combinación no está escrito.
+
+**Decisión.** Una sola regla, de la que se derivan tipos y ambos esquemas:
+
+| Declaración      | Tipo TS          | Laxo (borrador)      | Estricto (publicar)        |
+| ---------------- | ---------------- | -------------------- | -------------------------- |
+| `required: true` | `V`              | opcional             | obligatorio y **no vacío** |
+| `default: x`     | `V`              | opcional, se rellena | opcional, se rellena       |
+| ninguno          | `V \| undefined` | opcional             | opcional                   |
+
+"No vacío" es más que "presente": una cadena de espacios no cuenta, un `RichTextDoc` sin
+texto tampoco, y una imagen sin `url` tampoco. Un editor que teclea un espacio en el título
+y publica no debería pasar la puerta.
+
+`required` junto a `default` se **rechaza** al construir la config, con un mensaje que
+nombra el campo: la combinación no tiene sentido —el default satisface siempre el
+requisito— y aceptarla en silencio dejaría al desarrollador creyendo que ha marcado algo
+como obligatorio cuando no lo ha hecho.
+
+**Consecuencias.** El tipo que ve la landing (`Content<K>`) refleja el esquema **estricto**,
+porque la landing solo lee contenido publicado y publicado implica estricto superado. El
+borrador tiene su propio tipo (`Draft<K>`), con todo opcional. Son dos tipos distintos a
+propósito: confundirlos es cómo se acaba renderizando `undefined` en producción.
