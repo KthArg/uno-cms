@@ -18,17 +18,17 @@ trazabilidad. **Ni una línea de lógica de CMS.**
 
 Issues de la fase:
 
-| Issue | Entrega |
-|---|---|
-| #1 | Este documento + ADRs iniciales |
-| #2 | Scaffold Next 15 + React 19 + TS estricto + Tailwind 4 |
-| #3 | Estructura de carpetas §3 + frontera `server-only` |
-| #4 | ESLint + Prettier + Husky + lint-staged con reglas de seguridad |
-| #5 | Vitest (unit/integration) + Playwright (e2e) |
-| #6 | Pipeline de CI |
-| #7 | Plantillas de PR/issue, Dependabot, CODEOWNERS |
-| #8 | Protección de `main` |
-| #9 | `.env.example`, DECISIONS, PROGRESS, esqueletos de `docs/` |
+| Issue | Entrega                                                         |
+| ----- | --------------------------------------------------------------- |
+| #1    | Este documento + ADRs iniciales                                 |
+| #2    | Scaffold Next 15 + React 19 + TS estricto + Tailwind 4          |
+| #3    | Estructura de carpetas §3 + frontera `server-only`              |
+| #4    | ESLint + Prettier + Husky + lint-staged con reglas de seguridad |
+| #5    | Vitest (unit/integration) + Playwright (e2e)                    |
+| #6    | Pipeline de CI                                                  |
+| #7    | Plantillas de PR/issue, Dependabot, CODEOWNERS                  |
+| #8    | Protección de `main`                                            |
+| #9    | `.env.example`, DECISIONS, PROGRESS, esqueletos de `docs/`      |
 
 Orden de ejecución: **#1 → #2 → #5 → #4 → #6 → #8 → #3 → #7 → #9**.
 
@@ -65,26 +65,26 @@ M0 **sí** crea los directorios vacíos de esos módulos (#3) y **sí** deja el 
 `SPEC.md` §2 nombra mayores, no parches. Se fijan aquí los rangos exactos que el repo
 usará durante todo el MVP. Cualquier salto de mayor requiere un ADR nuevo.
 
-| Paquete | Versión | Origen |
-|---|---|---|
-| `next` | `15.5.x` | SPEC §2 ("Next.js 15") — ver ADR-100 |
-| `react` / `react-dom` | `19.x` | SPEC §2 |
-| `typescript` | `5.9.x` | ADR-101 |
-| `tailwindcss` + `@tailwindcss/postcss` | `4.x` | SPEC §2 ("Tailwind CSS 4") |
-| `zod` | `3.25.x` | SPEC §2 ("Zod v3") |
-| `drizzle-orm` / `drizzle-kit` | `0.45.x` / `0.31.x` | SPEC §2 — se instalan en M1 |
-| `next-auth` | `5.0.0-beta.x` | SPEC §2 ("Auth.js v5") — se instala en M2 |
-| `@node-rs/argon2` | `2.x` | SPEC ADR-004 — M2 |
-| `@neondatabase/serverless` | `1.x` | SPEC ADR-002 — M1 |
-| `@vercel/blob` | `1.x` | SPEC ADR-005 — M4 |
-| `vitest` + `@vitest/coverage-v8` | `3.2.x` | ADR-102 |
-| `@playwright/test` | `1.62.x` | SPEC §2 |
-| `eslint` | `9.x` | ADR-103 |
-| `eslint-config-next` | igual que `next` | requisito del paquete |
-| `prettier` | `3.x` | SPEC §2 |
-| `husky` | `9.x` | SPEC §2 |
-| `lint-staged` | `17.x` | SPEC §2 |
-| `server-only` | `0.0.1` | SPEC §7.1 |
+| Paquete                                | Versión             | Origen                                    |
+| -------------------------------------- | ------------------- | ----------------------------------------- |
+| `next`                                 | `15.5.x`            | SPEC §2 ("Next.js 15") — ver ADR-100      |
+| `react` / `react-dom`                  | `19.x`              | SPEC §2                                   |
+| `typescript`                           | `5.9.x`             | ADR-101                                   |
+| `tailwindcss` + `@tailwindcss/postcss` | `4.x`               | SPEC §2 ("Tailwind CSS 4")                |
+| `zod`                                  | `3.25.x`            | SPEC §2 ("Zod v3")                        |
+| `drizzle-orm` / `drizzle-kit`          | `0.45.x` / `0.31.x` | SPEC §2 — se instalan en M1               |
+| `next-auth`                            | `5.0.0-beta.x`      | SPEC §2 ("Auth.js v5") — se instala en M2 |
+| `@node-rs/argon2`                      | `2.x`               | SPEC ADR-004 — M2                         |
+| `@neondatabase/serverless`             | `1.x`               | SPEC ADR-002 — M1                         |
+| `@vercel/blob`                         | `1.x`               | SPEC ADR-005 — M4                         |
+| `vitest` + `@vitest/coverage-v8`       | `3.2.x`             | ADR-102                                   |
+| `@playwright/test`                     | `1.62.x`            | SPEC §2                                   |
+| `eslint`                               | `9.x`               | ADR-103                                   |
+| `eslint-config-next`                   | igual que `next`    | requisito del paquete                     |
+| `prettier`                             | `3.x`               | SPEC §2                                   |
+| `husky`                                | `9.x`               | SPEC §2                                   |
+| `lint-staged`                          | `17.x`              | SPEC §2                                   |
+| `server-only`                          | `0.0.1`             | SPEC §7.1                                 |
 
 Gestor de paquetes: **pnpm**, fijado con el campo `packageManager` de `package.json`.
 Node: `engines` exige **≥ 22**; CI fija **24.x** (LTS activa), que es la serie con la que se
@@ -95,13 +95,13 @@ hasta el despliegue, así que se mantienen alineadas.
 
 Los nombres son estables: CI, hooks de git y esta documentación dependen de ellos.
 
-| Script | Debe hacer | Debe fallar si |
-|---|---|---|
-| `dev` | `next dev` (puerto 3000 por defecto, `PORT` lo sobreescribe) | — |
-| `build` | `next build` | error de compilación o de tipos |
-| `start` | `next start` | — |
-| `lint` | ESLint sobre todo el repo | cualquier error de lint |
-| `typecheck` | `next typegen && tsc --noEmit` | cualquier error de tipos |
+| Script      | Debe hacer                                                   | Debe fallar si                  |
+| ----------- | ------------------------------------------------------------ | ------------------------------- |
+| `dev`       | `next dev` (puerto 3000 por defecto, `PORT` lo sobreescribe) | —                               |
+| `build`     | `next build`                                                 | error de compilación o de tipos |
+| `start`     | `next start`                                                 | —                               |
+| `lint`      | ESLint sobre todo el repo                                    | cualquier error de lint         |
+| `typecheck` | `next typegen && tsc --noEmit`                               | cualquier error de tipos        |
 
 `typecheck` genera primero los tipos de rutas porque `next-env.d.ts` y `.next/types/` están
 en `.gitignore`: sin ese paso, `tsc` falla en una máquina limpia (CI) por referencias a
@@ -188,60 +188,60 @@ tabla**, no desde la implementación (regla de proceso 1).
 
 ### 4.1 Scaffold (#2)
 
-| ID | Caso | Verificación |
-|---|---|---|
-| T-02-1 | El proyecto arranca en desarrollo | `pnpm dev` responde 200 en `/` |
-| T-02-2 | La build de producción pasa | `pnpm build` termina con código 0 |
+| ID     | Caso                                  | Verificación                                                                                                                        |
+| ------ | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| T-02-1 | El proyecto arranca en desarrollo     | `pnpm dev` responde 200 en `/`                                                                                                      |
+| T-02-2 | La build de producción pasa           | `pnpm build` termina con código 0                                                                                                   |
 | T-02-3 | TypeScript está en modo estricto real | `tsconfig.json` tiene `strict: true` **y** `noUncheckedIndexedAccess: true`; un acceso `arr[0]` sin comprobar produce error de tipo |
-| T-02-4 | El alias `@/` resuelve | un import `@/cms/...` compila (SPEC §5.1) |
-| T-02-5 | Tailwind compila | el CSS generado contiene la utilidad usada en el layout |
+| T-02-4 | El alias `@/` resuelve                | un import `@/cms/...` compila (SPEC §5.1)                                                                                           |
+| T-02-5 | Tailwind compila                      | el CSS generado contiene la utilidad usada en el layout                                                                             |
 
 ### 4.2 Frontera server-only (#3)
 
-| ID | Caso | Verificación |
-|---|---|---|
-| T-03-1 | Todo módulo de `cms/{core,db,auth,security}` importa `server-only` | test unitario que recorre el árbol; **falla** si falta |
-| T-03-2 | Las excepciones son explícitas | un fichero con `// isomorphic:` se acepta; uno sin él y sin `server-only` falla |
-| T-03-3 | Existe el árbol de SPEC §3 | test unitario con la lista literal de directorios de §3.3; falla si falta alguno |
+| ID     | Caso                                                               | Verificación                                                                     |
+| ------ | ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| T-03-1 | Todo módulo de `cms/{core,db,auth,security}` importa `server-only` | test unitario que recorre el árbol; **falla** si falta                           |
+| T-03-2 | Las excepciones son explícitas                                     | un fichero con `// isomorphic:` se acepta; uno sin él y sin `server-only` falla  |
+| T-03-3 | Existe el árbol de SPEC §3                                         | test unitario con la lista literal de directorios de §3.3; falla si falta alguno |
 
 ### 4.3 Calidad (#4)
 
-| ID | Caso | Verificación |
-|---|---|---|
-| T-04-1 | `sql.raw` con input de usuario es error de lint | fichero fixture con `sql.raw(userInput)` → ESLint devuelve error (SPEC §7.1) |
+| ID     | Caso                                                                    | Verificación                                                                                                |
+| ------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| T-04-1 | `sql.raw` con input de usuario es error de lint                         | fichero fixture con `sql.raw(userInput)` → ESLint devuelve error (SPEC §7.1)                                |
 | T-04-2 | `dangerouslySetInnerHTML` es error **en cualquier ruta**, sin allowlist | fixture en `components/` → error; fixture en `cms/preview/` → también error (SPEC §7.1; ADR-107, issue #19) |
-| T-04-3 | El repo está formateado | `pnpm format:check` código 0 |
-| T-04-4 | El hook de pre-commit corre lint-staged | commit con un fichero mal formateado lo arregla o aborta |
+| T-04-3 | El repo está formateado                                                 | `pnpm format:check` código 0                                                                                |
+| T-04-4 | El hook de pre-commit corre lint-staged                                 | commit con un fichero mal formateado lo arregla o aborta                                                    |
 
 ### 4.4 Harness de tests (#5)
 
-| ID | Caso | Verificación |
-|---|---|---|
-| T-05-1 | `test:unit` corre sin BD | pasa con `DATABASE_URL` sin definir |
-| T-05-2 | `test:integration` se salta con mensaje claro sin BD | código 0 y aviso explícito, no un fallo opaco |
-| T-05-3 | `expectTypeOf` está disponible | un test de tipos trivial pasa (lo exige M1) |
-| T-05-4 | El e2e arranca la app y la home responde | Playwright verde contra el build de producción |
-| T-05-5 | La cobertura se recoge | se genera reporte; umbral declarado pero no aplicado hasta M3 |
+| ID     | Caso                                                 | Verificación                                                  |
+| ------ | ---------------------------------------------------- | ------------------------------------------------------------- |
+| T-05-1 | `test:unit` corre sin BD                             | pasa con `DATABASE_URL` sin definir                           |
+| T-05-2 | `test:integration` se salta con mensaje claro sin BD | código 0 y aviso explícito, no un fallo opaco                 |
+| T-05-3 | `expectTypeOf` está disponible                       | un test de tipos trivial pasa (lo exige M1)                   |
+| T-05-4 | El e2e arranca la app y la home responde             | Playwright verde contra el build de producción                |
+| T-05-5 | La cobertura se recoge                               | se genera reporte; umbral declarado pero no aplicado hasta M3 |
 
 ### 4.5 CI (#6)
 
-| ID | Caso | Verificación |
-|---|---|---|
-| T-06-1 | Un fallo de lint pone `ci` en rojo | commit deliberado en el PR, con enlace a la ejecución |
-| T-06-2 | El arreglo pone `ci` en verde | commit siguiente, con enlace |
-| T-06-3 | El job de integración tiene Postgres | el paso de conexión al servicio termina OK |
-| T-06-4 | El guard de bundle detecta una fuga | fixture temporal que importa `cms/security` desde un componente cliente → build falla (se ejecuta una vez y se revierte, evidencia en el PR) |
-| T-06-5 | `pnpm audit` se ejecuta | paso presente en el log |
+| ID     | Caso                                 | Verificación                                                                                                                                 |
+| ------ | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| T-06-1 | Un fallo de lint pone `ci` en rojo   | commit deliberado en el PR, con enlace a la ejecución                                                                                        |
+| T-06-2 | El arreglo pone `ci` en verde        | commit siguiente, con enlace                                                                                                                 |
+| T-06-3 | El job de integración tiene Postgres | el paso de conexión al servicio termina OK                                                                                                   |
+| T-06-4 | El guard de bundle detecta una fuga  | fixture temporal que importa `cms/security` desde un componente cliente → build falla (se ejecuta una vez y se revierte, evidencia en el PR) |
+| T-06-5 | `pnpm audit` se ejecuta              | paso presente en el log                                                                                                                      |
 
 ### 4.6 Repositorio (#7, #8, #9)
 
-| ID | Caso | Verificación |
-|---|---|---|
-| T-08-1 | `main` no acepta push directo | `git push origin main` es rechazado |
-| T-08-2 | Un PR sin `ci` verde no se puede mergear | el botón de merge está bloqueado |
-| T-08-3 | Las plantillas se aplican | un PR nuevo aparece prerrellenado |
-| T-09-1 | `.env.example` cubre §7.4 | las 6 variables presentes y comentadas |
-| T-09-2 | No hay secretos en el repo | `.env` ignorado; revisión del diff |
+| ID     | Caso                                     | Verificación                           |
+| ------ | ---------------------------------------- | -------------------------------------- |
+| T-08-1 | `main` no acepta push directo            | `git push origin main` es rechazado    |
+| T-08-2 | Un PR sin `ci` verde no se puede mergear | el botón de merge está bloqueado       |
+| T-08-3 | Las plantillas se aplican                | un PR nuevo aparece prerrellenado      |
+| T-09-1 | `.env.example` cubre §7.4                | las 6 variables presentes y comentadas |
+| T-09-2 | No hay secretos en el repo               | `.env` ignorado; revisión del diff     |
 
 ## 5. Definition of Done de M0
 
