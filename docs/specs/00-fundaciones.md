@@ -166,6 +166,12 @@ bundle de cliente, y que **CI falle** si ocurre. Contrato en dos capas:
    `cms/security` desde un componente cliente, se comprueba que la build falla, y se
    revierte.
 
+> **Nota para #3.** `tsconfig.json` incluye `**/*.ts`, así que `tests/`, `vitest.config.ts`
+> y `playwright.config.ts` comparten configuración con el código que se despliega. El test
+> de la capa 1 debe recorrer **solo** `cms/{core,db,auth,security}` y no inferir la lista
+> de ficheros del `include` del tsconfig; si no, acabará pidiendo `server-only` a ficheros
+> de test y se resolverá con excepciones ad hoc.
+
 La capa 1 no basta sola: `server-only` solo actúa sobre lo que el bundler realmente
 arrastra al cliente, así que un módulo del núcleo que nadie importa todavía puede quedarse
 sin protección hasta el día en que alguien lo importe mal. La capa 1 lo obliga desde el
