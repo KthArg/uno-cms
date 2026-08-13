@@ -10,7 +10,7 @@ publica con un botón.
 
 ## Estado
 
-**En construcción.** M0 (fundaciones e infraestructura) cerrado; M1 en curso. Todavía no
+**En construcción.** M0 (fundaciones) y M1 (núcleo de datos) cerrados; M2 en curso. Todavía no
 hay panel ni base de datos: el proyecto arranca con una página provisional.
 
 El detalle honesto de qué funciona, qué es frágil y qué habría que probar a mano está en

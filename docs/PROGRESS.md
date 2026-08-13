@@ -87,13 +87,69 @@ allí; ningún caso quedó dado por bueno estando en rojo.
 
 ---
 
-## M1 — Núcleo de datos y configuración ⏳
+## M1 — Núcleo de datos y configuración ✅
 
-Pendiente. Esquema Drizzle de SPEC §4 y migraciones, cliente Neon, `defineConfig`/`s.*` con
-inferencia de tipos, `schema-gen` laxo y estricto, seed de singletons.
+**Cerrado.** 6 issues de fase más 2 de corrección (#46, #48), 8 PR.
 
-**Entra ya con deuda conocida:** el proyecto `integration` de Vitest todavía no gestiona
-esquema ni limpieza entre tests; hay que resolverlo con las migraciones.
+### Qué funciona
+
+| Área                       | Estado                                                                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Contrato del desarrollador | `defineConfig` y los 8 tipos de campo de SPEC §5.1; el ejemplo de la spec se acepta literal                                           |
+| Inferencia                 | `Content<K>` distingue requeridos de opcionales; `select` infiere su unión literal; una clave inexistente es **error de compilación** |
+| Validación                 | Dos esquemas Zod por objeto (laxo y estricto) con la regla de presencia de ADR-202                                                    |
+| Seguridad de contenido     | Allowlist de protocolos de enlace resistente a ofuscación; allowlist de nodos, marcas **y atributos** de richtext, en profundidad     |
+| Base de datos              | Las 6 tablas de SPEC §4 con índices, claves foráneas y restricciones `CHECK`; migraciones commiteadas                                 |
+| Cliente                    | Driver dual (ADR-200) con el mismo tipo de Drizzle hacia arriba                                                                       |
+| Harness de integración     | Migraciones automáticas y limpieza entre tests, verificados por mutación. **Salda la deuda que M0 dejó anotada**                      |
+| Seed                       | Idempotente y no destructivo, verificado por mutación                                                                                 |
+
+130 tests unitarios y 19 de integración contra Postgres 16 real, en local y en CI.
+
+### Qué es frágil
+
+1. **La rama Neon del cliente no la ejecuta ningún test** (ADR-200, issue #43, abierto a
+   propósito). Los tests ejercitan esquema, consultas y migraciones; el driver de
+   producción, no. Lo único que hoy protege de una divergencia entre ramas es `typecheck`.
+   Se cubre en el despliegue de verificación de M6.
+2. **Las migraciones se han probado contra Postgres 16 estándar, no contra Neon.** Deberían
+   ser equivalentes; "deberían" es la palabra.
+3. **La coherencia entre el `enum` de TypeScript y el `CHECK` de Postgres depende de un
+   test**, no de la construcción (ADR-203). Si alguien borra ese test, la divergencia vuelve
+   a ser silenciosa.
+4. **`Presence<O>` se apoya en `const` type parameters.** Si alguien llama a `s.text(opciones)`
+   con una variable en vez de un literal, la inferencia de `required` se pierde y el campo se
+   vuelve opcional **en silencio**. No conozco forma de detectarlo desde el tipo.
+5. **La allowlist de richtext usa los nombres de nodo de Tiptap.** Si el editor de M4 se
+   configura con otro esquema de ProseMirror, no coincidirán. Falla en la dirección segura
+   —rechaza en vez de aceptar mal— pero fallará.
+6. **La salvaguarda que impide vaciar la base equivocada es una heurística sobre un nombre**,
+   y ya ha dado un falso positivo. Mejor que nada, no una garantía.
+7. **`closeDatabase` accede a `$client`, interno de Drizzle.** Ahora lanza si desaparece en
+   vez de tragárselo, pero sigue dependiendo de un detalle privado.
+8. **La limpieza entre tests es un `TRUNCATE` completo.** Milisegundos con 19 tests; con
+   cien habrá que medir si conviene una transacción con rollback por test.
+
+### Qué probaría a mano
+
+- Desplegar contra un Neon real y comprobar que la rama del driver HTTP funciona. Es lo
+  único que cierra el issue #43 y no hay test que lo sustituya.
+- Editar `cms.config.ts` añadiendo un campo y comprobar que **no** hace falta migración
+  (es la promesa de ADR-003 y nadie la ha ejercitado todavía).
+- Ejecutar el seed dos veces sobre una base con contenido real, no de test.
+
+### Decisiones que dejaron rastro
+
+- **Issue #48**: ADR-003 prometía que la base de datos garantiza los estados y el esquema de
+  §4 no lo hacía —el `enum` de Drizzle es solo de TypeScript—. Resuelto con `CHECK`
+  (ADR-203). Lo descubrió un test al fallar, no una lectura del código.
+- **Issue #43** (abierto): el driver HTTP de Neon de ADR-002 no puede hablar con el Postgres
+  efímero de §11.4. Resuelto con selección de driver por destino (ADR-200).
+- **Issue #46**: la exención `// isomorphic:` de la frontera se comprobaba una vez y luego
+  era permanente. Ahora un test exige que el fichero exento no emita JavaScript.
+- **Tres protecciones resultaron no estar ejercitadas** por ningún test hasta que las
+  comprobé por mutación: el filtro de caracteres de control de los enlaces, la limpieza
+  entre tests y el tipado de `titleField`. Las tres pasaron a estarlo.
 
 ## M2 — Autenticación y seguridad base ⏳
 
