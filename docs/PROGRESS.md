@@ -23,7 +23,7 @@ mergear. Repositorio: [KthArg/uno-cms](https://github.com/KthArg/uno-cms).
 | CI                        | 8 jobs, check agregador `ci`. Demostrado en rojo y en verde con enlaces                                                                                                             |
 | Protección de `main`      | PR obligatorio, `ci` obligatorio, conversación resuelta, sin force-push, `enforce_admins: true`. Versionada en `.github/branch-protection.json`                                     |
 | Dependencias              | `pnpm audit --audit-level=high` bloqueante y limpio; Dependabot semanal agrupado                                                                                                    |
-| Documentación             | Spec de fase, 8 ADR, `.env.example`, esqueletos de SETUP / DEVELOPER / SECURITY                                                                                                     |
+| Documentación             | Spec de fase, los ADR de la serie 1xx, `.env.example`, esqueletos de SETUP / DEVELOPER / SECURITY                                                                                   |
 
 Casos de prueba del spec de fase: **todos verdes**. T-06-4 se pospuso de #6 a #3 y se cerró
 allí; ningún caso quedó dado por bueno estando en rojo.
