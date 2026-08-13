@@ -1,7 +1,12 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { join, posix, relative, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import {
+  PROTECTED_TREES,
+  REPO_ROOT,
+  classify,
+  listTypeScriptFiles,
+} from '../support/module-boundary';
 
 /**
  * SPEC §7.1, "Secretos en cliente": `cms/core`, `cms/db`, `cms/auth` y `cms/security` no
@@ -10,60 +15,17 @@ import { describe, expect, it } from 'vitest';
  *
  * Por qué hace falta si `server-only` ya rompe la build: `server-only` solo actúa sobre lo
  * que el bundler arrastra de verdad al cliente. Un módulo del núcleo que todavía no importa
- * nadie queda sin protección hasta el día en que alguien lo importe mal — y ese día el
- * fallo aparece lejos, en el PR de otro. Esta capa lo exige desde el primer commit.
+ * nadie queda sin protección hasta el día en que alguien lo importe mal — y ese día el fallo
+ * aparece lejos, en el PR de otro. Esta capa lo exige desde el primer commit.
  *
  * `cms/preview` queda deliberadamente fuera: es el único árbol isomorfo (ADR-106), porque
  * contiene el contrato de contenido del lado cliente que consume la landing.
  */
 
-// `fileURLToPath` y no `new URL(...).pathname`: este último devuelve `/C:/...` en Windows
-// y deja los caracteres percent-encoded, así que una ruta con espacios o tildes rompería el
-// escaneo. Mismo mecanismo que usa vitest.config.ts.
-const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
-
-/** Árboles que no pueden llegar al cliente (SPEC §7.1). */
-const PROTECTED_TREES = ['cms/core', 'cms/db', 'cms/auth', 'cms/security'] as const;
-
-type Verdict = 'protegido' | 'isomorfo' | 'desprotegido';
-
-/**
- * Clasifica un módulo por su cabecera. Se mira solo el principio del fichero a propósito:
- * un `import 'server-only'` enterrado tras cien líneas es fácil de perder en un refactor.
- */
-export function classify(source: string): Verdict {
-  const head = source
-    .split('\n')
-    .slice(0, 20)
-    .map((line) => line.trim());
-
-  if (head.some((line) => /^\/\/\s*isomorphic:\s*\S/.test(line))) return 'isomorfo';
-  if (head.some((line) => /^import\s+['"]server-only['"]\s*;?$/.test(line))) return 'protegido';
-  return 'desprotegido';
-}
-
-function listTypeScriptFiles(dir: string): string[] {
-  let entries: string[];
-  try {
-    entries = readdirSync(dir);
-  } catch {
-    return [];
-  }
-
-  return entries.flatMap((entry) => {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) return listTypeScriptFiles(full);
-    // Se excluyen los ficheros de test, incluidos los de tipos (`.test-d.ts`): M1 los
-    // pondrá para la inferencia de cms.config.ts y no deben acabar exigiendo `server-only`.
-    const esTest = /\.(test|test-d|spec)\.tsx?$/.test(entry);
-    return /\.tsx?$/.test(entry) && !esTest ? [full] : [];
-  });
-}
-
 describe('clasificación de módulos', () => {
-  // La regla se prueba con fuentes sintéticas y no solo recorriendo el árbol real: hoy
-  // esos directorios están vacíos, así que un test que solo recorriera el árbol daría
-  // verde sin haber comprobado nada. El mismo problema que el umbral de cobertura.
+  // La regla se prueba con fuentes sintéticas y no solo recorriendo el árbol real: cuando se
+  // escribió, esos directorios estaban vacíos y un test que solo recorriera el árbol habría
+  // dado verde sin comprobar nada. El mismo problema que el umbral de cobertura.
 
   it('reconoce el import de server-only al principio del fichero', () => {
     expect(classify("import 'server-only';\n\nexport const x = 1;\n")).toBe('protegido');
@@ -99,6 +61,21 @@ describe('SPEC §7.1 — frontera server-only sobre el árbol real', () => {
 
     expect(desprotegidos).toEqual([]);
   });
+
+  it('el escaneo encuentra módulos, o el test anterior no prueba nada', () => {
+    // El test de arriba compara contra una lista vacía: sobre cero ficheros pasaría
+    // siempre. Esto garantiza que hay algo que escanear.
+    //
+    // Se comprueba el total y no árbol por árbol a propósito: `cms/auth` y `cms/security`
+    // se llenan en M2, y exigirles contenido ahora sería exigirle a M1 que haga el trabajo
+    // de M2 para que un test pase.
+    const total = PROTECTED_TREES.reduce(
+      (count, tree) => count + listTypeScriptFiles(join(REPO_ROOT, tree)).length,
+      0
+    );
+
+    expect(total).toBeGreaterThan(0);
+  });
 });
 
 describe('SPEC §3 — estructura del repositorio', () => {
@@ -119,7 +96,6 @@ describe('SPEC §3 — estructura del repositorio', () => {
     'cms/ui',
     'cms/ui/fields',
     'cms/preview',
-    'components/site',
     'docs',
   ] as const;
 
