@@ -1,0 +1,2 @@
+ALTER TABLE "content_entries" ADD CONSTRAINT "content_status_check" CHECK ("content_entries"."status" in ('draft', 'published', 'changed'));--> statement-breakpoint
+ALTER TABLE "users" ADD CONSTRAINT "users_role_check" CHECK ("users"."role" in ('admin', 'editor'));

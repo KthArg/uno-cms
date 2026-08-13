@@ -286,3 +286,41 @@ como obligatorio cuando no lo ha hecho.
 porque la landing solo lee contenido publicado y publicado implica estricto superado. El
 borrador tiene su propio tipo (`Draft<K>`), con todo opcional. Son dos tipos distintos a
 propósito: confundirlos es cómo se acaba renderizando `undefined` en producción.
+
+---
+
+## ADR-203 — Los estados se garantizan con `CHECK`, no solo con el `enum` de Drizzle
+
+**Contexto.** Registrado en el issue #48 (`spec-question`). ADR-003 afirma que "la BD
+garantiza integridad estructural (claves, **estados**, versiones)". `SPEC.md` §4 escribe
+esos estados como `text('role', { enum: ['admin', 'editor'] })`, y el `enum` de `text()` en
+Drizzle es **solo de TypeScript**: no genera tipo enum de Postgres ni restricción alguna.
+
+No es una sospecha: al escribir T-40-6 comprobé que Postgres acepta sin rechistar un
+`role = 'superadmin'` y un `status = 'publicado'`, y que `pg_constraint` sobre `users` solo
+devolvía la clave primaria.
+
+Importa porque `role` decide quién invita usuarios, cambia roles y toca ajustes
+(`SPEC.md` §5.3), y §7.1 lista la escalada de privilegios entre las amenazas. Un rol
+desconocido no falla de forma ruidosa: se comporta como el `else` de cada comprobación, que
+según cómo esté escrito el código puede ser inocuo o desastroso.
+
+Se descartó `pgEnum`, que sería más fuerte pero cambia la declaración de §4 y convierte
+añadir un valor en una migración incómoda (`ALTER TYPE ... ADD VALUE` no admite borrar
+valores y arrastra restricciones transaccionales).
+
+**Decisión.** La columna se queda como la escribe §4 —`text(..., { enum })`, que aporta el
+tipo— y se le añade una restricción `CHECK` que aporta la garantía. drizzle-kit la genera y
+la versiona en la migración como cualquier otro cambio.
+
+**Consecuencias.**
+
+- La lista de valores queda escrita **dos veces** en el mismo fichero: en el `enum` y en el
+  literal del `CHECK`. Derivar una de otra exigiría `sql.raw`, que este proyecto prohíbe por
+  regla de lint (§7.1), y saltarse esa regla para ahorrar una duplicación de dos palabras
+  sería un mal cambio.
+- La divergencia entre ambas la detecta un test de integración que lee
+  `pg_get_constraintdef` y lo compara con las constantes de TypeScript, en los dos sentidos.
+  Es una garantía por test y no por construcción; se dice tal cual.
+- Un valor nuevo exige tocar tres sitios (constante, `CHECK`, migración). Es fricción
+  deliberada sobre la columna que decide los permisos.
