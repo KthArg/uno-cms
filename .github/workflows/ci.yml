@@ -178,9 +178,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: comprobar que ningún job requerido falló o se saltó
+        # El resultado viaja por env y no interpolado en el propio script: una expresión
+        # metida directamente en `run` se concatena al shell antes de ejecutarlo.
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          echo "resultados: ${{ join(needs.*.result, ', ') }}"
-          if [ -n "$(echo '${{ join(needs.*.result, ",") }}' | tr ',' '\n' | grep -v '^success$')" ]; then
-            echo "::error::Al menos un job requerido no terminó en success."
-            exit 1
-          fi
+          echo "resultados: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then
+              echo "::error::Al menos un job requerido no terminó en success ($RESULTS)."
+              exit 1
+            fi
+          done
