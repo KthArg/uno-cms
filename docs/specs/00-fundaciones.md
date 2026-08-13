@@ -79,7 +79,9 @@ usará durante todo el MVP. Cualquier salto de mayor requiere un ADR nuevo.
 | `server-only` | `0.0.1` | SPEC §7.1 |
 
 Gestor de paquetes: **pnpm**, fijado con el campo `packageManager` de `package.json`.
-Node: **22.x** en local y en CI (`engines` + `actions/setup-node`).
+Node: `engines` exige **≥ 22**; CI fija **24.x** (LTS activa), que es la serie con la que se
+desarrolla en local. Fijar en CI una serie distinta de la de desarrollo esconde fallos
+hasta el despliegue, así que se mantienen alineadas.
 
 ### 3.2 Contrato de scripts (`package.json`)
 
@@ -87,11 +89,15 @@ Los nombres son estables: CI, hooks de git y esta documentación dependen de ell
 
 | Script | Debe hacer | Debe fallar si |
 |---|---|---|
-| `dev` | `next dev` en el puerto 3000 | — |
+| `dev` | `next dev` (puerto 3000 por defecto, `PORT` lo sobreescribe) | — |
 | `build` | `next build` | error de compilación o de tipos |
 | `start` | `next start` | — |
 | `lint` | ESLint sobre todo el repo | cualquier error de lint |
-| `typecheck` | `tsc --noEmit` | cualquier error de tipos |
+| `typecheck` | `next typegen && tsc --noEmit` | cualquier error de tipos |
+
+`typecheck` genera primero los tipos de rutas porque `next-env.d.ts` y `.next/types/` están
+en `.gitignore`: sin ese paso, `tsc` falla en una máquina limpia (CI) por referencias a
+ficheros que aún no existen. La alternativa —commitear ficheros generados— se descarta.
 | `test` | `test:unit` + `test:integration` | cualquier test rojo |
 | `test:unit` | Vitest, proyecto `unit` | cualquier test rojo |
 | `test:integration` | Vitest, proyecto `integration` | test rojo; **no** si no hay tests todavía |

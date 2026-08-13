@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "noEmit": true,
+
+    // SPEC §2: TypeScript estricto. Estas dos no se relajan sin ADR.
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+
+    "plugins": [{ "name": "next" }],
+    // SPEC §5.1 importa desde '@/cms/core/config': el alias apunta a la raíz del repo.
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
