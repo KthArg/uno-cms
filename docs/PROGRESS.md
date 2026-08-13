@@ -35,10 +35,11 @@ allí; ningún caso quedó dado por bueno estando en rojo.
    hallazgos eran errores de criterio míos que un segundo par de ojos habría visto antes
    (el `enforce_admins: false` de ADR-105, la allowlist de `RichText`). Los que no vi, no
    los sé.
-2. **`pnpm/action-setup@v4` está anclada a Node 20 y GitHub ya lo marca deprecado** en cada
-   ejecución. Cuando los runners lo retiren, CI se cae — y con `enforce_admins: true` eso
-   significa que no se puede mergear nada hasta arreglarlo. Deuda con fecha de caducidad
-   ajena.
+2. ~~**`pnpm/action-setup@v4` está anclada a Node 20 y GitHub ya lo marca deprecado.**~~
+   **Cerrado** en el PR #36: `pnpm/action-setup` sube a v6, cuyas notas dicen "Updated the
+   action to use Node.js 24", y la anotación de deprecación ya no aparece en las
+   ejecuciones. Se deja tachado y no borrado, porque el valor de esta lista está en poder
+   contrastar lo que se dijo con lo que pasó.
 3. **Los `overrides` de `postcss` y `sharp`** fuerzan versiones que Next 15.5 no eligió,
    para cerrar tres advisories `high`. Build y tests pasan, pero es una combinación que el
    equipo de Next no prueba.
