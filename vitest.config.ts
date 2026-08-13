@@ -20,7 +20,15 @@ const coverageThresholds = {
 export default defineConfig({
   resolve: {
     // Mismo alias que tsconfig.json, para que los tests importen igual que el código.
-    alias: { '@': repoRoot },
+    alias: {
+      '@': repoRoot,
+      // Ver tests/support/server-only-stub.ts. En resumen: `server-only` lanza al
+      // importarse fuera de la condición `react-server`, así que sin esto no se puede
+      // escribir ni un test unitario de cms/core, cms/db, cms/auth o cms/security.
+      // Se alias en vez de activar la condición globalmente porque eso rompe la
+      // resolución de eslint-config-next y con ella el test de las reglas de seguridad.
+      'server-only': fileURLToPath(new URL('./tests/support/server-only-stub.ts', import.meta.url)),
+    },
   },
   test: {
     coverage: {
