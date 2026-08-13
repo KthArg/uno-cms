@@ -14,6 +14,13 @@
 Incluye, en la medida de lo posible: versión o commit afectado, pasos para reproducirlo,
 qué consigue un atacante con ello, y si ya está siendo explotado.
 
+> **Si has llegado aquí desde un fork, esa URL no es la tuya.** UnoCMS se despliega
+> haciendo fork del repositorio (`SPEC.md` §9), y GitHub no reescribe las URL de este
+> fichero al copiarlo. Un fallo en **tu** despliegue —una mala configuración, un secreto
+> filtrado, contenido de tus usuarios— se reporta en **tu** repositorio:
+> `https://github.com/<tu-usuario>/<tu-repo>/security/advisories/new`. Aquí solo tienen
+> sentido los fallos del código de UnoCMS, que afectan a todo el que lo haya desplegado.
+
 Al ser un proyecto mantenido por una sola persona, no hay compromiso de tiempo de
 respuesta. Se responderá tan pronto como sea posible. Decirlo así es más útil que prometer
 72 horas y no cumplirlas.

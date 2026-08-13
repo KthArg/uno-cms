@@ -22,6 +22,11 @@ resultado y CÓMO se comprobó. "Verificado" sin decir con qué no cuenta. -->
 Marcar `[x]` lo aplicable, `[n/a]` lo que no aplica **con motivo**. Un `[n/a]` sin motivo
 es una amenaza que no se ha mirado.
 
+> **Excepción, y es la única:** si el PR no añade ni modifica código ejecutable
+> (documentación, plantillas, configuración de CI), sustituye la lista entera por una línea
+> que lo declare y lo justifique. Marcar nueve `[n/a]` con el mismo motivo copiado nueve
+> veces no produce rigor, produce el ritual vacío que este checklist existe para evitar.
+
 - [ ] **XSS** — todo texto de usuario se escapa; nada de `dangerouslySetInnerHTML`
       (ADR-107); los campos `link` validan protocolo y bloquean `javascript:`.
 - [ ] **Inyección SQL** — Drizzle parametriza; sin `sql.raw`.
