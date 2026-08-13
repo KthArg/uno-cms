@@ -1,0 +1,54 @@
+name: Unidad de trabajo
+description: Una unidad de trabajo derivada de SPEC.md, con criterios de aceptación comprobables.
+title: 'tipo(ámbito): '
+labels: [feat]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Regla de proceso 1: el trabajo se deriva de `SPEC.md`. Si lo que quieres hacer no
+        está en la spec, no abras esto: abre un **spec-question** o etiquétalo `post-mvp`.
+
+  - type: input
+    id: spec
+    attributes:
+      label: Sección de SPEC.md que lo exige
+      description: Por ejemplo "§5.3, action saveDraft" o "§7.2, headers". Si no puedes rellenarlo, el issue no está listo.
+      placeholder: '§'
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Alcance
+      description: Qué entra. Y, si hay riesgo de confusión, qué NO entra y a qué hito va.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Criterios de aceptación
+      description: |
+        Una casilla por criterio, cada uno **observable**. "Funciona bien" no es un
+        criterio; "un POST sin sesión devuelve 401 y no escribe en la BD" sí lo es.
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: textarea
+    id: security
+    attributes:
+      label: Amenazas de SPEC §7.1 que toca
+      description: Cuáles de la tabla de amenazas entran en juego y cómo se van a verificar. Si no toca ninguna, escríbelo y di por qué.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Antes de empezar
+      options:
+        - label: Existe el documento de fase en `docs/specs/` que cubre este issue
+        - label: Los criterios de aceptación se pueden convertir en tests sin reinterpretarlos

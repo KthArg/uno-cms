@@ -1,0 +1,58 @@
+name: Pregunta sobre la spec
+description: SPEC.md se contradice, calla sobre algo necesario, o pide algo técnicamente imposible.
+title: 'spec-question: '
+labels: [spec-question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Regla de proceso 7: una contradicción de la spec **no se resuelve en silencio**. Se
+        registra aquí, se propone una salida como ADR, se adopta y se sigue trabajando.
+
+  - type: textarea
+    id: conflict
+    attributes:
+      label: La contradicción
+      description: |
+        Cita las secciones implicadas y enseña por qué no pueden ser ciertas a la vez.
+        Numera las afirmaciones; una contradicción bien planteada casi se resuelve sola.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Cuándo estalla
+      description: En qué hito o issue aparece esto de frente, y qué decisiones bloquea mientras tanto.
+    validations:
+      required: true
+
+  - type: textarea
+    id: options
+    attributes:
+      label: Salidas evaluadas
+      description: |
+        Al menos dos, con lo que cuesta cada una. Incluye las descartadas y **por qué**: una
+        propuesta con una sola opción es una decisión ya tomada disfrazada de pregunta.
+      value: |
+        **A.**
+
+        **B.**
+
+        **C.**
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Propuesta
+      description: Cuál se adopta, con qué consecuencias explícitas, y qué desviaciones de SPEC.md introduce.
+    validations:
+      required: true
+
+  - type: input
+    id: adr
+    attributes:
+      label: ADR donde queda registrada
+      placeholder: 'ADR-1xx en docs/DECISIONS.md'
