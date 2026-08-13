@@ -115,18 +115,24 @@ function isFilled(field: AnyField, value: unknown): boolean {
 function fieldSchema(field: AnyField, mode: SchemaMode): z.ZodTypeAny {
   const base = typeSchema(field);
 
-  // El default se aplica en ambos modos: es lo que hace que un campo con `default` esté
+  // Un campo requerido en modo estricto no admite ausencia, así que no se le pone ni
+  // `.optional()` ni `.default()`.
+  //
+  // Que eso sea correcto depende de ADR-202: `required` y `default` juntos están prohibidos
+  // y `defineConfig` los rechaza al construir la config. Sin esa garantía, este camino
+  // ignoraría el default en silencio. La dependencia entre módulos se nombra aquí a
+  // propósito: si algún día se relaja ADR-202, hay que volver a esta función.
+  if (mode === 'strict' && field.required) {
+    // El mensaje es el que verá el editor al intentar publicar (SPEC §9), así que nombra el
+    // campo por su etiqueta y no por su clave técnica.
+    return base.refine((value) => isFilled(field, value), {
+      message: `Completa «${field.label}» antes de publicar.`,
+    });
+  }
+
+  // El default se aplica en los demás casos: es lo que hace que un campo con `default` esté
   // siempre presente en la salida, que es lo que promete el tipo inferido.
-  const withDefault = field.hasDefault ? base.default(field.defaultValue) : base.optional();
-
-  if (mode === 'draft' || !field.required) return withDefault;
-
-  // Estricto y requerido: presente y relleno. El mensaje es el que verá el editor al
-  // intentar publicar (SPEC §9: "Falta el Título principal en Portada"), así que nombra el
-  // campo por su etiqueta y no por su clave técnica.
-  return base.refine((value) => isFilled(field, value), {
-    message: `Completa «${field.label}» antes de publicar.`,
-  });
+  return field.hasDefault ? base.default(field.defaultValue) : base.optional();
 }
 
 /**

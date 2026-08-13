@@ -113,19 +113,31 @@ export const richTextDocSchema = z.object({
   content: z.array(nodeSchema),
 });
 
-/** Un documento "no vacío" es el que tiene al menos un nodo con texto (ADR-202). */
+/**
+ * Un documento "no vacío" es el que tiene al menos un nodo con texto (ADR-202).
+ *
+ * Recorre la estructura sin volver a validarla contra `richTextDocSchema`. La primera
+ * versión sí la revalidaba, y era un problema latente: esta función se llama desde un
+ * `.refine()`, o sea **después** de que Zod ya haya validado el documento, de modo que
+ * había dos validaciones del mismo dato que podían discrepar si una de las dos cambiaba.
+ * Aquí solo se pregunta "¿hay texto?", y cualquier cosa que no se reconozca cuenta como
+ * ausencia de texto.
+ */
 export function richTextHasContent(value: unknown): boolean {
-  const parsed = richTextDocSchema.safeParse(value);
-  if (!parsed.success) return false;
+  const hasText = (nodes: unknown): boolean => {
+    if (!Array.isArray(nodes)) return false;
 
-  const hasText = (nodes: NodeShape[]): boolean =>
-    nodes.some(
-      (node) =>
-        (typeof node.text === 'string' && node.text.trim() !== '') ||
-        (node.content !== undefined && hasText(node.content))
-    );
+    return nodes.some((node: unknown) => {
+      if (typeof node !== 'object' || node === null) return false;
+      const { text, content } = node as { text?: unknown; content?: unknown };
 
-  return hasText(parsed.data.content);
+      if (typeof text === 'string' && text.trim() !== '') return true;
+      return hasText(content);
+    });
+  };
+
+  if (typeof value !== 'object' || value === null) return false;
+  return hasText((value as { content?: unknown }).content);
 }
 
 /** Documento vacío, que es lo que se guarda al sembrar un campo richtext sin default. */

@@ -183,20 +183,20 @@ función y sus tests.
 
 ### 4.2 Generación de esquemas (#39)
 
-| ID      | Caso                                           | Verificación                                                                               |
-| ------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| T-39-1  | El laxo acepta un borrador vacío               | `{}` pasa                                                                                  |
-| T-39-2  | El laxo rechaza el tipo equivocado             | `{ title: 42 }` falla                                                                      |
-| T-39-3  | El estricto rechaza un requerido ausente       | error con la **ruta** del campo, para el mensaje de §9                                     |
-| T-39-4  | El estricto rechaza un requerido en blanco     | `'   '` falla igual que ausente                                                            |
-| T-39-5  | `max` se aplica en ambos esquemas              | 121 caracteres con `max: 120` falla                                                        |
-| T-39-6  | **`link` bloquea `javascript:`**               | `javascript:alert(1)` falla; también con mayúsculas, espacios iniciales y `\0` intercalado |
-| T-39-7  | `link` acepta lo de la allowlist               | `https://`, `mailto:`, `tel:`, `/ruta`                                                     |
-| T-39-8  | `image` exige `alt` salvo `decorative`         | ambos sentidos                                                                             |
-| T-39-9  | `color` solo acepta hexadecimal                | `red` falla, `#fff` pasa                                                                   |
-| T-39-10 | `richtext` rechaza nodos fuera de la allowlist | un nodo `script` falla                                                                     |
-| T-39-11 | `default` se aplica al parsear                 | ausente → valor por defecto en la salida                                                   |
-| T-39-12 | `number` con `integer` rechaza decimales       | `1.5` falla                                                                                |
+| ID      | Caso                                           | Verificación                                                                                        |
+| ------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| T-39-1  | El laxo acepta un borrador vacío               | `{}` pasa                                                                                           |
+| T-39-2  | El laxo rechaza el tipo equivocado             | `{ title: 42 }` falla                                                                               |
+| T-39-3  | El estricto rechaza un requerido ausente       | error con la **etiqueta** del campo (la ruta y el nombre de la sección los compone `publish` en M3) |
+| T-39-4  | El estricto rechaza un requerido en blanco     | `'   '` falla igual que ausente                                                                     |
+| T-39-5  | `max` se aplica en ambos esquemas              | 121 caracteres con `max: 120` falla                                                                 |
+| T-39-6  | **`link` bloquea `javascript:`**               | `javascript:alert(1)` falla; también con mayúsculas, espacios iniciales y `\0` intercalado          |
+| T-39-7  | `link` acepta lo de la allowlist               | `https://`, `mailto:`, `tel:`, `/ruta`                                                              |
+| T-39-8  | `image` exige `alt` salvo `decorative`         | ambos sentidos                                                                                      |
+| T-39-9  | `color` solo acepta hexadecimal                | `red` falla, `#fff` pasa                                                                            |
+| T-39-10 | `richtext` rechaza nodos fuera de la allowlist | un nodo `script` falla                                                                              |
+| T-39-11 | `default` se aplica al parsear                 | ausente → valor por defecto en la salida                                                            |
+| T-39-12 | `number` con `integer` rechaza decimales       | `1.5` falla                                                                                         |
 
 T-39-6 es el caso más importante de la fase: es la mitigación de XSS por URL de `SPEC.md`
 §7.1 y tiene que resistir variantes ofuscadas, no solo la literal.
