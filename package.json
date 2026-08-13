@@ -9,13 +9,20 @@
   },
   "pnpm": {
     "// onlyBuiltDependencies": "pnpm no ejecuta scripts de instalación salvo allowlist. sharp lo necesita para el binario nativo que usa next/image (SPEC §8).",
-    "onlyBuiltDependencies": ["sharp"]
+    "onlyBuiltDependencies": [
+      "sharp"
+    ]
   },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "pnpm run test:unit && pnpm run test:integration",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration --passWithNoTests",
+    "test:e2e": "playwright test",
+    "test:coverage": "vitest run --project unit --coverage"
   },
   "dependencies": {
     "next": "15.5.23",
@@ -23,11 +30,14 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.20.1",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "@vitest/coverage-v8": "3.2.7",
     "tailwindcss": "4.3.3",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
   }
 }

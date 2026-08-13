@@ -30,10 +30,18 @@ Issues de la fase:
 | #8 | Protección de `main` |
 | #9 | `.env.example`, DECISIONS, PROGRESS, esqueletos de `docs/` |
 
-Orden de ejecución: **#1 → #2 → #4 → #5 → #6 → #8 → #3 → #7 → #9**.
+Orden de ejecución: **#1 → #2 → #5 → #4 → #6 → #8 → #3 → #7 → #9**.
+
 La regla de proceso 3 ("CI primero") obliga a que #6 preceda a cualquier trabajo de
 producto; #8 va después de #6 porque no se puede exigir un status check que todavía no
 existe.
+
+> **Corrección respecto a la primera versión de este documento**, que ponía #4 antes de
+> #5. Los casos T-04-1 y T-04-2 exigen comprobar que ciertas reglas de ESLint **fallan**
+> ante un fixture. Un fixture que produce error de lint no puede quedarse suelto en el
+> repositorio, porque rompería `pnpm lint`; tiene que ejecutarse desde un test que invoque
+> ESLint por API y afirme sobre el resultado. Ese test necesita el runner, que llega en #5.
+> Con el orden anterior, #4 se habría cerrado con las reglas verificadas a mano.
 
 ## 2. Fuera de alcance de M0
 
