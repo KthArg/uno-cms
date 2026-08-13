@@ -1,0 +1,104 @@
+# Decisiones de arquitectura (ADR)
+
+Registro de las decisiones **no cubiertas por `SPEC.md`**. Las decisiones que sí están en
+la spec viven allí (`SPEC.md` §1, ADR-001…ADR-007) y no se duplican aquí.
+
+Formato: contexto (por qué hubo que decidir) → decisión → consecuencias (incluido lo malo).
+Numeración: ADR-1xx para M0, ADR-2xx para M1, y así sucesivamente.
+
+---
+
+## ADR-100 — Fijar Next.js 15, no la mayor siguiente
+
+**Contexto.** `SPEC.md` §2 dice "Next.js 15 (App Router, React 19, Server Actions)". En el
+momento de escribir esto ya existe una mayor posterior de Next disponible en npm.
+
+**Decisión.** Se fija `next@15.5.x`. La spec nombra la mayor de forma explícita y la regla
+de proceso dice que ante ambigüedad manda la spec; aquí no hay ni ambigüedad.
+
+**Consecuencias.** El proyecto arranca con una mayor que no es la última. A cambio, todo el
+material de referencia del que parte la spec (App Router de Next 15, comportamiento de
+`unstable_cache`, `revalidateTag`, Server Actions) coincide con lo implementado. Subir de
+mayor es un trabajo propio, con su ADR y su PR, y no se hace dentro del MVP.
+
+---
+
+## ADR-101 — TypeScript 5.9
+
+**Contexto.** `SPEC.md` §2 exige "TypeScript estricto (`strict: true`,
+`noUncheckedIndexedAccess`)" sin fijar versión. Existe una mayor de TypeScript posterior a
+la serie 5.
+
+**Decisión.** `typescript@5.9.x`.
+
+**Consecuencias.** Es la serie con la que `eslint-config-next` 15, `typescript-eslint` y
+`vitest --typecheck` están probados. Se renuncia a las mejoras de la mayor siguiente;
+ninguna es necesaria para el MVP. Riesgo asumido: en algún momento habrá que migrar.
+
+---
+
+## ADR-102 — Vitest 3.2
+
+**Contexto.** `SPEC.md` §2 dice "Vitest" sin versión. Hay una mayor posterior.
+
+**Decisión.** `vitest@3.2.x` con `@vitest/coverage-v8` de la misma serie, usando la API de
+`projects` para separar `unit` de `integration`.
+
+**Consecuencias.** `projects`, `--typecheck` y los umbrales de cobertura por glob que
+exige `SPEC.md` §11.4 están disponibles y estables en 3.2. Se evita estrenar una mayor en
+la pieza que sostiene el criterio de aceptación de cobertura.
+
+---
+
+## ADR-103 — ESLint 9 con flat config
+
+**Contexto.** `SPEC.md` §2 pide "ESLint (config next + security)". `eslint-config-next` de
+la serie 15 declara compatibilidad con ESLint 8 y 9; existe una mayor posterior de ESLint
+que ese paquete todavía no soporta.
+
+**Decisión.** `eslint@9.x` con `eslint.config.mjs` (flat config).
+
+**Consecuencias.** Compatibilidad garantizada con el config oficial de Next. Flat config es
+el formato que ESLint mantendrá a futuro, así que la migración posterior es menor.
+
+---
+
+## ADR-104 — Auto-revisión sin aprobación formal
+
+**Contexto.** La regla de proceso 2 exige, tras abrir cada PR, cambiar de rol a revisor,
+dejar los hallazgos como comentarios de review reales, corregirlos y "solo entonces
+aprobar y mergear". GitHub **rechaza** que el autor de un PR lo apruebe
+(`Can not approve your own pull request`). El repositorio tiene un único actor.
+
+**Decisión.** La auto-revisión se materializa como:
+
+1. `gh pr review --comment` con los hallazgos reales sobre el diff completo, incluida la
+   pasada por el checklist de `SPEC.md` §7.1.
+2. Commits de corrección sobre la misma rama, referenciados en el hilo.
+3. Un comentario final que declara la revisión cerrada y enumera lo que queda como riesgo
+   conocido.
+4. `required_approving_review_count: 0` en la protección de rama.
+
+**Consecuencias.** El requisito literal de "aprobación" no se cumple porque es imposible
+con un solo actor; lo que sí se cumple —y es lo que aporta valor— es que cada PR tiene una
+pasada de revisión escrita y trazable. **Brecha residual honesta:** no existe un segundo
+par de ojos. Ningún hallazgo se descubre por contraste con otra persona.
+
+---
+
+## ADR-105 — `enforce_admins: false` en la protección de `main`
+
+**Contexto.** Con `enforce_admins: true` y un único mantenedor que además es admin, y con
+0 aprobaciones requeridas, la configuración sigue permitiendo el merge; pero cualquier
+regla futura que exija aprobación dejaría el repositorio en un bloqueo total (nadie más
+puede aprobar).
+
+**Decisión.** `enforce_admins: false`. Las reglas (PR obligatorio, check `ci`, conversación
+resuelta, sin force-push, sin borrado, historial lineal) están **activas**; el mantenedor
+conserva la capacidad técnica de saltárselas.
+
+**Consecuencias.** **Brecha residual honesta:** la protección es una barrera de proceso, no
+un control técnico infranqueable, mientras el repositorio tenga un solo mantenedor con rol
+de admin. El compromiso operativo es no usar el bypass; no hay nada que lo impida por la
+fuerza. En cuanto haya un segundo mantenedor, este ADR debe revisarse y poner
+`enforce_admins: true`.
