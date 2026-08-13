@@ -55,7 +55,15 @@ const ALLOWED_NODE_ATTRS: Record<string, readonly string[]> = {
 };
 
 const ALLOWED_MARK_ATTRS: Record<string, readonly string[]> = {
-  link: ['href', 'target', 'rel'],
+  // Solo `href`. `target` y `rel` **no** se guardan aunque Tiptap los emita: son
+  // presentación, no contenido, y el renderizador de M5 los pone él para los enlaces
+  // externos (`rel="noopener noreferrer"`).
+  //
+  // Guardar un `target` que viene del contenido sería aplicar a este atributo un criterio
+  // más laxo que el que se aplica a `style` y `class` tres líneas más arriba. Si en M4 el
+  // editor necesita ofrecer "abrir en pestaña nueva", que se modele como un atributo propio
+  // con valores acotados y su ADR, no heredando el `target` crudo de HTML.
+  link: ['href'],
 };
 
 function checkAttrs(

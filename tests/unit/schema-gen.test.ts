@@ -283,6 +283,26 @@ describe('T-39-10 — richtext solo admite la allowlist de SPEC §6.3', () => {
     ).toBe(false);
   });
 
+  it('rechaza target y rel en un link: son presentación, no contenido', () => {
+    expect(
+      parse({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: 'x',
+                marks: [{ type: 'link', attrs: { href: 'https://ejemplo.com', target: '_blank' } }],
+              },
+            ],
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
   it('acepta los atributos que sí tienen sentido', () => {
     expect(
       parse({
@@ -301,12 +321,7 @@ describe('T-39-10 — richtext solo admite la allowlist de SPEC §6.3', () => {
               {
                 type: 'text',
                 text: 'x',
-                marks: [
-                  {
-                    type: 'link',
-                    attrs: { href: 'https://ejemplo.com', target: '_blank', rel: 'noopener' },
-                  },
-                ],
+                marks: [{ type: 'link', attrs: { href: 'https://ejemplo.com' } }],
               },
             ],
           },
