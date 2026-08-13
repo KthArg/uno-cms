@@ -1,7 +1,9 @@
 import 'server-only';
 import appConfig from '@/cms.config';
 import { contentEntries, getDb } from '@/cms/db';
+import type { ObjectSchema } from './config';
 import { draftSchema } from './schema-gen';
+import type { SingletonKey } from './types';
 
 /**
  * Seed de singletons (SPEC §5.1: "al arrancar, cada singleton sin fila en BD se crea con
@@ -31,12 +33,8 @@ export interface SeedResult {
  * El borrador inicial de un singleton: el resultado de aplicar los `default` de la config
  * sobre un objeto vacío. Se hace con el esquema **laxo**, que es el que admite ausencias.
  */
-function initialDraft(key: string): Record<string, unknown> {
-  const schema = appConfig.singletons[key];
-  if (schema === undefined) {
-    throw new Error(`'${key}' no es un singleton de cms.config.ts.`);
-  }
-
+function initialDraft(key: SingletonKey): Record<string, unknown> {
+  const schema: ObjectSchema = appConfig.singletons[key];
   const parsed = draftSchema(schema).safeParse({});
   if (!parsed.success) {
     // Un objeto vacío solo puede fallar el esquema laxo si la config es incoherente, y eso
@@ -51,7 +49,7 @@ function initialDraft(key: string): Record<string, unknown> {
 }
 
 export async function seedSingletons(): Promise<SeedResult> {
-  const keys = Object.keys(appConfig.singletons);
+  const keys = Object.keys(appConfig.singletons) as SingletonKey[];
   if (keys.length === 0) return { created: [], untouched: [] };
 
   const inserted = await getDb()

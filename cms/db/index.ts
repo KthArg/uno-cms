@@ -1,8 +1,8 @@
 import 'server-only';
-import { neon } from '@neondatabase/serverless';
-import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http';
-import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { Pool as NeonPool } from '@neondatabase/serverless';
+import { drizzle as drizzleNeon } from 'drizzle-orm/neon-serverless';
+import { drizzle as drizzlePg, type NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { Pool as PgPool } from 'pg';
 import { schema } from './schema';
 
 /**
@@ -17,9 +17,15 @@ import { schema } from './schema';
  * acoplar"): el driver se elige por destino y hacia arriba se expone el mismo tipo de
  * Drizzle, así que ni el esquema, ni las consultas, ni las acciones saben cuál hay debajo.
  *
+ * **Transporte WebSocket, no HTTP** (issue #53). ADR-002 decía "HTTP", pero el driver HTTP
+ * de Neon **no soporta transacciones** —cada consulta va en una petición independiente, así
+ * que no hay sesión donde abrir un `BEGIN` ni donde sostener un `FOR UPDATE`— y `SPEC.md`
+ * §4 exige que toda mutación corra en transacción con bloqueo de fila. El `Pool` del mismo
+ * paquete, sobre WebSocket, sí las soporta y sigue estando pensado para serverless.
+ *
  * **Brecha conocida:** los tests ejercitan esquema, consultas y migraciones, pero no el
- * driver de producción. Un fallo específico del driver HTTP de Neon no lo atraparía CI; lo
- * cubre el despliegue de verificación de M6. El issue #43 sigue abierto hasta entonces.
+ * driver de producción. Un fallo específico del driver de Neon no lo atraparía CI; lo cubre
+ * el despliegue de verificación de M6. El issue #43 sigue abierto hasta entonces.
  */
 
 export type DbDriver = 'neon' | 'pg';
@@ -61,20 +67,34 @@ function createClient() {
   const driver = resolveDriver(databaseUrl, process.env['DB_DRIVER']);
 
   if (driver === 'neon') {
-    return drizzleNeon(neon(databaseUrl), { schema });
+    // La conversión existe porque Drizzle expone una clase por driver aunque su superficie
+    // sea la misma. Ambas son `Pool` con el protocolo de cable de Postgres —una sobre
+    // WebSocket, otra sobre TCP— y ambas soportan transacciones interactivas, que es la
+    // capacidad de la que depende SPEC §4.
+    return drizzleNeon(new NeonPool({ connectionString: databaseUrl }), {
+      schema,
+    }) as unknown as Database;
   }
 
   // `Pool` y no `Client`: en desarrollo el servidor de Next recarga módulos y una conexión
   // suelta se quedaría colgada en cada recarga.
-  return drizzlePg(new Pool({ connectionString: databaseUrl }), { schema });
+  return drizzlePg(new PgPool({ connectionString: databaseUrl }), { schema });
 }
 
 /**
- * Los dos drivers devuelven tipos de Drizzle distintos aunque su superficie sea la misma.
- * Se declara la unión para que `typecheck` avise si alguna consulta usa algo que solo
- * existe en uno de ellos: la divergencia se detecta al compilar y no en producción.
+ * Un solo tipo hacia arriba, y no la unión de ambos.
+ *
+ * La primera versión declaraba la unión, con el argumento de que así `typecheck` avisaría
+ * si una consulta usaba algo que solo existe en un driver. No funcionaba: TypeScript no
+ * resuelve una llamada sobre la unión de dos firmas, así que `onConflictDoNothing({...})`
+ * fallaba con "Expected 0 arguments". El argumento tampoco se sostenía, porque lo que la
+ * unión detectaba no era divergencia de capacidades sino divergencia de nombres de clase.
+ *
+ * **Lo que de verdad protege de una divergencia entre drivers no es el tipo, es el
+ * despliegue de verificación de M6** (issue #43). Conviene no confundir una cosa con la
+ * otra, que es lo que hacía el comentario anterior.
  */
-type Database = ReturnType<typeof createClient>;
+type Database = NodePgDatabase<typeof schema>;
 
 /**
  * Perezoso y memorizado. Perezoso porque importar este módulo no debe exigir

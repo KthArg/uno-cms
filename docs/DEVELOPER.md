@@ -34,6 +34,21 @@ todavía: eso llega en M1 y M2.
 | `pnpm test:e2e`                     | Playwright contra el build de producción. Antes: `pnpm exec playwright install chromium`                                                                     |
 | `pnpm test:coverage`                | Cobertura. El umbral de SPEC §11.4 solo se aplica con `COVERAGE_ENFORCE=1`                                                                                   |
 
+## Antes de subir una rama
+
+`ci` ejecuta seis comprobaciones y cualquiera de ellas bloquea el merge. Ejecutarlas en
+local cuesta menos que esperar al pipeline:
+
+```sh
+pnpm lint && pnpm typecheck && pnpm test:unit && pnpm build
+DATABASE_URL=postgres://unocms:unocms@localhost:5432/unocms_test pnpm test:integration
+pnpm test:e2e
+```
+
+`pnpm typecheck` es el que más fácil se olvida, porque `pnpm test:unit` también comprueba
+tipos — **pero solo los de los ficheros de test**. Un error de tipos en `cms/` pasa los
+tests unitarios y rompe CI.
+
 ## Cómo trabaja este repositorio
 
 - **`SPEC.md` manda.** Ante ambigüedad, gana la spec. Cuando la spec calla, se decide y se
