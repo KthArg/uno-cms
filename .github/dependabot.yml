@@ -36,6 +36,12 @@ updates:
       # un trabajo con su propio ADR y su propio PR, no algo que se mergee un lunes.
       - dependency-name: next
         update-types: [version-update:semver-major]
+      # eslint-config-next es el config oficial del framework y su serie SIGUE a la de
+      # `next`: las dos se suben juntas o ninguna. Sin esta entrada, Dependabot propuso
+      # subirlo a la serie 16 con `next` fijado en la 15 (PR #32) — y el PR estaba en verde,
+      # porque `ci` no puede detectar esa desalineación hasta el día que rompa.
+      - dependency-name: eslint-config-next
+        update-types: [version-update:semver-major]
       - dependency-name: react
         update-types: [version-update:semver-major]
       - dependency-name: react-dom
@@ -53,3 +59,10 @@ updates:
     labels: [infra]
     commit-message:
       prefix: ci
+    groups:
+      # Un solo PR para todas las acciones, mayores incluidas. Sin este grupo, el primer
+      # lote real produjo cuatro PR separados (#27–#30) para cuatro bumps triviales: el
+      # coste de revisarlos por separado es mayor que el riesgo de revisarlos juntos, y un
+      # flujo que nadie revisa acaba mergeándose sin mirar.
+      actions:
+        patterns: ['*']
