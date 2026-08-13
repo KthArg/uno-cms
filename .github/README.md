@@ -19,7 +19,7 @@ gh api repos/{owner}/{repo}/branches/main/protection
 `gh` resuelve `{owner}` y `{repo}` desde el remoto, así que los comandos siguen valiendo en
 un fork o si el repositorio se renombra.
 
-Qué garantiza cada ajuste (regla de proceso 2 del proyecto). **La tabla cubre las once
+Qué garantiza cada ajuste (regla de proceso 2 del proyecto). **La tabla cubre todas las
 claves del fichero**: si se añade una y no aparece aquí, el fichero deja de ser auditable.
 
 | Ajuste                                                | Efecto                                                                                                                                                                                              |
