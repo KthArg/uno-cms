@@ -113,3 +113,18 @@ describe('estrictez de tipos', () => {
     expect(rules).toContain('@typescript-eslint/no-explicit-any');
   });
 });
+
+describe('eslint-plugin-security está realmente enchufado', () => {
+  it('detecta una expresión regular con retroceso exponencial', async () => {
+    // Sin este test, un cambio en el orden de los bloques de flat config podría dejar el
+    // plugin fuera de la cadena y nadie se enteraría: hoy no dispara sobre ningún fichero
+    // del repositorio, así que su ausencia sería invisible hasta M2/M3.
+    const rules = await ruleIdsFor(
+      `export const re = /(a+)+$/;
+       export const test = (s: string) => re.test(s);`,
+      'cms/security/patterns.ts'
+    );
+
+    expect(rules).toContain('security/detect-unsafe-regex');
+  });
+});

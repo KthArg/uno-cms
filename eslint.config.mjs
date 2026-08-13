@@ -86,11 +86,15 @@ export default tseslint.config(
   },
 
   {
-    // Los tests describen escenarios adversos: necesitan escribir a propósito lo que el
-    // código de producción tiene prohibido.
-    files: ['tests/**/*.ts', 'tests/**/*.tsx'],
+    // Los tests que recorren el árbol de ficheros (la frontera `server-only` de #3)
+    // construyen rutas a partir de variables; ahí la regla no aporta nada.
+    //
+    // Lo que NO se desactiva en tests es `no-restricted-syntax`: los fragmentos prohibidos
+    // de `eslint-security-rules.test.ts` viven dentro de literales de cadena, así que la
+    // regla no los ve. Desactivarla "por si acaso" abriría un agujero justo en el árbol
+    // que en M3 contendrá los tests de payloads maliciosos.
+    files: ['tests/**/*.ts'],
     rules: {
-      'no-restricted-syntax': 'off',
       'security/detect-non-literal-fs-filename': 'off',
     },
   },
