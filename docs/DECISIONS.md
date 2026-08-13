@@ -220,13 +220,35 @@ hacia arriba. La selección es explícita —variable de entorno `DB_DRIVER` con
 `neon` y `pg`— y la detección por host solo actúa como valor por defecto cuando no se
 declara. Adivinar el driver sin poder forzarlo sería frágil justo donde no conviene.
 
+> **Corregido tras el issue #53.** La primera versión de este ADR decía "Neon **HTTP** en
+> producción", siguiendo el paréntesis de ADR-002. Estaba mal: el driver HTTP de Neon **no
+> soporta transacciones** —cada consulta va en una petición independiente, así que no hay
+> sesión donde abrir un `BEGIN` ni donde sostener un `FOR UPDATE`— y `SPEC.md` §4 exige que
+> toda mutación corra en transacción con bloqueo de fila para serializar publicaciones
+> concurrentes.
+>
+> La rama de producción usa el `Pool` del mismo paquete sobre **WebSocket**
+> (`drizzle-orm/neon-serverless`), que sí soporta transacciones interactivas. Sigue siendo
+> el paquete que ADR-002 nombra y sigue pensado para serverless, pero **la palabra "HTTP"
+> de ADR-002 deja de ser cierta**, y con ella su "sin pool que agotar": vuelve a haber un
+> pool que vigilar en producción. Es el precio de cumplir §4.
+>
+> Efecto lateral bueno: la rama de test y la de producción pasan a ser más parecidas, lo
+> que estrecha —sin cerrarla— la brecha que este mismo ADR declara abajo.
+
 Esto no es un rodeo a ADR-002: es la costura que ADR-002 ya describía cuando decía
 "detrás de una interfaz `db/` para no acoplar".
 
 **Consecuencias.**
 
-- El esquema, las consultas y las acciones no saben qué driver hay debajo. Si los tipos de
-  Drizzle divergieran entre ramas, lo detecta `typecheck`.
+- El esquema, las consultas y las acciones no saben qué driver hay debajo.
+- **`typecheck` NO detecta divergencias entre drivers.** La primera implementación declaraba
+  la unión de ambos tipos con ese argumento, y no funcionaba: TypeScript no resuelve una
+  llamada sobre la unión de dos firmas, así que `onConflictDoNothing({ … })` fallaba con
+  "Expected 0 arguments". Y el argumento tampoco se sostenía, porque lo que la unión
+  detectaba era divergencia de nombres de clase, no de capacidades. Se declara un solo tipo
+  y una conversión acotada. Lo que protege de una divergencia real es el despliegue de
+  verificación de M6, no el compilador.
 - **Brecha residual honesta:** los tests de integración ejercitan esquema, consultas y
   migraciones, pero **no el driver de producción**. Un fallo específico del driver HTTP de
   Neon no lo atraparía CI. Lo cubre el despliegue de verificación de M6, no los tests, y
