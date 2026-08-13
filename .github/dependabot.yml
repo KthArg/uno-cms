@@ -1,0 +1,55 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [infra]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # Agrupadas para que una semana normal produzca dos o tres PR y no quince. Un flujo
+      # de actualizaciones que nadie puede revisar acaba mergeándose sin mirar, que es peor
+      # que no tenerlo (SPEC §7.1, "Dependencias").
+      dev-tooling:
+        patterns:
+          [
+            'eslint*',
+            'prettier*',
+            '@typescript-eslint/*',
+            'typescript-eslint',
+            'husky',
+            'lint-staged',
+          ]
+        update-types: [minor, patch]
+      testing:
+        patterns: ['vitest', '@vitest/*', '@playwright/*']
+        update-types: [minor, patch]
+      types:
+        patterns: ['@types/*']
+        update-types: [minor, patch]
+    ignore:
+      # Next, React y TypeScript están fijados por SPEC §2 y ADR-100/101. Subir de mayor es
+      # un trabajo con su propio ADR y su propio PR, no algo que se mergee un lunes.
+      - dependency-name: next
+        update-types: [version-update:semver-major]
+      - dependency-name: react
+        update-types: [version-update:semver-major]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: zod
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [infra]
+    commit-message:
+      prefix: ci

@@ -1,0 +1,14 @@
+# Propietario por defecto de todo el repositorio.
+* @KthArg
+
+# Con un solo mantenedor, CODEOWNERS no reparte trabajo: sirve para que cualquier PR que
+# toque estas rutas quede marcado como cambio sensible en la interfaz de revisión.
+# La protección de rama NO exige revisión de propietarios (`require_code_owner_reviews`
+# está desactivado), porque GitHub no permite aprobar el PR propio y bloquearía todo
+# (ADR-104). Cuando entre un segundo mantenedor, hay que activarlo.
+/cms/security/ @KthArg
+/cms/auth/     @KthArg
+/cms/db/       @KthArg
+/middleware.ts @KthArg
+/.github/      @KthArg
+/SPEC.md       @KthArg

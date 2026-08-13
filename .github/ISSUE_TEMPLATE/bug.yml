@@ -1,0 +1,49 @@
+name: Fallo
+description: Algo se comporta de forma distinta a lo que dice SPEC.md.
+title: 'fix: '
+labels: [bug]
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: Qué ocurre
+      description: Pasos exactos para reproducirlo, y qué se observa.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Qué debería ocurrir, según SPEC.md
+      description: 'Cita la sección. Si la spec no lo dice, esto no es un fallo: es un **spec-question**.'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: security
+    attributes:
+      label: ¿Tiene implicaciones de seguridad?
+      description: |
+        Si la respuesta es sí y el fallo es explotable, **no lo publiques aquí**: sigue
+        `SECURITY.md`.
+      options:
+        - 'No'
+        - 'No estoy seguro'
+        - 'Sí (y ya he leído SECURITY.md)'
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Entorno
+      value: |
+        - Versión / commit:
+        - Navegador o Node:
+        - Local o desplegado:
+
+  - type: textarea
+    id: test
+    attributes:
+      label: Test que fallaría hoy
+      description: Si sabes escribirlo, escríbelo. El arreglo empieza por un test en rojo.
