@@ -242,6 +242,79 @@ describe('T-39-10 — richtext solo admite la allowlist de SPEC §6.3', () => {
     ).toBe(true);
   });
 
+  it('rechaza un atributo style o class colado en un nodo (SPEC §6.3: stripped)', () => {
+    // Descartarlos al renderizar bastaría mientras el renderizador sea el nuestro, pero
+    // dejaría el atributo guardado en la base de datos esperando a que alguien escriba un
+    // segundo camino de render que sí lo lea. Lo que no se guarda no puede filtrarse.
+    expect(
+      parse({
+        type: 'doc',
+        content: [{ type: 'paragraph', attrs: { style: 'position:fixed' }, content: [] }],
+      }).success
+    ).toBe(false);
+
+    expect(
+      parse({
+        type: 'doc',
+        content: [{ type: 'paragraph', attrs: { class: 'evil' }, content: [] }],
+      }).success
+    ).toBe(false);
+  });
+
+  it('rechaza un atributo no permitido en una marca link', () => {
+    expect(
+      parse({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: 'x',
+                marks: [
+                  { type: 'link', attrs: { href: 'https://ejemplo.com', onclick: 'alert(1)' } },
+                ],
+              },
+            ],
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('acepta los atributos que sí tienen sentido', () => {
+    expect(
+      parse({
+        type: 'doc',
+        content: [{ type: 'heading', attrs: { level: 3 }, content: [] }],
+      }).success
+    ).toBe(true);
+
+    expect(
+      parse({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: 'x',
+                marks: [
+                  {
+                    type: 'link',
+                    attrs: { href: 'https://ejemplo.com', target: '_blank', rel: 'noopener' },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }).success
+    ).toBe(true);
+  });
+
   it('rechaza un h1, porque SPEC §6.3 solo permite h2 a h4', () => {
     expect(
       parse({ type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: [] }] })

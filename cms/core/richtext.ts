@@ -40,6 +40,46 @@ const ALLOWED_MARKS = {
 /** SPEC §6.3 dice h2–h4: h1 pertenece a la página, no al contenido de un campo. */
 const ALLOWED_HEADING_LEVELS = new Set([2, 3, 4]);
 
+/**
+ * Atributos admitidos por nodo y por marca. Todo lo demás se **rechaza**, no se ignora.
+ *
+ * SPEC §6.3 dice "estilos y clases stripped". Descartarlos al renderizar sería suficiente
+ * mientras el renderizador sea el nuestro (ADR-107), pero eso deja el atributo guardado en
+ * la base de datos, esperando a que alguien escriba un segundo camino de render —una
+ * exportación, un feed, un correo— que sí lo lea. Lo que no se guarda no puede filtrarse
+ * después.
+ */
+const ALLOWED_NODE_ATTRS: Record<string, readonly string[]> = {
+  heading: ['level'],
+  orderedList: ['start'],
+};
+
+const ALLOWED_MARK_ATTRS: Record<string, readonly string[]> = {
+  link: ['href', 'target', 'rel'],
+};
+
+function checkAttrs(
+  attrs: Record<string, unknown> | undefined,
+  allowed: readonly string[],
+  ctx: z.RefinementCtx,
+  kind: 'nodo' | 'marca',
+  typeName: string
+): void {
+  if (attrs === undefined) return;
+
+  for (const name of Object.keys(attrs)) {
+    if (!allowed.includes(name)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['attrs', name],
+        message:
+          `Atributo no permitido '${name}' en ${kind} '${typeName}'. ` +
+          (allowed.length > 0 ? `Permitidos: ${allowed.join(', ')}.` : 'No admite atributos.'),
+      });
+    }
+  }
+}
+
 export const allowedRichTextNodes: readonly string[] = Object.freeze(Object.keys(ALLOWED_NODES));
 export const allowedRichTextMarks: readonly string[] = Object.freeze(Object.keys(ALLOWED_MARKS));
 
@@ -56,6 +96,8 @@ const markSchema = z
       });
       return;
     }
+
+    checkAttrs(mark.attrs, ALLOWED_MARK_ATTRS[mark.type] ?? [], ctx, 'marca', mark.type);
 
     if (mark.type === 'link') {
       const href = mark.attrs?.['href'];
@@ -94,6 +136,8 @@ const nodeSchema: z.ZodType<NodeShape> = z.lazy(() =>
         });
         return;
       }
+
+      checkAttrs(node.attrs, ALLOWED_NODE_ATTRS[node.type] ?? [], ctx, 'nodo', node.type);
 
       if (node.type === 'heading') {
         const level = node.attrs?.['level'];
