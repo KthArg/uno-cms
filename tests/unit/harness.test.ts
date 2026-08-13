@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
  */
 describe('harness unitario', () => {
   it('resuelve el alias @/ igual que tsconfig.json', async () => {
-    const mod = await import('@/app/page');
+    const mod = await import('@/app/(site)/page');
     expect(typeof mod.default).toBe('function');
   });
 
