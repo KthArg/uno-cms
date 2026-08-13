@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, posix, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -16,7 +17,10 @@ import { describe, expect, it } from 'vitest';
  * contiene el contrato de contenido del lado cliente que consume la landing.
  */
 
-const REPO_ROOT = new URL('../..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+// `fileURLToPath` y no `new URL(...).pathname`: este último devuelve `/C:/...` en Windows
+// y deja los caracteres percent-encoded, así que una ruta con espacios o tildes rompería el
+// escaneo. Mismo mecanismo que usa vitest.config.ts.
+const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 /** Árboles que no pueden llegar al cliente (SPEC §7.1). */
 const PROTECTED_TREES = ['cms/core', 'cms/db', 'cms/auth', 'cms/security'] as const;
@@ -49,7 +53,10 @@ function listTypeScriptFiles(dir: string): string[] {
   return entries.flatMap((entry) => {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) return listTypeScriptFiles(full);
-    return /\.tsx?$/.test(entry) && !/\.test\.tsx?$/.test(entry) ? [full] : [];
+    // Se excluyen los ficheros de test, incluidos los de tipos (`.test-d.ts`): M1 los
+    // pondrá para la inferencia de cms.config.ts y no deben acabar exigiendo `server-only`.
+    const esTest = /\.(test|test-d|spec)\.tsx?$/.test(entry);
+    return /\.tsx?$/.test(entry) && !esTest ? [full] : [];
   });
 }
 

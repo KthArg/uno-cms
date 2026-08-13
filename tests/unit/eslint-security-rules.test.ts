@@ -14,9 +14,15 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 let eslint: ESLint;
 
-beforeAll(() => {
+// El coste real no está en construir `ESLint`, sino en resolver la cadena de flat config
+// la primera vez que se linta algo: `next/core-web-vitals` arrastra bastante. Medido entre
+// 1,8 s y 5,1 s en frío, o sea rozando el timeout de 5 s por test de Vitest — un falso
+// rojo intermitente en el check que bloquea los merges. Se paga una vez, aquí, con un
+// timeout holgado, y los tests quedan en milisegundos.
+beforeAll(async () => {
   eslint = new ESLint({ cwd: process.cwd() });
-});
+  await eslint.lintText('export const calentamiento = 1;\n', { filePath: 'cms/core/warmup.ts' });
+}, 60_000);
 
 async function ruleIdsFor(code: string, filePath: string): Promise<string[]> {
   const [result] = await eslint.lintText(code, { filePath });
