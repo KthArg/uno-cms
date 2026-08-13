@@ -114,8 +114,12 @@ app/admin/           → M4      cms/auth/       → M2
 app/api/             → M2/M4   cms/security/   → M2 (tokens, ratelimit, audit) + M3 (sanitize)
 app/setup/           → M2      cms/actions/    → M3
 components/site/     → M5      cms/ui/         → M4
-                               cms/preview/    → M5
+                               cms/preview/    → M4 (RichText) + M5 (provider, useContent)
 ```
+
+`cms/preview/` es el único árbol de `cms/` **isomorfo**: contiene el contrato de contenido
+del lado cliente (`useContent.ts`, `PreviewProvider.tsx`) y el renderizador `RichText`
+(ADR-106). Por eso queda fuera de la lista de árboles con `server-only` de §3.5.
 
 ### 3.4 Contrato de CI
 
@@ -140,12 +144,22 @@ bundle de cliente, y que **CI falle** si ocurre. Contrato en dos capas:
    `server-only` en su primera sentencia. Excepción única: ficheros con un comentario
    `// isomorphic: <razón>` en la primera línea, que quedan exentos y **enumerados** en el
    propio test, de modo que añadir uno nuevo obliga a tocar el test.
-2. **Dinámica (CI, #6):** tras `next build`, se recorren los chunks de cliente
-   (`.next/static/chunks/**/*.js`) buscando marcadores de esos módulos; si aparecen, el
-   job falla.
+2. **Dinámica (CI, #6):** el paquete `server-only` **rompe la build** en cuanto un módulo
+   que lo importa pasa a ser alcanzable desde el grafo de cliente, de forma directa o
+   indirecta — es su único propósito. El guard dinámico es, por tanto, `pnpm build` en sí
+   mismo. Lo que #6 debe demostrar no es que exista un script de comprobación, sino que
+   **el mecanismo dispara**: el fixture de T-06-4 introduce a propósito un import de
+   `cms/security` desde un componente cliente, se comprueba que la build falla, y se
+   revierte.
 
-La capa 1 sola no basta (un import indirecto podría colarse); la capa 2 sola tampoco
-(depende de que el bundler no renombre). Se exigen ambas.
+La capa 1 no basta sola: `server-only` solo actúa sobre lo que el bundler realmente
+arrastra al cliente, así que un módulo del núcleo que nadie importa todavía puede quedarse
+sin protección hasta el día en que alguien lo importe mal. La capa 1 lo obliga desde el
+primer commit. La capa 2 es la que de verdad para una fuga.
+
+Queda **fuera** del contrato el escaneo de los chunks de `.next/static/` en busca de
+cadenas: es una heurística, no una garantía (el bundler minifica y renombra), y añadirla
+daría una falsa sensación de cobertura sobre un caso que la capa 2 ya cubre de raíz.
 
 ## 4. Casos de prueba — la definición de "hecho"
 
@@ -168,14 +182,14 @@ tabla**, no desde la implementación (regla de proceso 1).
 |---|---|---|
 | T-03-1 | Todo módulo de `cms/{core,db,auth,security}` importa `server-only` | test unitario que recorre el árbol; **falla** si falta |
 | T-03-2 | Las excepciones son explícitas | un fichero con `// isomorphic:` se acepta; uno sin él y sin `server-only` falla |
-| T-03-3 | Existe el árbol de SPEC §3 | test o check que verifica la lista de directorios de §3.3 |
+| T-03-3 | Existe el árbol de SPEC §3 | test unitario con la lista literal de directorios de §3.3; falla si falta alguno |
 
 ### 4.3 Calidad (#4)
 
 | ID | Caso | Verificación |
 |---|---|---|
 | T-04-1 | `sql.raw` con input de usuario es error de lint | fichero fixture con `sql.raw(userInput)` → ESLint devuelve error (SPEC §7.1) |
-| T-04-2 | `dangerouslySetInnerHTML` es error fuera de la allowlist | fixture en `components/` → error; el mismo código en el `RichText` permitido → sin error (SPEC §7.1, §6.3) |
+| T-04-2 | `dangerouslySetInnerHTML` es error **en cualquier ruta**, sin allowlist | fixture en `components/` → error; fixture en `cms/preview/` → también error (SPEC §7.1; ADR-107, issue #19) |
 | T-04-3 | El repo está formateado | `pnpm format:check` código 0 |
 | T-04-4 | El hook de pre-commit corre lint-staged | commit con un fichero mal formateado lo arregla o aborta |
 
@@ -216,7 +230,9 @@ Copiada del prompt de la fase y ampliada con lo verificable:
 1. CI verde en un PR trivial (T-06-1/T-06-2 demostrados con enlaces).
 2. `main` protegida (T-08-1/T-08-2).
 3. `pnpm dev` levanta (T-02-1).
-4. Todos los casos de prueba de §4 pasan o tienen justificación escrita en el PR.
+4. Todos los casos de prueba de §4 pasan. Un caso puede **posponerse** a otro hito con
+   justificación escrita en el PR y un issue que lo recoja; lo que no puede es darse por
+   bueno estando en rojo.
 5. `docs/PROGRESS.md` cierra M0 con: qué funciona, qué es frágil, qué probar a mano.
 
 ## 6. Decisiones que exigen ADR
@@ -229,3 +245,6 @@ Registradas en [`../DECISIONS.md`](../DECISIONS.md):
 - **ADR-103** — ESLint 9 (flat config) por compatibilidad con `eslint-config-next` 15.
 - **ADR-104** — Auto-revisión sin aprobación: GitHub prohíbe aprobar el PR propio.
 - **ADR-105** — `enforce_admins: false` en la protección de rama.
+- **ADR-106** — `RichText` vive en `cms/preview/`, no en `cms/ui/`.
+- **ADR-107** — El richtext se renderiza como elementos de React, nunca como cadena de
+  HTML; `dangerouslySetInnerHTML` queda prohibido sin excepciones (resuelve el issue #19).

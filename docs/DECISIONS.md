@@ -102,3 +102,69 @@ un control técnico infranqueable, mientras el repositorio tenga un solo mantene
 de admin. El compromiso operativo es no usar el bypass; no hay nada que lo impida por la
 fuerza. En cuanto haya un segundo mantenedor, este ADR debe revisarse y poner
 `enforce_admins: true`.
+
+---
+
+## ADR-106 — `RichText` vive en `cms/preview/`, no en `cms/ui/`
+
+**Contexto.** `SPEC.md` §6.3 introduce `<RichText value={...} />` como parte del contrato
+con los componentes de la **landing**: convierte el JSON de ProseMirror a HTML pasando
+siempre por `sanitize.ts`. Pero `SPEC.md` §3 no le asigna ubicación en el árbol, y la
+decisión no es cosmética por dos razones:
+
+1. La regla de ESLint que prohíbe `dangerouslySetInnerHTML` fuera de una allowlist
+   (§7.1) necesita una ruta literal, y esa regla se implementa en el issue #4.
+2. Si `RichText` cayera en `cms/ui/` —el árbol del panel— los componentes públicos de la
+   landing importarían desde el árbol del panel, lo que choca con `SPEC.md` §8: "el
+   visitante jamás descarga código del panel".
+
+**Decisión.** `cms/preview/RichText.tsx`.
+
+`cms/preview/` ya alberga `useContent.ts`, que tiene exactamente la misma naturaleza:
+código de cliente, isomorfo, consumido por los componentes de la landing tanto en
+producción como en la vista previa. `RichText` pertenece a ese conjunto. La alternativa
+—crear un `cms/render/`— resolvía lo mismo pero inventaba un directorio que `SPEC.md` §3
+no contempla, y la regla es no desviarse del árbol de la spec sin necesidad.
+
+**Consecuencias.** El nombre del directorio queda algo desafortunado: `cms/preview/`
+contiene código que también corre en producción. Se asume a cambio de no tocar el árbol de
+la spec. Consecuencia operativa: `cms/preview/` es el único árbol de `cms/` que **no**
+lleva `server-only`, y así queda anotado en el documento de fase §3.3 y §3.5. Que
+`RichText` pueda ser isomorfo sin violar §7.1 depende de ADR-107.
+
+---
+
+## ADR-107 — El richtext se renderiza como elementos de React, nunca como cadena de HTML
+
+**Contexto.** Registrado en detalle en el issue #19 (`spec-question`). En resumen, tres
+afirmaciones de `SPEC.md` son incompatibles: §6.3 dice que `RichText` sanea "siempre" con
+`sanitize.ts`; §7.1 obliga a que `cms/security/` sea `server-only`; y §6.1 exige que en
+`/preview` el contenido tecleado se renderice **en el cliente**, sin red ni BD. Un
+componente de cliente no puede llamar a un módulo server-only.
+
+Se descartaron dos salidas: hacer `sanitize.ts` isomorfo (viola §7.1 de frente) y no
+sanear en la preview (un XSS en la preview es un XSS same-origin con la sesión del editor).
+
+**Decisión.** El renderizador recorre el JSON de ProseMirror y emite **elementos de
+React** según la allowlist de nodos y marcas de §6.3 (`p`, `strong`, `em`,
+`a[href http/https/mailto]`, `ul`, `ol`, `li`, `h2`–`h4`, `blockquote`); lo que no está en
+la allowlist se descarta. Nunca se construye una cadena de HTML, así que no se usa
+`dangerouslySetInnerHTML` en ninguna parte del proyecto.
+
+`cms/security/sanitize.ts` sigue existiendo y sigue siendo server-only: su trabajo es
+sanear el **JSON al guardar** (podar nodos y marcas fuera de allowlist, validar el
+protocolo de los `href` contra `javascript:`), que es lo que §7.1 llama "sanitización
+server-side en save".
+
+**Consecuencias.**
+
+- La exigencia de §7.1 de sanear "en save Y en render" se cumple con una garantía más
+  fuerte: en render no se sanea una cadena, es que no hay cadena que sanear. React escapa
+  el texto por defecto y no queda ningún punto de inyección de markup.
+- **Desviación de §2:** `rehype-sanitize` deja de ser necesario y no se instala, porque no
+  hay "HTML derivado" sobre el que operar. Es la única desviación del stack que introduce
+  esta decisión.
+- **Efecto en M0:** la regla de ESLint del issue #4 prohíbe `dangerouslySetInnerHTML` sin
+  allowlist. Es más estricta que el criterio de aceptación original del issue, no más laxa.
+- **Pendiente de verificación:** que la salida C se sostenga en la práctica no se sabrá
+  hasta implementar el renderizador en M5. El issue #19 queda abierto hasta entonces.
