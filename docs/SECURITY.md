@@ -45,6 +45,17 @@ caso sí es un fallo nuestro.
 3. Bootstrap seguro y ciclo de vida del `SETUP_TOKEN` (`SPEC.md` §7.3).
 4. Gestión de secretos y qué pasa si se filtra cada uno (`SPEC.md` §7.4).
 5. Decisiones de seguridad tomadas y sus brechas residuales, enlazadas a los ADR.
+6. **Anclado de las acciones de GitHub por SHA.** Hoy el workflow las referencia por
+   etiqueta (`actions/checkout@v7`), que es mutable: si el repositorio de una acción se
+   compromete, esa etiqueta pasa a ejecutar otra cosa en el runner —con el checkout del
+   repositorio delante y con red— sin que ningún diff nuestro cambie. En M0 se decidió no
+   anclar porque las cuatro acciones son oficiales de GitHub y el workflow corre con
+   `permissions: contents: read`, pero es una decisión que M6 debe **revisar en firme**, no
+   heredar. Contexto en el PR #35.
+7. **Ejecución de scripts de instalación en CI.** `pnpm install` ejecuta los scripts de
+   `sharp` y `esbuild` antes de que corra ningún test. En #23 se acotó a los jobs que los
+   necesitan (`--ignore-scripts` en los otros tres). Queda por decidir si se puede reducir
+   más.
 
 ## Lo que ya está en pie (M0)
 
