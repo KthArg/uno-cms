@@ -1,0 +1,21 @@
+# Normalización de finales de línea.
+#
+# El repositorio se desarrolla en Windows y se construye en Linux (CI y Vercel). Sin esta
+# normalización, `prettier --check` da resultados distintos según el sistema operativo
+# sobre ficheros idénticos, y ese check es obligatorio para mergear (protección de rama).
+* text=auto eol=lf
+
+# Binarios: nunca tocar.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+
+# Generado por pnpm: no marcar como conflicto de mezcla línea a línea.
+pnpm-lock.yaml -diff linguist-generated=true

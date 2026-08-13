@@ -1,0 +1,33 @@
+{
+  "name": "uno-cms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CMS acoplado 1:1 a una landing, auto-hospedable en Vercel",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "pnpm": {
+    "// onlyBuiltDependencies": "pnpm no ejecuta scripts de instalación salvo allowlist. sharp lo necesita para el binario nativo que usa next/image (SPEC §8).",
+    "onlyBuiltDependencies": ["sharp"]
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "15.5.23",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "22.20.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
+  }
+}
