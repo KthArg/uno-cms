@@ -16,6 +16,13 @@ import type { SingletonKey } from './types';
  * la comprobación y la escritura ocurren en la misma sentencia, así que dos arranques
  * simultáneos —dos instancias serverless, por ejemplo— no pueden pisarse.
  *
+ * **No destructivo no es lo mismo que todo o nada.** Las filas van en un solo `INSERT`, que
+ * es atómico: si una fallara por algo que no sea el conflicto de clave —una violación del
+ * `CHECK` de `status`, digamos— **no se inserta ninguna**, y `created` vendría vacío sin
+ * distinguirlo de "ya estaban todas". Hoy no puede ocurrir, porque los valores que se
+ * insertan son constantes de este módulo; empezará a poder ocurrir el día que un singleton
+ * traiga un `default` que no valide, y entonces hay que separar la inserción por fila.
+ *
  * El borrador sembrado **no pasa el esquema estricto** si el singleton tiene campos
  * requeridos sin `default`, y eso es lo correcto: es un borrador vacío, todavía no
  * publicable. El primer `VALIDATION_FAILED` justo después de sembrar parece un seed roto y
@@ -37,8 +44,9 @@ function initialDraft(key: SingletonKey): Record<string, unknown> {
   const schema: ObjectSchema = appConfig.singletons[key];
   const parsed = draftSchema(schema).safeParse({});
   if (!parsed.success) {
-    // Un objeto vacío solo puede fallar el esquema laxo si la config es incoherente, y eso
-    // es un fallo del desarrollador que hay que ver al arrancar y no enterrar.
+    // Que la clave exista lo garantiza el tipo `SingletonKey`, así que aquí solo se llega
+    // si un `default` de cms.config.ts no pasa su propio esquema. Es un fallo del
+    // desarrollador que hay que ver al arrancar, no enterrar.
     throw new Error(
       `El borrador inicial de '${key}' no pasa su propio esquema laxo. ` +
         `Revisa los valores por defecto en cms.config.ts. Detalle: ${parsed.error.message}`
