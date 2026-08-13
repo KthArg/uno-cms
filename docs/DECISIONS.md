@@ -86,22 +86,54 @@ par de ojos. Ningún hallazgo se descubre por contraste con otra persona.
 
 ---
 
-## ADR-105 — `enforce_admins: false` en la protección de `main`
+## ADR-105 — `enforce_admins: true` en la protección de `main`
 
-**Contexto.** Con `enforce_admins: true` y un único mantenedor que además es admin, y con
-0 aprobaciones requeridas, la configuración sigue permitiendo el merge; pero cualquier
-regla futura que exija aprobación dejaría el repositorio en un bloqueo total (nadie más
-puede aprobar).
+> **Este ADR sustituye a su primera versión, que decidía `enforce_admins: false`.** La
+> decisión original era incorrecta y el caso de prueba T-08-1 lo demostró. Se conserva el
+> razonamiento fallido porque explica por qué se llegó a él.
 
-**Decisión.** `enforce_admins: false`. Las reglas (PR obligatorio, check `ci`, conversación
-resuelta, sin force-push, sin borrado, historial lineal) están **activas**; el mantenedor
-conserva la capacidad técnica de saltárselas.
+**Contexto.** El repositorio tiene un único mantenedor, que además es admin. Con
+`enforce_admins: false`, las reglas de protección (PR obligatorio, check `ci`, conversación
+resuelta, historial lineal) quedan activas para cualquiera **menos** para él.
 
-**Consecuencias.** **Brecha residual honesta:** la protección es una barrera de proceso, no
-un control técnico infranqueable, mientras el repositorio tenga un solo mantenedor con rol
-de admin. El compromiso operativo es no usar el bypass; no hay nada que lo impida por la
-fuerza. En cuanto haya un segundo mantenedor, este ADR debe revisarse y poner
-`enforce_admins: true`.
+El razonamiento inicial fue: si alguna vez se exigieran aprobaciones y solo hay una
+persona, `enforce_admins: true` dejaría el repositorio en bloqueo total, porque nadie puede
+aprobar su propio PR. Se prefirió dejar la puerta abierta.
+
+**Lo que pasó al ejecutar T-08-1.** Con `enforce_admins: false`, un `git push origin main`
+directo **entró sin resistencia**. No fue una brecha teórica: quedó un commit vacío en el
+historial de `main`, y para quitarlo hubo que habilitar force-push temporalmente
+—`allow_force_pushes: false` sí se aplica a los admins, a diferencia del requisito de PR—.
+El primer intento serio de saltarse la barrera la atravesó, y no a propósito: fue el propio
+test el que la cruzó.
+
+El razonamiento inicial tenía además un error de hecho: el bloqueo total que temía requiere
+`required_approving_review_count > 0`, y ese valor es **0** (ADR-104). Se estaba protegiendo
+contra una configuración que no existe, a costa de anular la protección que sí existe.
+
+**Decisión.** `enforce_admins: true`. Ni siquiera el mantenedor puede hacer push directo a
+`main`; todo pasa por PR con `ci` en verde.
+
+La configuración completa vive versionada en
+[`.github/branch-protection.json`](../.github/branch-protection.json), de modo que es
+auditable en el repositorio y reaplicable con un solo comando, en vez de ser un ajuste
+invisible en la interfaz de GitHub.
+
+**Consecuencias.**
+
+- La protección pasa de ser una barrera de proceso a un control técnico real. T-08-1
+  verificado: `GH006: Protected branch update failed`.
+- **Riesgo asumido:** si el pipeline se rompiera por una causa ajena (por ejemplo, la
+  retirada de Node 20 en los runners, que ya afecta a `pnpm/action-setup@v4`), no se podría
+  mergear nada hasta arreglarlo. La salida sería desactivar la protección temporalmente
+  —cosa que un admin sí puede hacer, porque `enforce_admins` restringe las operaciones de
+  git, no la edición de la configuración—. Es una salida deliberada y con fricción, que es
+  justo lo que se quiere.
+- **Brecha residual, ahora sí la única:** un admin puede desactivar la protección, hacer lo
+  que quiera y volver a activarla. Ningún ajuste de GitHub lo impide en un repositorio de
+  un solo dueño. La diferencia con la situación anterior es que ahora saltársela exige tres
+  actos deliberados y deja rastro en el registro de auditoría del repositorio, en lugar de
+  ocurrir con un `git push` distraído.
 
 ---
 
