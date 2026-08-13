@@ -33,7 +33,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      # --ignore-scripts: este job no necesita binarios nativos, así que no hay razón
+      # para ejecutar código de instalación de terceros en un runner con red.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm lint
       - name: format:check
         run: pnpm format:check
@@ -49,7 +51,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm typecheck
 
   unit:
@@ -134,14 +136,27 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # La versión se lee de package.json en vez de repetirse aquí: dos fuentes de verdad
+      # acabarían divergiendo y la caché serviría navegadores de otra versión.
+      - name: leer la versión de Playwright
+        id: playwright-version
+        run: |
+          version=$(node -p "require('./package.json').devDependencies['@playwright/test']")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: caché de navegadores de Playwright
         uses: actions/cache@v4
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          # La clave cuelga de la versión de Playwright, no del lockfile: el lockfile
+          # cambiará en casi todos los PR de M1 a M5 y la caché no acertaría nunca.
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
       - name: instalar chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
+      - name: dependencias de sistema de chromium (con caché de navegador)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -160,7 +175,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile --ignore-scripts
       # SPEC §7.1 "Dependencias" y §11.5: cero findings high/critical. Bloqueante desde el
       # primer día; no hay ruido que justifique lo contrario (los tres advisories high que
       # arrastraba `next` se cierran con overrides en package.json).
