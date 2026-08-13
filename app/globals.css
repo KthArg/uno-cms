@@ -1,10 +1,1 @@
 @import 'tailwindcss';
-
-@theme {
-  --color-ink: oklch(0.21 0.02 260);
-  --color-paper: oklch(0.99 0.003 260);
-}
-
-:root {
-  color-scheme: light dark;
-}
