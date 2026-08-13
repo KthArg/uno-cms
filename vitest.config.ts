@@ -59,6 +59,11 @@ export default defineConfig({
           name: 'integration',
           environment: 'node',
           include: ['tests/integration/**/*.test.ts'],
+          // Aplica las migraciones una vez, antes de cargar ningún test (T-41-1).
+          globalSetup: ['./tests/integration/global-setup.ts'],
+          // Limpia la base antes de CADA test, en todos los ficheros (T-41-2). Está aquí y
+          // no en cada fichero porque olvidarlo no falla: hereda los datos del anterior.
+          setupFiles: ['./tests/integration/setup.ts'],
           // Contra Postgres real: un solo proceso, porque los ficheros comparten esquema y
           // en paralelo se pisarían las transacciones.
           poolOptions: { forks: { singleFork: true } },

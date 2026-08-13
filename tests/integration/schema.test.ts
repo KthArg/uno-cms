@@ -1,8 +1,7 @@
 import { sql } from 'drizzle-orm';
-import { afterAll, beforeEach, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { CONTENT_STATUSES, USER_ROLES, contentEntries, getDb, users } from '@/cms/db';
 import { describeIntegration } from './env';
-import { resetDatabase, closeDatabase } from './db';
 
 /**
  * T-40-1 a T-40-6: el esquema de SPEC §4 sobre Postgres real.
@@ -14,14 +13,6 @@ import { resetDatabase, closeDatabase } from './db';
  */
 
 describeIntegration('SPEC §4 — esquema y garantías de integridad', () => {
-  beforeEach(async () => {
-    await resetDatabase();
-  });
-
-  afterAll(async () => {
-    await closeDatabase();
-  });
-
   it('T-40-2: existen las seis tablas de SPEC §4', async () => {
     const result = await getDb().execute(sql`
       select table_name from information_schema.tables
