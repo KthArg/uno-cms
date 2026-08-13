@@ -1,0 +1,1 @@
+Contrato de contenido del lado cliente: `useContent`, `PreviewProvider` y `RichText` (SPEC §3, §6.3; ADR-106). **Único árbol de `cms/` isomorfo**, y por eso el único sin `server-only`. Se llena en **M4** (RichText) y **M5**.
