@@ -13,9 +13,15 @@ import {
 } from 'drizzle-orm/pg-core';
 
 /**
- * Esquema de base de datos (SPEC §4), literal salvo dos correcciones documentadas en
- * `docs/specs/01-nucleo-datos.md` §3.4: el fragmento de la spec usa `sql` sin importarlo, y
- * menciona `citext` de forma redundante con el índice único sobre `lower(email)`.
+ * Esquema de base de datos (SPEC §4). Tres desviaciones respecto al fragmento de la spec,
+ * todas documentadas:
+ *
+ * 1. La spec usa `sql` sin importarlo; aquí se importa (spec de fase §3.4).
+ * 2. La spec menciona `citext` de forma redundante con el índice único sobre
+ *    `lower(email)`; se usa solo el índice (ADR-201).
+ * 3. **Se añaden restricciones `CHECK` que la spec no contempla** (ADR-203, issue #48),
+ *    porque el `enum` de `text()` en Drizzle es solo de TypeScript y sin ellas la base de
+ *    datos no garantiza los estados que ADR-003 promete que garantiza.
  *
  * El contenido NO se modela como tablas por tipo (ADR-003): son documentos JSONB validados
  * contra los esquemas Zod que genera `cms/core/schema-gen.ts`. La base de datos garantiza
