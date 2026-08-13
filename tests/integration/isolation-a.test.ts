@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { contentEntries, getDb } from '@/cms/db';
 import { describeIntegration } from './env';
+import { SHARED_ISOLATION_KEY } from './shared';
 
 /**
  * T-41-2, primera mitad. Este fichero y `isolation-b.test.ts` insertan **la misma clave**,
@@ -15,7 +16,7 @@ describeIntegration('aislamiento entre ficheros (A)', () => {
   it('inserta la clave compartida y deja la base sucia a propósito', async () => {
     await getDb()
       .insert(contentEntries)
-      .values({ key: 'clave-compartida', type: 'hero', draft: { title: 'desde A' } });
+      .values({ key: SHARED_ISOLATION_KEY, type: 'hero', draft: { title: 'desde A' } });
 
     const rows = await getDb().select().from(contentEntries);
     expect(rows).toHaveLength(1);

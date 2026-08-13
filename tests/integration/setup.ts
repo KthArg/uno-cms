@@ -12,6 +12,14 @@ import { hasDatabase } from './env';
  *
  * Los ganchos se registran solo si hay base de datos: sin ella, los tests están saltados y
  * un `beforeEach` que intentara conectarse rompería la ejecución en vez de saltarla.
+ *
+ * **Atención si tocas `vitest.config.ts`.** El `afterAll` cierra el pool al terminar cada
+ * fichero, y eso solo es correcto porque Vitest aísla los módulos entre ficheros
+ * (`isolate`, activo por defecto), de modo que cada uno construye su propio cliente. Con
+ * `isolate: false` —tentador para acelerar una suite de integración grande— el primer
+ * fichero en terminar cerraría el pool de todos, y los siguientes fallarían con "cannot use
+ * a pool after calling end", un mensaje que no apunta a su causa. Si cambias `isolate`,
+ * este cierre tiene que pasar a `globalTeardown`.
  */
 if (hasDatabase) {
   beforeEach(async () => {
