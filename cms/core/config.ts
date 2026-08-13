@@ -175,18 +175,22 @@ type Presence<O> = O extends { required: true }
 
 // ── Constructores (`s.*`) ────────────────────────────────────────────────────────────────
 
-function base<O extends CommonOptions>(
-  options: O
-): {
+interface CommonParts {
   label: string;
   help?: string;
   required: boolean;
   hasDefault: boolean;
-} {
-  const common: { label: string; help?: string; required: boolean; hasDefault: boolean } = {
+}
+
+function base<O extends CommonOptions>(options: O): CommonParts {
+  const common: CommonParts = {
     label: options.label,
     required: options.required === true,
-    hasDefault: 'default' in options && (options as { default?: unknown }).default !== undefined,
+    // El criterio es la PRESENCIA de la clave, igual que `Presence<O>` en el tipo. Con
+    // `!== undefined`, un `{ default: undefined }` daría `hasDefault: false` mientras el
+    // tipo afirma que el campo siempre tiene valor: tipo y ejecución discreparían justo en
+    // el módulo que existe para que no discrepen.
+    hasDefault: 'default' in options,
   };
   if (options.help !== undefined) common.help = options.help;
   return common;
