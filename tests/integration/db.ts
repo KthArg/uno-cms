@@ -25,7 +25,7 @@ import { databaseUrl } from './env';
  * máquina de desarrollo, una variable mal pegada bastaría para vaciar otra cosa. La
  * diferencia entre "no pasó nada" y "he borrado la base equivocada" cabe en esta condición.
  */
-const TEST_DATABASE_PATTERN = /(^|[_-])test($|[_-])/i;
+const TEST_DATABASE_PATTERN = /(^|[_-])tests?\d*($|[_-])/i;
 
 function assertDisposableDatabase(): string {
   if (databaseUrl === undefined) {

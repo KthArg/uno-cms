@@ -123,8 +123,10 @@ jobs:
         run: |
           until pg_isready -h localhost -p 5432 -U unocms; do sleep 1; done
           psql "$DATABASE_URL" -c 'select version();'
-      # DoD de M1: las migraciones aplican en CI. Se ejecutan aquí y no dentro de la suite
-      # para que un fallo de migración se distinga de un fallo de test.
+      # Las migraciones las aplica el `globalSetup` de Vitest (T-41-1), no un paso de CI:
+      # así el mismo comando funciona igual en local y aquí. Este paso extra existe solo
+      # para que un fallo de migración se vea como tal y no enterrado en la salida de los
+      # tests; es idempotente, la suite lo repite y no pasa nada.
       - name: aplicar migraciones
         run: pnpm db:migrate
       - run: pnpm test:integration
