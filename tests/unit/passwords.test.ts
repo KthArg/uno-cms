@@ -44,6 +44,21 @@ describe('T-56-3 — el hash declara los parámetros de ADR-300', () => {
     expect(hash).toContain(`p=${ARGON2_PARAMETERS.parallelism}`);
   });
 
+  it('el literal de Argon2id coincide con el del paquete', async () => {
+    // `ARGON2_PARAMETERS.algorithm` es un literal porque el paquete declara `Algorithm`
+    // como `const enum` ambiente e `isolatedModules` prohíbe leerlos. Este test es lo que
+    // impide que ese literal se quede desactualizado en silencio si el paquete renumera.
+    // La conversión es necesaria por la misma razón que el literal: TypeScript declara
+    // `Algorithm` como `const enum` ambiente y prohíbe leerlo con `isolatedModules`. En
+    // tiempo de ejecución el objeto sí existe, y es justo ese valor el que hay que
+    // comparar.
+    const argon = (await import('@node-rs/argon2')) as unknown as {
+      Algorithm: Record<'Argon2d' | 'Argon2i' | 'Argon2id', number>;
+    };
+
+    expect(ARGON2_PARAMETERS.algorithm).toBe(argon.Algorithm.Argon2id);
+  });
+
   it('los parámetros no se han bajado sin ADR', () => {
     // ADR-300: subirlos es libre, bajarlos exige un ADR nuevo. Este test es lo que obliga a
     // que ese ADR exista, porque bajarlos no rompe nada más.

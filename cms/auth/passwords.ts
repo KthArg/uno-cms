@@ -1,5 +1,5 @@
 import 'server-only';
-import { Algorithm, hash as argonHash, verify as argonVerify } from '@node-rs/argon2';
+import { hash as argonHash, verify as argonVerify } from '@node-rs/argon2';
 import { isCommonPassword } from './common-passwords';
 
 /**
@@ -18,8 +18,22 @@ import { isCommonPassword } from './common-passwords';
  * propios parámetros dentro, así que los antiguos se siguen verificando. **Bajarlos exige
  * un ADR nuevo.**
  */
+
+/**
+ * `Algorithm.Argon2id` de `@node-rs/argon2`, escrito como literal.
+ *
+ * El paquete lo declara como `const enum` ambiente, y `isolatedModules` —que exige TS
+ * estricto de SPEC §2— prohíbe leerlos: no hay fichero del que importar el valor en tiempo
+ * de ejecución. Vitest transpila cada fichero por separado y no se entera; `tsc` y
+ * `next build` sí, y por eso este error apareció en el build y no en los tests.
+ *
+ * Un literal desnudo se quedaría desactualizado en silencio si el paquete renumerase, así
+ * que hay un test que compara este valor con el del paquete en tiempo de ejecución.
+ */
+const ARGON2ID = 2;
+
 export const ARGON2_PARAMETERS = {
-  algorithm: Algorithm.Argon2id,
+  algorithm: ARGON2ID,
   memoryCost: 19_456, // KiB, o sea 19 MiB
   timeCost: 2,
   parallelism: 1,
