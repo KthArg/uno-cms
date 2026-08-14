@@ -346,3 +346,104 @@ la versiona en la migración como cualquier otro cambio.
   Es una garantía por test y no por construcción; se dice tal cual.
 - Un valor nuevo exige tocar tres sitios (constante, `CHECK`, migración). Es fricción
   deliberada sobre la columna que decide los permisos.
+
+---
+
+## ADR-300 — Parámetros de Argon2id
+
+**Contexto.** ADR-004 fija Argon2id "con parámetros OWASP" sin dar números. Los parámetros
+son la diferencia entre un hash que cuesta atacar y uno que no, así que dejarlos al criterio
+del momento es dejarlos sin decidir.
+
+**Decisión.** `m = 19456` KiB (19 MiB), `t = 2`, `p = 1`, en una constante única de
+`cms/auth/passwords.ts`.
+
+Es el perfil de memoria moderada que recomienda OWASP para Argon2id. Se elige sobre los
+perfiles de más memoria porque el destino de despliegue es una función serverless de Vercel
+con límite de memoria, y un `hash` que agote la memoria de la función convierte el login en
+un error 500 — o sea, en una denegación de servicio autoinfligida en el peor momento posible.
+
+**Consecuencias.**
+
+- Subir los parámetros más adelante es fácil y no invalida los hashes existentes: la cadena
+  de Argon2 lleva sus propios parámetros dentro, así que los antiguos se siguen verificando.
+  **Bajarlos exige un ADR nuevo.**
+- No se implementa rehash progresivo al iniciar sesión. Es lo correcto cuando se suben los
+  parámetros, y hoy no hay parámetros antiguos que migrar. Queda anotado para cuando los
+  haya.
+- 19 MiB por verificación limita cuántos logins concurrentes caben en una función. Es un
+  coste consciente: el objetivo es precisamente que verificar sea caro.
+
+---
+
+## ADR-301 — Columna `password_version` para invalidar sesiones
+
+**Contexto.** `SPEC.md` §7.1, "Robo de sesión", exige "invalidación al cambiar contraseña
+(claim `pwdV`)". Un JWT es autónomo por definición: el servidor no guarda estado de sesión,
+así que no hay nada que borrar cuando alguien cambia su contraseña. Sin un contador contra
+el que comparar, las sesiones robadas siguen vivas hasta que expiren, y cambiar la contraseña
+—que es lo que hace cualquiera al sospechar que le han entrado— no sirve de nada.
+
+`SPEC.md` §4 no contempla la columna que hace falta.
+
+**Decisión.** Se añade `password_version integer not null default 0` a `users`, con su
+migración. El JWT lleva el valor en el claim `pwdV`; cada petición autenticada lo compara con
+el de la fila. `changePassword` lo incrementa.
+
+**Consecuencias.**
+
+- **Cada petición autenticada lee la fila del usuario.** Eso contradice en parte la ventaja
+  del JWT autónomo y añade una consulta por petición al panel. Se acepta: el panel no está
+  en el camino crítico de rendimiento —la landing pública no autentica nada (§8)— y la
+  alternativa es que cambiar la contraseña no expulse a nadie.
+- Es una desviación de `SPEC.md` §4, que es la tabla de referencia del esquema. Queda
+  anotada también en el documento de fase.
+- Si la lectura por petición resultara cara en M4, la salida es cachearla por unos segundos,
+  no quitarla: una ventana de segundos es aceptable, una de siete días no.
+
+---
+
+## ADR-302 — Política de contraseñas sin exigencias de composición
+
+**Contexto.** `SPEC.md` §5.3 pide, para `changePassword`: "≥ 12 chars, chequeo contra lista
+de comunes". No menciona mayúsculas, dígitos ni símbolos.
+
+**Decisión.** Se implementa exactamente eso y **no se añaden** exigencias de composición.
+
+No es pereza: las guías actuales (NIST SP 800-63B entre ellas) las desaconsejan
+explícitamente, porque empujan a patrones predecibles —la mayúscula al principio, el número
+y el símbolo al final— que reducen el espacio de búsqueda real en vez de ampliarlo. La
+longitud y el rechazo de contraseñas conocidas hacen más trabajo que cualquier regla de
+composición.
+
+**Consecuencias.**
+
+- Alguien puede elegir `abcdefghijklm`: doce caracteres, no está en la lista de comunes, y
+  es mala. La lista embebida acota el problema pero no lo cierra. Un medidor de entropía
+  sería mejor y es post-MVP.
+- La lista embebida es finita y envejece. Actualizarla es trabajo manual, y no hacerlo no
+  produce ningún síntoma visible. Es una deuda silenciosa y por eso se escribe aquí.
+
+---
+
+## ADR-303 — Degradación del rate limit sin Upstash
+
+**Contexto.** `SPEC.md` §2 admite "@upstash/ratelimit + Vercel KV (opcional) con fallback
+in-memory" y exige "degradación documentada". Esto es esa documentación.
+
+**Decisión.** Con `KV_REST_API_URL` definida, el contador es distribuido. Sin ella, vive en
+memoria del proceso.
+
+**Consecuencias, dichas sin adornos.**
+
+- En serverless, **cada instancia tiene su propio contador**. Con N instancias vivas, el
+  límite efectivo de "5 intentos por 15 minutos" pasa a ser 5 × N. Un atacante que genere
+  carga suficiente para que Vercel escale multiplica su presupuesto de intentos, y no
+  necesita saber que lo está haciendo.
+- **Por eso el rate limit no es la defensa principal contra la fuerza bruta.** La defensa es
+  el lockout incremental de §7.1, que vive en la base de datos: es común a todas las
+  instancias, sobrevive a los reinicios y no se puede diluir escalando. El rate limit
+  protege del ruido; el lockout, del ataque.
+- La degradación **se anuncia en el arranque**, una vez, en los logs. Una degradación de
+  seguridad silenciosa es peor que no tener la protección, porque quien despliega cree que
+  la tiene.
