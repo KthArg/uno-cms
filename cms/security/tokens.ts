@@ -13,6 +13,22 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
  * trae un campo `alg` que el verificador debe ignorar —el ataque de `alg: none` existe
  * porque muchos no lo ignoran— y una superficie de opciones que aquí no hace falta. Con un
  * solo algoritmo fijado en el código no hay nada que negociar.
+ *
+ * ## Contrato de errores, que el consumidor DEBE conocer
+ *
+ * `verifyToken` distingue dos situaciones y las trata distinto:
+ *
+ * - **Token inválido** (mal firmado, caducado, de otro propósito, basura): devuelve
+ *   `{ ok: false }`. Es el caso normal y se maneja mostrando un 404.
+ * - **`APP_SECRET` ausente o de menos de 32 caracteres: LANZA.** No es un token inválido,
+ *   es un despliegue roto, y devolverlo como "inválido" dejaría la vista previa, el
+ *   bootstrap y el reinicio de contraseña sin funcionar los tres a la vez sin un solo
+ *   mensaje que lo explicara.
+ *
+ * **Quien llame a esto desde una ruta pública —`/preview` es la que importa— tiene que
+ * capturar esa excepción y responder 404**, no dejarla subir. Un 500 con traza en una ruta
+ * pública revela que la ruta existe y que algo interno falla, y en una plataforma compartida
+ * la traza acaba en logs que no controlamos.
  */
 
 export type TokenPurpose = 'preview' | 'setup' | 'password-reset';

@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { signToken, verifyToken } from '@/cms/security/tokens';
 
@@ -107,15 +108,27 @@ describe('T-55-6 — entrada basura', () => {
     expect(verifyToken('preview', valor)).toEqual({ ok: false });
   });
 
-  it('rechaza un payload bien firmado pero con forma equivocada', () => {
-    // La firma garantiza el origen, no la estructura. Si alguna vez cambiara el formato,
-    // un token antiguo seguiría estando bien firmado y traería otra cosa dentro.
+  it('rechaza un payload BIEN FIRMADO pero con forma equivocada', () => {
+    // La firma garantiza el origen, no la estructura: si el formato cambiara, quedarían
+    // tokens antiguos correctamente firmados con otra cosa dentro.
+    //
+    // El payload se firma de verdad, con la misma clave y el mismo algoritmo que el módulo.
+    // La primera versión de este test reutilizaba la firma de otro payload, así que el
+    // token fallaba por firma inválida y no probaba nada de lo que su nombre decía.
     const raro = Buffer.from(JSON.stringify({ hola: 'mundo' }), 'utf8').toString('base64url');
-    const token = signToken('preview', {});
-    const firma = token.split('.')[1];
+    const firmaAutentica = createHmac('sha256', SECRET).update(raro).digest('base64url');
 
-    // Firmado de verdad no está, pero comprobamos que ni siquiera con firma válida pasaría:
-    expect(verifyToken('preview', `${raro}.${firma}`)).toEqual({ ok: false });
+    expect(verifyToken('preview', `${raro}.${firmaAutentica}`)).toEqual({ ok: false });
+  });
+
+  it('rechaza un payload bien firmado sin `exp`', () => {
+    const sinExp = Buffer.from(JSON.stringify({ purpose: 'preview', data: {} }), 'utf8').toString(
+      'base64url'
+    );
+    const firmaAutentica = createHmac('sha256', SECRET).update(sinExp).digest('base64url');
+
+    // Sin esta comprobación, un token sin `exp` sería eterno.
+    expect(verifyToken('preview', `${sinExp}.${firmaAutentica}`)).toEqual({ ok: false });
   });
 });
 
