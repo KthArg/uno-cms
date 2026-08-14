@@ -67,6 +67,12 @@ Contrato:
   un token manipulado tenía una fecha válida.
 - Un token expirado, mal firmado, de otro propósito o malformado producen **el mismo
   resultado**: inválido, sin distinguir el motivo hacia fuera (§7.1, "Enumeración").
+- **Un `APP_SECRET` ausente o corto NO es un token inválido: lanza.** Devolverlo como
+  inválido dejaría la vista previa, el bootstrap y el reinicio de contraseña sin funcionar
+  los tres a la vez, sin un solo mensaje que lo explicara. La contrapartida es que **quien
+  llame a `verifyToken` desde una ruta pública debe capturar esa excepción y responder
+  404**: un 500 con traza en una ruta pública revela que existe y que algo interno falla.
+  Aplica a `/preview` (M5) y a `/setup` (#61).
 
 ### 3.3 Rate limit (`cms/security/ratelimit.ts`)
 
