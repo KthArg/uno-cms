@@ -94,6 +94,17 @@ export async function verifyDecoy(password: string): Promise<false> {
   return false;
 }
 
+/**
+ * **`checkPasswordPolicy` es para ELEGIR contraseña, no para verificarla.**
+ *
+ * Usarla en el camino de login rompe la protección del señuelo: si la política se aplicara
+ * solo cuando el usuario existe, una contraseña corta se rechazaría al instante para las
+ * cuentas reales y tardaría lo que tarda Argon2 para las inexistentes —o al revés—, y el
+ * tiempo volvería a distinguirlas. Que es exactamente el canal que `verifyDecoy` cierra.
+ *
+ * En el login se verifica y punto: contraseña correcta o no. La política se comprueba al
+ * crear o cambiar la contraseña, donde no hay nada que enumerar.
+ */
 export type PolicyResult = { readonly ok: true } | { readonly ok: false; readonly reason: string };
 
 /**

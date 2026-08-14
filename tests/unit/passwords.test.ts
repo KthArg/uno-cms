@@ -4,6 +4,7 @@ import {
   ARGON2_PARAMETERS,
   DECOY_HASH,
   MIN_PASSWORD_LENGTH,
+  MAX_PASSWORD_LENGTH,
   checkPasswordPolicy,
   hashPassword,
   verifyDecoy,
@@ -125,14 +126,19 @@ describe('el hash señuelo de SPEC §7.1', () => {
 });
 
 describe('T-56-6 a T-56-8 — política (ADR-302)', () => {
-  it('rechaza menos de 12 caracteres', () => {
-    const result = checkPasswordPolicy('corta12345');
-    expect(result.ok).toBe(false);
-    expect(result.ok === false && result.reason).toContain('12');
+  it('rechaza justo por debajo del mínimo y acepta justo en el mínimo', () => {
+    // Los límites se comprueban con la constante, no con un 12 escrito a mano: si algún día
+    // se sube el mínimo, este test sigue probando el límite y no un número obsoleto.
+    const justoDebajo = 'a-'.repeat(MIN_PASSWORD_LENGTH).slice(0, MIN_PASSWORD_LENGTH - 1);
+    const justoEnElLimite = 'a-'.repeat(MIN_PASSWORD_LENGTH).slice(0, MIN_PASSWORD_LENGTH);
+
+    expect(checkPasswordPolicy(justoDebajo).ok).toBe(false);
+    expect(checkPasswordPolicy(justoEnElLimite).ok).toBe(true);
   });
 
-  it('acepta exactamente 12 si no es común', () => {
-    expect(checkPasswordPolicy('xkcd-caballo').ok).toBe(true);
+  it('el mensaje de longitud dice cuántos caracteres hacen falta', () => {
+    const result = checkPasswordPolicy('corta');
+    expect(result.ok === false && result.reason).toContain(String(MIN_PASSWORD_LENGTH));
   });
 
   it('cuenta puntos de código, no unidades UTF-16', () => {
@@ -169,7 +175,8 @@ describe('T-56-6 a T-56-8 — política (ADR-302)', () => {
   it('rechaza una contraseña absurdamente larga', () => {
     // No es política, es defensa: Argon2 procesa lo que se le dé, y una contraseña de un
     // megabyte consume CPU y memoria del servidor por petición.
-    expect(checkPasswordPolicy('a'.repeat(2000)).ok).toBe(false);
+    expect(checkPasswordPolicy('a'.repeat(MAX_PASSWORD_LENGTH)).ok).toBe(true);
+    expect(checkPasswordPolicy('a'.repeat(MAX_PASSWORD_LENGTH + 1)).ok).toBe(false);
   });
 
   it.each([
@@ -185,7 +192,12 @@ describe('T-56-6 a T-56-8 — política (ADR-302)', () => {
   it('el motivo SÍ se devuelve, a diferencia de los errores de login', () => {
     // Aquí no hay nada que enumerar: quien elige su contraseña necesita saber por qué se le
     // rechaza. Es lo contrario del mensaje único de §7.1 para las credenciales.
-    expect(checkPasswordPolicy('corta').ok === false).toBe(true);
-    expect(checkPasswordPolicy(MIN_PASSWORD_LENGTH > 0 ? 'corta' : 'x')).toHaveProperty('reason');
+    const corta = checkPasswordPolicy('corta');
+    const comun = checkPasswordPolicy('password1234');
+
+    expect(corta).toHaveProperty('reason');
+    expect(comun).toHaveProperty('reason');
+    // Y los motivos son distintos entre sí: un mensaje único aquí sería inútil.
+    expect(corta.ok === false && comun.ok === false && corta.reason !== comun.reason).toBe(true);
   });
 });
