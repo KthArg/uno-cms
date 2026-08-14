@@ -189,18 +189,19 @@ caracteres: uno corto convertiría todo el bootstrap en adivinable.
 
 ### 4.5 Autenticación (#59)
 
-| ID      | Caso                                                                               | Verificación                                             |
-| ------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| T-59-1  | Credenciales correctas → sesión con rol                                            | integración                                              |
-| T-59-2  | Contraseña incorrecta → sin sesión, mensaje genérico                               |                                                          |
-| T-59-3  | Usuario inexistente → **mismo mensaje y comportamiento** que contraseña incorrecta | §7.1, "Enumeración"                                      |
-| T-59-4  | Usuario inexistente → se verifica igualmente un hash señuelo                       | si no, el tiempo de respuesta revela si el correo existe |
-| T-59-5  | 5 fallos → cuenta bloqueada 15 min                                                 |                                                          |
-| T-59-6  | El bloqueo es exponencial a partir del quinto                                      | 10 fallos → mucho más de 15 min                          |
-| T-59-7  | Un intento durante el bloqueo no lo alarga                                         | si no, cualquiera puede dejar fuera a un usuario         |
-| T-59-8  | Un login correcto reinicia el contador                                             |                                                          |
-| T-59-9  | El email no distingue mayúsculas                                                   | ADR-201                                                  |
-| T-59-10 | Cambiar la contraseña invalida las sesiones abiertas                               | claim `pwdV`                                             |
+| ID      | Caso                                                                               | Verificación                                                                                         |
+| ------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| T-59-1  | Credenciales correctas → sesión con rol                                            | integración                                                                                          |
+| T-59-2  | Contraseña incorrecta → sin sesión, mensaje genérico                               |                                                                                                      |
+| T-59-3  | Usuario inexistente → **mismo mensaje y comportamiento** que contraseña incorrecta | §7.1, "Enumeración"                                                                                  |
+| T-59-4  | Usuario inexistente → se verifica igualmente un hash señuelo                       | si no, el tiempo de respuesta revela si el correo existe                                             |
+| T-59-5  | 5 fallos → cuenta bloqueada 15 min                                                 |                                                                                                      |
+| T-59-6  | El bloqueo es exponencial a partir del quinto                                      | 10 fallos → mucho más de 15 min                                                                      |
+| T-59-7  | Un intento durante el bloqueo no lo alarga                                         | si no, cualquiera puede dejar fuera a un usuario                                                     |
+| T-59-8  | Un login correcto reinicia el contador                                             |                                                                                                      |
+| T-59-9  | El email no distingue mayúsculas                                                   | ADR-201                                                                                              |
+| T-59-10 | Cambiar la contraseña invalida las sesiones abiertas                               | claim `pwdV`                                                                                         |
+| T-59-11 | **Borrar el usuario invalida su sesión**                                           | JWT válido + fila ausente → sesión inválida. Es el escenario de "he echado a alguien y sigue dentro" |
 
 ### 4.6 Middleware (#60)
 
