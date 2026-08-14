@@ -96,7 +96,20 @@ Cookie `httpOnly; Secure; SameSite=Lax`, JWT firmado con `AUTH_SECRET`, 7 días 
 **Invalidación al cambiar contraseña**: el JWT lleva un claim `pwdV` que se compara con un
 contador de la fila del usuario. Cambiar la contraseña lo incrementa y todas las sesiones
 abiertas dejan de valer. Requiere **una columna nueva**, y por tanto una migración: `SPEC.md`
-§4 no la contempla, así que va con ADR.
+§4 no la contempla, así que va con ADR (ADR-301).
+
+Qué se hace cuando la comprobación no pasa, que la spec no dice y tiene dos respuestas muy
+distintas:
+
+- **`pwdV` distinto → la sesión es inválida.** Se trata como no haber iniciado sesión: el
+  middleware redirige a login. No se devuelve un error que distinga "tu sesión caducó
+  porque cambiaste la contraseña" de "no has iniciado sesión", porque esa distinción no le
+  sirve a nadie salvo a quien esté probando cuentas.
+- **La fila del usuario NO existe → la sesión es inválida**, y se declara así de forma
+  explícita en vez de dejarlo al resultado de comparar `undefined` con un número. Es el
+  escenario de "he echado a alguien y sigue dentro": una cuenta borrada con un JWT todavía
+  vigente. Que la respuesta correcta salga por accidente de cómo esté escrita la comparación
+  no es tener la protección, es tenerla por casualidad.
 
 ### 3.6 Cabeceras y CSP (§7.2)
 
@@ -218,24 +231,28 @@ caracteres: uno corto convertiría todo el bootstrap en adivinable.
 DoD del hito: cada fila tiene un test o una razón escrita. Se rellena al cerrar M2 y se
 copia a `docs/SECURITY.md` en M6.
 
-| Amenaza                 | Dónde se cubre                                                  |
-| ----------------------- | --------------------------------------------------------------- |
-| Fuerza bruta en login   | T-59-4 a T-59-8, T-57-1                                         |
-| XSS vía contenido       | Ya cubierto en M1 (links, richtext, atributos)                  |
-| CSRF                    | T-60-7                                                          |
-| Clickjacking            | T-60-3                                                          |
-| Inyección SQL           | Regla de lint (M0) + Drizzle (M1)                               |
-| Escalada de privilegios | `CHECK` de `role` (M1) + guard de rol; las actions llegan en M3 |
-| Robo de sesión          | T-59-10, cookies (T-60-2)                                       |
-| Abuso de uploads        | **M4**                                                          |
-| Enumeración             | T-59-3, T-55-7, T-61-3                                          |
-| Secretos en cliente     | Frontera `server-only` (M0/M1)                                  |
-| Dependencias            | `pnpm audit` en CI (M0)                                         |
+| Amenaza                 | Dónde se cubre                                                                                                                                                                                                                                                                      |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fuerza bruta en login   | T-59-4 a T-59-8, T-57-1                                                                                                                                                                                                                                                             |
+| XSS vía contenido       | Ya cubierto en M1 (links, richtext, atributos)                                                                                                                                                                                                                                      |
+| CSRF                    | T-60-7                                                                                                                                                                                                                                                                              |
+| Clickjacking            | T-60-3                                                                                                                                                                                                                                                                              |
+| Inyección SQL           | Regla de lint (M0) + Drizzle (M1)                                                                                                                                                                                                                                                   |
+| Escalada de privilegios | ⚠️ **NO se cierra en M2.** El `CHECK` de `role` (M1) impide que exista un rol inventado; §7.1 pide otra cosa: "chequeo de rol en cada action (server), no solo en UI". Las actions son de **M3**, y es allí donde esta fila se cubre. M2 solo aporta que el rol exista y sea fiable |
+| Robo de sesión          | T-59-10, cookies (T-60-2)                                                                                                                                                                                                                                                           |
+| Abuso de uploads        | **M4**                                                                                                                                                                                                                                                                              |
+| Enumeración             | T-59-3, T-55-7, T-61-3                                                                                                                                                                                                                                                              |
+| Secretos en cliente     | Frontera `server-only` (M0/M1)                                                                                                                                                                                                                                                      |
+| Dependencias            | `pnpm audit` en CI (M0)                                                                                                                                                                                                                                                             |
 
 ## 6. Definition of Done de M2
 
 1. Imposible acceder a `/admin` sin sesión, demostrado con e2e.
-2. Cada amenaza automatizable de §7.1 tiene al menos un test que la ejercita.
+2. Cada amenaza automatizable de §7.1 tiene al menos un test que la ejercita, **salvo dos
+   filas que se declaran abiertas con su hito destinatario**: escalada de privilegios (M3,
+   con las actions) y abuso de uploads (M4, con la biblioteca de medios). Una fila abierta
+   con dueño vale más que una fila cerrada de forma optimista: así es como una amenaza se
+   queda sin cubrir, con cada hito suponiendo que la cubre el otro.
 3. Todos los casos de §4 pasan; ninguno se da por bueno estando en rojo.
 4. `docs/PROGRESS.md` cierra M2 con qué funciona, qué es frágil y qué probar a mano.
 
