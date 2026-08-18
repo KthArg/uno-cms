@@ -24,6 +24,16 @@ import { verifyDecoy, verifyPassword } from './passwords';
  *
  * Eso incluye **el tiempo**: por eso el caso de correo inexistente verifica un hash señuelo
  * en vez de responder de inmediato.
+ *
+ * ## Lo que la auditoría sí distingue, y conviene saberlo
+ *
+ * `audit_log` registra `login.locked` y `login.ratelimited`, que **solo existen para cuentas
+ * reales**: un correo inexistente nunca produce `login.locked`. O sea que la tabla de
+ * auditoría distingue lo que el formulario se esfuerza en no distinguir.
+ *
+ * No es un fallo —quien lee esa tabla es el administrador, que ya puede consultar `users`
+ * directamente— pero **sí es una restricción sobre quién puede verla**: si M4 expone un
+ * panel de auditoría, no puede quedar al alcance del rol `editor` ni de nadie sin sesión.
  */
 
 export interface AuthenticateInput {
@@ -75,7 +85,11 @@ export async function authenticate(
   const limiter = getLoginRateLimiter();
   const limitKey = loginRateLimitKey(ip, email);
 
-  if (!limiter.check(limitKey).allowed) {
+  // `peek` y no `check`: se consulta sin consumir, y la cuota se gasta más abajo **solo si
+  // el intento falla**. Un acierto no debe gastar presupuesto de nadie: la clave es
+  // IP + correo, así que en una red compartida —una oficina, un NAT de operador— cinco
+  // errores de tecleo dejarían fuera a un compañero durante quince minutos.
+  if (!limiter.peek(limitKey).allowed) {
     await audit({
       action: 'login.ratelimited',
       actorEmail: email,
@@ -88,6 +102,7 @@ export async function authenticate(
   const user = await findByEmail(email);
 
   if (user === undefined) {
+    limiter.check(limitKey);
     // Verificar el señuelo cuesta lo mismo que verificar una contraseña real. Sin esto, el
     // login responde en microsegundos para un correo desconocido y en decenas de
     // milisegundos para uno real, y esa diferencia es un comprobador de cuentas.
@@ -103,6 +118,7 @@ export async function authenticate(
   }
 
   if (isLocked(user.lockedUntil, now)) {
+    limiter.check(limitKey);
     // No se verifica la contraseña ni se toca el contador: un intento durante el bloqueo no
     // lo alarga (ver `nextFailureState`).
     await audit({
@@ -118,6 +134,8 @@ export async function authenticate(
   const passwordOk = await verifyPassword(user.passwordHash, input.password);
 
   if (!passwordOk) {
+    limiter.check(limitKey);
+
     const next = nextFailureState(
       { failedLogins: user.failedLogins, lockedUntil: user.lockedUntil },
       now

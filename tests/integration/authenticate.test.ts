@@ -13,6 +13,14 @@ import { describeIntegration } from './env';
 const PASSWORD = 'una-contrasena-larga-y-poco-comun';
 const EMAIL = 'ana@ejemplo.com';
 
+/**
+ * El hash se calcula una vez y se reutiliza: Argon2 cuesta decenas de milisegundos y aquí
+ * hay doce tests.
+ *
+ * **Ojo al añadir tests:** este helper crea usuarios cuya contraseña es siempre `PASSWORD`.
+ * Si necesitas otra, no reutilices `crearUsuario` — obtendrías un usuario cuyo hash no
+ * corresponde a lo que crees.
+ */
 let hash: string;
 
 async function crearUsuario(email = EMAIL) {
@@ -187,6 +195,21 @@ describeIntegration('autenticación', () => {
     // "He echado a alguien y sigue dentro". Se decide de forma explícita, no por cómo salga
     // comparar `undefined` con un número.
     expect(await isSessionStillValid(user.id, 0)).toBe(false);
+  });
+
+  it('un login correcto NO consume cuota del límite', async () => {
+    // La clave es IP + correo. Si un acierto gastara cuota, en una red compartida —una
+    // oficina, un NAT de operador— cinco entradas correctas seguidas dejarían al sexto
+    // usuario legítimo sin poder entrar. Y peor: cinco errores de tecleo de un compañero
+    // dejan fuera al dueño de la cuenta desde toda la red.
+    await crearUsuario();
+
+    for (let i = 0; i < 8; i += 1) {
+      const result = await authenticate({ email: EMAIL, password: PASSWORD, ip: '1.2.3.4' });
+      expect(result.ok, `el intento correcto ${i + 1} debería pasar`).toBe(true);
+    }
+
+    expect(await acciones()).not.toContain('login.ratelimited');
   });
 
   it('el límite de intentos corta antes de tocar la base de datos', async () => {
