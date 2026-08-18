@@ -36,6 +36,25 @@ declare module 'next-auth' {
 }
 
 export const authConfig = {
+  /**
+   * Auth.js rechaza peticiones cuyo `Host` no reconoce, salvo en Vercel, donde lo detecta
+   * solo. Como `SPEC.md` §0 dice "auto-hospedable", hay que decidirlo aquí.
+   *
+   * Se confía en el `Host`, con dos mitigaciones que ya existen y que son las que hacen que
+   * la decisión sea aceptable:
+   *
+   * - La única redirección que construimos con datos externos es la de la página de acceso,
+   *   y solo acepta rutas internas: se rechaza cualquier destino que no empiece por `/`, y
+   *   también `//host`, que es una URL externa disfrazada de ruta.
+   * - La CSP fija `form-action 'self'` y `base-uri 'self'` (SPEC §7.2), así que un `Host`
+   *   falsificado no puede llevarse un envío de formulario a otro sitio.
+   *
+   * **Lo que queda vivo:** un proxy mal configurado delante puede inyectar `Host` y hacer
+   * que los enlaces absolutos que genere Auth.js apunten a otro dominio. La defensa contra
+   * eso no está aquí, está en definir `AUTH_URL` en el despliegue, y así queda dicho en
+   * `.env.example`.
+   */
+  trustHost: true,
   session: { strategy: 'jwt', maxAge: SESSION_MAX_AGE_SECONDS },
   pages: { signIn: '/admin/login' },
   providers: [
