@@ -43,7 +43,17 @@ export interface RateLimiterOptions {
 }
 
 export interface RateLimiter {
+  /** Consume un intento y devuelve si estaba permitido. */
   check(key: string): RateLimitResult;
+  /**
+   * Consulta el estado **sin consumir** un intento.
+   *
+   * Existe para que el login pueda comprobar el límite antes de verificar credenciales y
+   * consumir cuota **solo si fallan**: un acierto no debe gastar el presupuesto de nadie.
+   * Sin esto, cinco errores de tecleo desde una IP compartida —una oficina, una red móvil
+   * con NAT— dejan a un compañero sin poder entrar durante quince minutos.
+   */
+  peek(key: string): RateLimitResult;
   /** Para el reinicio tras un login correcto, y para los tests. */
   reset(key: string): void;
   /**
@@ -100,6 +110,21 @@ export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
 
       return {
         allowed: existing.count <= options.limit,
+        remaining: Math.max(0, options.limit - existing.count),
+        resetAt: existing.resetAt,
+      };
+    },
+
+    peek(key: string): RateLimitResult {
+      const current = now();
+      const existing = windows.get(key);
+
+      if (existing === undefined || existing.resetAt <= current) {
+        return { allowed: true, remaining: options.limit, resetAt: current + options.windowMs };
+      }
+
+      return {
+        allowed: existing.count < options.limit,
         remaining: Math.max(0, options.limit - existing.count),
         resetAt: existing.resetAt,
       };

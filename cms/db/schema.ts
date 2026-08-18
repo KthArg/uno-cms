@@ -58,6 +58,15 @@ export const users = pgTable(
     passwordHash: text('password_hash').notNull(), // argon2id (ADR-004)
     role: text('role', { enum: USER_ROLES }).notNull().default('editor'),
     totpSecret: text('totp_secret'), // reservado v1.1, cifrado at-rest con APP_SECRET
+    /**
+     * Contador para invalidar sesiones al cambiar la contraseña (ADR-301, SPEC §7.1
+     * "Robo de sesión", claim `pwdV`).
+     *
+     * No está en SPEC §4: un JWT es autónomo por definición, así que sin un contador contra
+     * el que comparar, cambiar la contraseña —lo que hace cualquiera al sospechar que le han
+     * entrado— no expulsa a nadie hasta que la sesión caduque sola, siete días después.
+     */
+    passwordVersion: integer('password_version').notNull().default(0),
     failedLogins: integer('failed_logins').notNull().default(0),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
