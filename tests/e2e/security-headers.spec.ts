@@ -42,15 +42,29 @@ test('T-60-4: el nonce cambia en cada petición', async ({ request }) => {
   expect(primero).not.toBe(segundo);
 });
 
-test('T-60-5: X-Robots-Tag solo en las rutas privadas', async ({ request }) => {
-  const landing = await request.get('/');
-  // En la landing sería un error caro: costaría el posicionamiento del sitio entero.
-  expect(landing.headers()['x-robots-tag']).toBeUndefined();
+test('T-60-5: X-Robots-Tag ausente en la landing', async ({ request }) => {
+  // En la landing sería un error caro: costaría el posicionamiento del sitio entero y nadie
+  // lo notaría hasta semanas después.
+  expect((await request.get('/')).headers()['x-robots-tag']).toBeUndefined();
+});
 
-  for (const ruta of ['/admin', '/setup', '/api/health']) {
-    const response = await request.get(ruta, { maxRedirects: 0 });
+test('T-60-5: X-Robots-Tag en respuestas 200 de rutas privadas', async ({ request }) => {
+  // Se comprueban respuestas con contenido, no redirecciones: si la cabecera solo estuviera
+  // en el redirect de /admin, la página real quedaría indexable y el test anterior —que
+  // mezclaba ambos casos— seguiría en verde.
+  for (const ruta of ['/setup', '/api/health']) {
+    const response = await request.get(ruta);
+    expect(response.status(), `${ruta} debería responder sin redirigir`).toBeLessThan(300);
     expect(response.headers()['x-robots-tag'], `${ruta} debe llevar noindex`).toBe('noindex');
   }
+});
+
+test('T-60-5: X-Robots-Tag también en la redirección de /admin', async ({ request }) => {
+  // La respuesta 307 también es indexable si un rastreador la sigue, así que la cabecera
+  // tiene que estar en ambas.
+  const response = await request.get('/admin', { maxRedirects: 0 });
+  expect(response.status()).toBe(307);
+  expect(response.headers()['x-robots-tag']).toBe('noindex');
 });
 
 test('T-60-6: la CSP de producción no lleva unsafe-eval', async ({ request }) => {

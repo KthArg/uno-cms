@@ -113,7 +113,11 @@ function hasForeignOrigin(request: NextRequest): boolean {
 export default auth((request) => {
   // Nonce nuevo por petición. Reutilizarlo anularía la protección: el sentido del nonce es
   // que un atacante no pueda conocerlo de antemano.
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+  //
+  // 16 bytes aleatorios, no un UUID codificado en base64. Un UUID también valdría —122 bits
+  // sobran— pero pasarlo por base64 produce 48 caracteres de los que varios son guiones
+  // fijos: parece más entropía de la que hay, y el código acabaría diciendo algo que no es.
+  const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64');
 
   if (hasForeignOrigin(request)) {
     const rejected = new NextResponse('Origen no permitido', { status: 403 });
