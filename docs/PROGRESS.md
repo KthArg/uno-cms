@@ -151,9 +151,82 @@ allí; ningún caso quedó dado por bueno estando en rojo.
   comprobé por mutación: el filtro de caracteres de control de los enlaces, la limpieza
   entre tests y el tipado de `titleField`. Las tres pasaron a estarlo.
 
-## M2 — Autenticación y seguridad base ⏳
+## M2 — Autenticación y seguridad base ✅
 
-Pendiente.
+**Cerrado.** 8 issues de fase, 8 PR. 256 tests unitarios, 54 de integración y 14 e2e.
+
+### Qué funciona
+
+| Área            | Estado                                                                                                                                       |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tokens firmados | HMAC-SHA256 con el **propósito dentro de la firma**; comparación en tiempo constante; expiración comprobada después de la firma              |
+| Contraseñas     | Argon2id con parámetros de OWASP; hash señuelo contra enumeración; política de 12 caracteres con lista de comunes embebida                   |
+| Rate limit      | 5 por 15 min por IP+correo, con la degradación anunciada al arrancar. Un acierto **no** consume cuota                                        |
+| Auditoría       | IP truncada al /24 y /64, limpieza de secretos en profundidad, retención de 90 días. **Nunca tumba la operación**                            |
+| Autenticación   | Lockout exponencial con tope de 24 h; un intento durante el bloqueo no lo alarga; sesión invalidada al cambiar contraseña o borrar la cuenta |
+| Middleware      | Cabeceras de §7.2, CSP con nonce por petición, guard de `/admin`, comprobación de origen                                                     |
+| Bootstrap       | Un solo uso, transaccional, con límite de intentos y sin oráculo de token                                                                    |
+
+### La tabla de amenazas de §7.1
+
+| Amenaza                     | Estado                                                                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Fuerza bruta en login       | ✅ Lockout persistente + rate limit + Argon2id                                                                               |
+| XSS vía contenido           | ✅ Cerrada en M1                                                                                                             |
+| CSRF                        | ✅ Comprobación de origen en el middleware, sobre lo que ya hacen las Server Actions                                         |
+| Clickjacking                | ✅ `frame-ancestors 'self'`, verificado sobre la respuesta real                                                              |
+| Inyección SQL               | ✅ Regla de lint (M0) + Drizzle (M1)                                                                                         |
+| **Escalada de privilegios** | ⚠️ **Abierta.** §7.1 pide "chequeo de rol en cada action", y las actions son de M3. M2 aporta que el rol exista y sea fiable |
+| Robo de sesión              | ✅ Cookies, claim `pwdV`, cuenta borrada = sesión inválida                                                                   |
+| **Abuso de uploads**        | ⚠️ **Abierta.** No hay uploads todavía; M4                                                                                   |
+| Enumeración                 | ✅ Mismo resultado y mismo coste temporal en login, tokens y bootstrap                                                       |
+| Secretos en cliente         | ✅ Frontera `server-only` (M0/M1)                                                                                            |
+| Dependencias                | ✅ `pnpm audit` bloqueante                                                                                                   |
+
+Dos filas abiertas **con dueño**, tal como declara el spec de fase. Una fila abierta con
+dueño vale más que una cerrada de forma optimista.
+
+### Qué es frágil
+
+1. **`next-auth` es una beta** en el camino de la autenticación. Lo fija SPEC §2, así que no
+   es una decisión de este proyecto, pero es una beta.
+2. **La landing ya no cumple SPEC §8.** El guard de bootstrap la obliga a ser dinámica, y
+   sin `force-dynamic` **el build falla sin base de datos**. Issue #71, con evidencia.
+3. **Los dos guards de `/admin` pueden divergir** (#70). El caso que no se nota: una ruta
+   privada creada fuera del grupo `(panel)` queda sin la comprobación de `pwdV` y funciona
+   perfectamente mientras protege menos de lo que parece.
+4. **`trustHost: true`.** Con mitigaciones y con `AUTH_URL` documentado, pero es confianza en
+   una cabecera. Apareció como error en los logs del e2e **sin tumbar ningún test**.
+5. **El rate limit es por instancia** (ADR-303, #65). El lockout, que sí es global, es lo que
+   sostiene el caso.
+6. **Ninguna comparación en tiempo constante está demostrada**, solo defendida de que alguien
+   la elimine, con tests que leen el fuente. La propiedad no es observable.
+7. **Los parámetros de Argon2id no se han medido en Vercel**, y `@node-rs/argon2` es un
+   módulo nativo cuyo funcionamiento en ese runtime sigue siendo una suposición.
+8. **El proveedor de credenciales de Auth.js no lo ejercita ningún test.** Sí todo lo que
+   hay debajo; la cadena completa se prueba de verdad en M4.
+
+### Qué probaría a mano
+
+- El flujo entero en un despliegue real: `/setup` → crear administrador → entrar → `/admin`.
+  Es lo único que ejercita el proveedor de credenciales y las cookies de verdad.
+- Cambiar la contraseña con dos navegadores abiertos y comprobar que el segundo cae.
+- Bloquear una cuenta a propósito y comprobar el mensaje que ve el editor.
+
+### Lo que enseñó este hito
+
+**Cuatro protecciones resultaron no estar ejercitadas por ningún test**, y las cuatro se
+descubrieron por mutación, no leyendo:
+
+- El filtro de caracteres de control de los enlaces (M1).
+- El señuelo de tiempo del login: el umbral laxo que copié del test unitario dejaba pasar la
+  mutación, porque el camino del correo inexistente ya hace una consulta a la base de datos.
+- La poda del rate limit: comprobaba que una clave volviera a permitirse, y eso pasa igual
+  sin poda.
+- La comparación en tiempo constante, dos veces — y esa no se puede arreglar, solo proteger.
+
+Y dos veces el **build** cazó lo que los tests no: el `const enum` de Argon2 y el prerender
+de la landing.
 
 ## M3 — API de contenido (server actions) ⏳
 
