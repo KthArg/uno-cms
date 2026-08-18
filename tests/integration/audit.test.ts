@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { RETENTION_DAYS, audit, maybePrune, resetPruneClockForTests } from '@/cms/security/audit';
 import { auditLog, getDb, users } from '@/cms/db';
 import { describeIntegration } from './env';
@@ -138,8 +138,7 @@ describeIntegration('registro de auditoría', () => {
 
     const log: unknown[][] = [];
 
-    // Una acción que viola el `not null` de la columna: el insert falla de verdad, no
-    // simulado.
+    // Una acción que viola el `not null` de la columna: el insert falla de verdad.
     await expect(
       audit(
         { action: undefined as unknown as string },
@@ -151,5 +150,64 @@ describeIntegration('registro de auditoría', () => {
     expect(String(log[0]?.[0])).toContain('la operación continúa');
     // El error real se pasa al log; tragárselo dejaría creer que hay rastro cuando no lo hay.
     expect(log[0]?.[1]).toBeDefined();
+  });
+
+  it('T-58-6: tampoco tumba la operación si la base de datos no responde', async () => {
+    // El caso anterior es un fallo del que la propia auditoría es culpable: le pasamos un
+    // evento inválido. El que de verdad importa es este: la base de datos caída, lenta o
+    // llena **mientras alguien intenta iniciar sesión**. Con solo el primer test, un cambio
+    // que hiciera `audit` estricto con sus argumentos —lanzar antes de tocar la base—
+    // dejaría el test en verde y el contrato roto.
+    resetPruneClockForTests();
+
+    const { drizzle } = await import('drizzle-orm/node-postgres');
+    const { Pool } = await import('pg');
+    const pool = new Pool({ connectionString: 'postgres://nadie:nadie@127.0.0.1:1/nada' });
+    const roto = drizzle(pool);
+    await pool.end(); // el pool ya no acepta consultas
+
+    const log: unknown[][] = [];
+    const original = getDb;
+
+    // Se sustituye el cliente solo durante esta llamada.
+    const spy = vi.spyOn(await import('@/cms/db'), 'getDb').mockReturnValue(roto as never);
+
+    await expect(
+      audit(
+        { action: 'login.fail', actorEmail: 'ana@ejemplo.com' },
+        { log: (message, error) => log.push([message, error]) }
+      )
+    ).resolves.toBeUndefined();
+
+    spy.mockRestore();
+    expect(original).toBeDefined();
+
+    expect(log).toHaveLength(1);
+    expect(String(log[0]?.[0])).toContain('la operación continúa');
+  });
+
+  it('un metadato que revienta al leerse pierde el contexto, no el evento', async () => {
+    // Un getter que lanza rompe `Object.entries`. Sin separar la limpieza del insert, eso
+    // se llevaba por delante el evento entero —incluida la acción, que es el dato que
+    // importa— por culpa de un objeto raro en el contexto.
+    resetPruneClockForTests();
+
+    const log: unknown[][] = [];
+    const meta = {
+      get token(): string {
+        throw new Error('getter explosivo');
+      },
+    } as unknown as Record<string, unknown>;
+
+    await audit(
+      { action: 'login.fail', actorEmail: 'ana@ejemplo.com', meta },
+      { log: (message, error) => log.push([message, error]) }
+    );
+
+    const [row] = await rows();
+    expect(row?.action, 'el evento se registra igualmente').toBe('login.fail');
+    expect(row?.actorEmail).toBe('ana@ejemplo.com');
+    expect(row?.meta).toMatchObject({ metaDescartada: true });
+    expect(String(log[0]?.[0])).toContain('sin ellos');
   });
 });

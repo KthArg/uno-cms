@@ -207,15 +207,25 @@ export interface AuditOptions {
 export async function audit(event: AuditEvent, options: AuditOptions = {}): Promise<void> {
   const log = options.log ?? ((message, error) => console.error(message, error));
 
+  // La limpieza va en su propio try, aparte del insert. Si falla —un objeto con un getter
+  // que lanza, por ejemplo— se pierde el CONTEXTO, no el evento: la acción, el actor y la
+  // fecha valen aunque los metadatos se caigan. Un `login.fail` que no se registra porque
+  // alguien metió un objeto raro en el contexto es justo el evento que no se puede perder.
+  let meta: Record<string, unknown>;
   try {
-    const meta: Record<string, unknown> = {
+    meta = {
       ...(event.meta === undefined ? {} : (scrubMeta(event.meta) as Record<string, unknown>)),
     };
 
     const ip = truncateIp(event.ip);
     if (ip !== undefined) meta['ip'] = ip;
     if (event.userAgent !== undefined) meta['userAgent'] = scrubMeta(event.userAgent);
+  } catch (error) {
+    log('[audit] No se pudieron limpiar los metadatos; se registra el evento sin ellos.', error);
+    meta = { metaDescartada: true };
+  }
 
+  try {
     await getDb()
       .insert(auditLog)
       .values({
