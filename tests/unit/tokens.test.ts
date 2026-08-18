@@ -193,3 +193,23 @@ describe('APP_SECRET ausente o corto', () => {
     expect(() => signToken('preview', {})).toThrow(/APP_SECRET/);
   });
 });
+
+describe('la comparación del SETUP_TOKEN también es en tiempo constante', () => {
+  it('cms/auth/setup.ts usa timingSafeEqual', async () => {
+    // Mismo caso y mismo razonamiento que el test de arriba: sustituir `timingSafeEqual`
+    // por `===` no cambia ni un resultado, y lo comprobé por mutación —los 52 tests de
+    // integración siguieron en verde—. Aquí importa especialmente: con `===`, el tiempo de
+    // respuesta filtra cuántos caracteres iniciales del token se han acertado, y eso
+    // convierte adivinar 32 caracteres en adivinarlos de uno en uno.
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+
+    const source = readFileSync(
+      fileURLToPath(new URL('../../cms/auth/setup.ts', import.meta.url)),
+      'utf8'
+    );
+
+    expect(source).toContain('timingSafeEqual');
+    expect(source).not.toMatch(/provided === expected/);
+  });
+});

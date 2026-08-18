@@ -13,6 +13,10 @@ const baseURL = process.env['E2E_BASE_URL'] ?? `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // Deja la base en el estado de un sitio ya configurado antes de arrancar el servidor: sin
+  // esto, el guard de SPEC §7.3 redirige la landing a /setup y los tests de cabeceras de la
+  // ruta pública acaban comprobando las de /setup.
+  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: true,
   // Un `.only` olvidado no debe colar un PR con la mitad de la suite sin ejecutar.
   forbidOnly: Boolean(process.env['CI']),

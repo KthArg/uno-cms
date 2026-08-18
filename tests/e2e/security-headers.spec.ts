@@ -52,9 +52,16 @@ test('T-60-5: X-Robots-Tag en respuestas 200 de rutas privadas', async ({ reques
   // Se comprueban respuestas con contenido, no redirecciones: si la cabecera solo estuviera
   // en el redirect de /admin, la página real quedaría indexable y el test anterior —que
   // mezclaba ambos casos— seguiría en verde.
-  for (const ruta of ['/setup', '/api/health']) {
-    const response = await request.get(ruta);
-    expect(response.status(), `${ruta} debería responder sin redirigir`).toBeLessThan(300);
+  // `/setup` responde 404 en un sitio configurado, que es el estado de esta suite; la
+  // cabecera tiene que estar igualmente, porque un 404 también se puede indexar.
+  for (const ruta of ['/api/health', '/setup']) {
+    const response = await request.get(ruta, { failOnStatusCode: false });
+    // Lo que importa es que NO sea una redirección: `/api/health` responde 200 y `/setup`
+    // responde 404 en un sitio configurado, y ambas respuestas son indexables.
+    const status = response.status();
+    expect(status < 300 || status >= 400, `${ruta} no debería redirigir (fue ${status})`).toBe(
+      true
+    );
     expect(response.headers()['x-robots-tag'], `${ruta} debe llevar noindex`).toBe('noindex');
   }
 });
@@ -108,4 +115,14 @@ test('T-60-7: una petición GET con Origin ajeno NO se rechaza', async ({ reques
   });
 
   expect(response.status()).toBe(200);
+});
+
+test('T-61-5: /setup devuelve 404 en un sitio ya configurado', async ({ request }) => {
+  // El estado normal de un despliegue. Un 404 y no un 403: un 403 confirmaría que la ruta
+  // existe y que alguien se configuró ahí, y esa información no le hace falta a nadie.
+  //
+  // El caso contrario —sitio recién desplegado, /setup accesible— se cubre en los tests de
+  // integración, donde se puede controlar el estado de la base por test.
+  const response = await request.get('/setup', { failOnStatusCode: false });
+  expect(response.status()).toBe(404);
 });
