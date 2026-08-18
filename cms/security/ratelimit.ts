@@ -44,8 +44,14 @@ export interface RateLimiterOptions {
 
 export interface RateLimiter {
   check(key: string): RateLimitResult;
-  /** Solo para tests y para el reinicio tras un login correcto. */
+  /** Para el reinicio tras un login correcto, y para los tests. */
   reset(key: string): void;
+  /**
+   * Ventanas vivas en memoria. Existe para que el test de poda pueda comprobar que la poda
+   * ocurre: sin observarlo, ese test pasaría igual con la poda desactivada, porque las
+   * ventanas caducadas se permiten de todas formas al comprobarlas.
+   */
+  readonly size: number;
 }
 
 interface Window {
@@ -102,6 +108,10 @@ export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
     reset(key: string): void {
       windows.delete(key);
     },
+
+    get size(): number {
+      return windows.size;
+    },
   };
 }
 
@@ -148,7 +158,13 @@ export function resetDegradationWarningForTests(): void {
 let loginLimiter: RateLimiter | undefined;
 
 export function getLoginRateLimiter(): RateLimiter {
-  warnIfDegraded();
   loginLimiter ??= createRateLimiter({ limit: LOGIN_LIMIT, windowMs: LOGIN_WINDOW_MS });
   return loginLimiter;
 }
+
+// El aviso se dispara al IMPORTAR el módulo, no al pedir el limitador.
+//
+// Colgado de `getLoginRateLimiter`, solo salía cuando alguien intentaba iniciar sesión: en
+// un despliegue donde nadie entre todavía, la degradación no se anunciaría nunca, y quien
+// desplegó se enteraría al sufrirla. ADR-303 promete avisar al arrancar, no al usarse.
+warnIfDegraded();

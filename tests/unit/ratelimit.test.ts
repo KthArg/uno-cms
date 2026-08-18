@@ -185,15 +185,34 @@ describe('el mapa de ventanas no crece sin límite', () => {
   it('poda las ventanas caducadas al superar el umbral', () => {
     // Sin poda, el mapa acumula una entrada por cada par IP+correo que lo intente: en un
     // proceso de larga vida es una fuga de memoria con forma de defensa de seguridad.
+    //
+    // Se observa el TAMAÑO del mapa y no si una clave vuelve a permitirse. La primera
+    // versión de este test hacía lo segundo, y pasaba igual con la poda desactivada: una
+    // ventana caducada se permite de todas formas al comprobarla, se haya podado o no.
     const clock = fakeClock();
     const limiter = createRateLimiter({ limit: 1, windowMs: 1000, now: clock.now });
 
     for (let i = 0; i < 1500; i += 1) limiter.check(`k${i}`);
+    expect(limiter.size).toBe(1500);
 
     clock.advance(2000);
-    // Tras caducar todas, una escritura más dispara la poda; la comprobación indirecta es
-    // que la clave 0 vuelve a estar permitida y el limitador sigue respondiendo.
-    expect(limiter.check('k0').allowed).toBe(true);
-    expect(limiter.check('k0').allowed).toBe(false);
+    limiter.check('disparador');
+
+    // Las 1500 caducadas se han ido; queda la que acaba de crearse.
+    expect(limiter.size).toBe(1);
+  });
+
+  it('no poda ventanas todavía vivas', () => {
+    // Podar de más sería peor que no podar: reiniciaría el contador de quien está en mitad
+    // de su ventana y le daría intentos gratis.
+    const clock = fakeClock();
+    const limiter = createRateLimiter({ limit: 1, windowMs: 10_000, now: clock.now });
+
+    for (let i = 0; i < 1500; i += 1) limiter.check(`k${i}`);
+    clock.advance(1000);
+    limiter.check('disparador');
+
+    expect(limiter.size).toBe(1501);
+    expect(limiter.check('k0').allowed, 'k0 sigue bloqueada').toBe(false);
   });
 });
