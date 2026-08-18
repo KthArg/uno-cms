@@ -15,6 +15,13 @@
       "when": 1786657188049,
       "tag": "0001_sour_shiva",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787046158176,
+      "tag": "0002_slimy_wasp",
+      "breakpoints": true
     }
   ]
 }
