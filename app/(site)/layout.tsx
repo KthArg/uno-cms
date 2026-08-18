@@ -14,11 +14,19 @@ import { isSetupCompleted } from '@/cms/auth/setup';
  * datos en el camino caliente. Un layout `async` que consulta la base la vuelve dinámica.
  *
  * La mitigación es que `isSetupCompleted()` memoriza el `true`: una vez configurado el
- * sitio no hay ninguna consulta más en todo el proceso. Pero **la ruta sigue siendo
- * dinámica**, y eso choca con el ISR por tags que llega en M5. Está registrado como issue
- * para resolverlo entonces, cuando exista el contenido real que cachear y se pueda medir el
- * coste de verdad en vez de suponerlo.
+ * sitio no hay ninguna consulta más en todo el proceso. Pero la ruta sigue siendo dinámica,
+ * y eso choca con el ISR por tags que llega en M5.
+ *
+ * `force-dynamic` es obligatorio, no una preferencia: sin él, Next intenta **prerenderizar
+ * la landing durante el build** y el guard consulta la base de datos ahí mismo. El resultado
+ * es un build que falla sin `DATABASE_URL` —lo tumbó en CI— y, peor, una landing con el
+ * estado del bootstrap **congelado en el momento del build**.
+ *
+ * O sea que la tensión con §8 no es teórica ni futura: hoy cuesta la estaticidad de la
+ * landing entera. Está en el issue #71 con cuatro salidas evaluadas, para resolverlo en M5
+ * con contenido real que medir en vez de suponer.
  */
+export const dynamic = 'force-dynamic';
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   if (!(await isSetupCompleted())) redirect('/setup');
 
