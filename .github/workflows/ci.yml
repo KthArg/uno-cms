@@ -134,6 +134,29 @@ jobs:
   e2e:
     name: e2e
     runs-on: ubuntu-latest
+    # El e2e comprueba el guard de /admin y las cabeceras de SPEC §7.2, así que necesita
+    # secretos de sesión y una base de datos: el layout del panel consulta el claim `pwdV`
+    # (ADR-301) y /api/health hace ping a Postgres.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: unocms
+          POSTGRES_PASSWORD: unocms
+          POSTGRES_DB: unocms_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U unocms"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://unocms:unocms@localhost:5432/unocms_e2e
+      # Secretos de usar y tirar, solo para esta ejecución. No son secretos reales y no
+      # tienen por qué estar en los ajustes del repositorio.
+      AUTH_SECRET: e2e-solo-para-ci-con-mas-de-treinta-y-dos-caracteres
+      APP_SECRET: e2e-otro-distinto-tambien-de-mas-de-treinta-y-dos
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -149,6 +172,8 @@ jobs:
         run: |
           version=$(node -p "require('./package.json').devDependencies['@playwright/test']")
           echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: aplicar migraciones
+        run: pnpm db:migrate
       - name: caché de navegadores de Playwright
         uses: actions/cache@v6
         id: playwright-cache
