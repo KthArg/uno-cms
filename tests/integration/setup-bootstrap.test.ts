@@ -6,6 +6,7 @@ import {
   completeSetup,
   isSetupCompleted,
   resetSetupCacheForTests,
+  resetSetupLimiterForTests,
 } from '@/cms/auth/setup';
 import { auditLog, getDb, settings, users } from '@/cms/db';
 import { describeIntegration } from './env';
@@ -29,6 +30,8 @@ describeIntegration('bootstrap del primer administrador', () => {
     // El caché es de proceso: sin esto, el primer test que complete el bootstrap dejaría a
     // todos los siguientes creyendo que ya está hecho.
     resetSetupCacheForTests();
+    resetSetupLimiterForTests('9.9.9.9');
+    resetSetupLimiterForTests('1.1.1.1');
     vi.stubEnv('SETUP_TOKEN', TOKEN);
   });
 
@@ -145,6 +148,42 @@ describeIntegration('bootstrap del primer administrador', () => {
     expect(serializado).not.toContain(TOKEN);
     // Y la IP truncada, igual que en cualquier otro evento.
     expect(serializado).toContain('192.168.1.0');
+  });
+
+  it('una contraseña mala responde igual con token correcto que con token incorrecto', async () => {
+    // Si el token se comprobara primero, recibir `password` confirmaría que el código de
+    // instalación era el bueno, y eso convierte el formulario en un oráculo para probar
+    // tokens sin llegar a crear la cuenta.
+    const falso = 'un-token-equivocado-pero-igual-de-largo';
+
+    const conTokenBueno = await completeSetup({ ...ENTRADA, password: 'corta', ip: '1.1.1.1' });
+    const conTokenMalo = await completeSetup({
+      ...ENTRADA,
+      token: falso,
+      password: 'corta',
+      ip: '1.1.1.1',
+    });
+
+    expect(conTokenBueno).toEqual({ ok: false, reason: 'password' });
+    expect(conTokenMalo).toEqual({ ok: false, reason: 'password' });
+  });
+
+  it('hay límite de intentos: es la única puerta a una cuenta de administrador', async () => {
+    const falso = 'un-token-equivocado-pero-igual-de-largo';
+
+    for (let i = 0; i < 10; i += 1) {
+      expect(await completeSetup({ ...ENTRADA, token: falso, ip: '9.9.9.9' })).toEqual({
+        ok: false,
+        reason: 'token',
+      });
+    }
+
+    // El undécimo ya no distingue: responde como "no disponible", igual que un sitio ya
+    // configurado.
+    expect(await completeSetup({ ...ENTRADA, token: falso, ip: '9.9.9.9' })).toEqual({
+      ok: false,
+      reason: 'no-disponible',
+    });
   });
 
   it('los intentos rechazados también se registran', async () => {

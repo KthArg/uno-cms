@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { getDb, settings, users } from '@/cms/db';
 import { audit } from '@/cms/security/audit';
+import { createRateLimiter } from '@/cms/security/ratelimit';
 import { checkPasswordPolicy, hashPassword } from './passwords';
 
 /**
@@ -65,9 +66,22 @@ export async function isSetupCompleted(): Promise<boolean> {
   return false;
 }
 
-/** Solo para tests: el bootstrap se completa una vez por proceso, no una vez por test. */
+/**
+ * Solo para tests: el bootstrap se completa una vez por proceso, no una vez por test, y el
+ * limitador de intentos también es estado de módulo.
+ *
+ * Ambos se reinician juntos porque olvidar el segundo produce un fallo desconcertante: los
+ * primeros tests pasan y a partir de cierto punto todos responden "no disponible" sin que
+ * nada en el test lo explique.
+ */
 export function resetSetupCacheForTests(): void {
   completedCache = false;
+  setupLimiter.reset('setup:desconocida');
+}
+
+/** Solo para tests: libera la cuota de una IP concreta. */
+export function resetSetupLimiterForTests(ip: string): void {
+  setupLimiter.reset(`setup:${ip}`);
 }
 
 /**
@@ -85,6 +99,19 @@ function tokenMatches(provided: string, expected: string): boolean {
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
 }
+
+/**
+ * Límite de intentos del bootstrap.
+ *
+ * Más estricto que el del login —10 por hora frente a 5 por 15 minutos— porque aquí no hay
+ * nadie que pueda equivocarse mucho: quien despliega tiene el token delante, en las
+ * variables de entorno que acaba de escribir. Un editor puede teclear mal su contraseña
+ * cinco veces; nadie teclea mal el código de instalación diez.
+ *
+ * No usarlo habría sido dejar sin protección la única puerta a una cuenta de administrador
+ * sobre un sitio sin dueño, teniendo el limitador ya construido y probado.
+ */
+const setupLimiter = createRateLimiter({ limit: 10, windowMs: 60 * 60 * 1000 });
 
 export type SetupResult =
   | { readonly ok: true; readonly userId: string }
@@ -118,6 +145,27 @@ export interface SetupInput {
 export async function completeSetup(input: SetupInput): Promise<SetupResult> {
   if (await isSetupCompleted()) return { ok: false, reason: 'no-disponible' };
 
+  if (!setupLimiter.check(`setup:${input.ip ?? 'desconocida'}`).allowed) {
+    await audit({
+      action: 'setup.rejected',
+      ip: input.ip,
+      meta: { motivo: 'demasiados-intentos' },
+    });
+    return { ok: false, reason: 'no-disponible' };
+  }
+
+  // **La política de contraseña se comprueba ANTES que el token, y el orden importa.**
+  //
+  // Al revés, recibir `password` en vez de `token` confirmaría que el código de instalación
+  // era el bueno: quien probara tokens al azar enviaría una contraseña deliberadamente mala
+  // y usaría la respuesta como oráculo para saber cuándo ha acertado, sin llegar a crear la
+  // cuenta. Comprobando primero la contraseña, una mala responde igual con token correcto
+  // que con token incorrecto.
+  //
+  // Quien despliega no nota diferencia: si su contraseña no vale, se lo dicen igual.
+  const policy = checkPasswordPolicy(input.password);
+  if (!policy.ok) return { ok: false, reason: 'password' };
+
   const expected = process.env['SETUP_TOKEN'];
 
   // Sin token en el entorno, o con uno demasiado corto, no se crea nada. Un despliegue sin
@@ -132,9 +180,6 @@ export async function completeSetup(input: SetupInput): Promise<SetupResult> {
     await audit({ action: 'setup.rejected', ip: input.ip, meta: { motivo: 'token-incorrecto' } });
     return { ok: false, reason: 'token' };
   }
-
-  const policy = checkPasswordPolicy(input.password);
-  if (!policy.ok) return { ok: false, reason: 'password' };
 
   const passwordHash = await hashPassword(input.password);
   const email = input.email.trim().toLowerCase();
