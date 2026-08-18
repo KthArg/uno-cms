@@ -447,3 +447,17 @@ memoria del proceso.
 - La degradación **se anuncia en el arranque**, una vez, en los logs. Una degradación de
   seguridad silenciosa es peor que no tener la protección, porque quien despliega cree que
   la tiene.
+
+> **Ampliación al implementarlo (#57).** El backend distribuido **no se implementa en M2**,
+> y queda registrado en el issue #65 en vez de darse por hecho. El motivo: no hay ninguna
+> instancia de Upstash contra la que ejercitarlo, ni en local ni en CI, así que sería código
+> de seguridad sin un solo test **en el módulo que decide cuántas veces se puede intentar
+> adivinar una contraseña**.
+>
+> Su modo de fallo es peor que no tenerlo: una integración mal hecha —una clave mal formada,
+> un error de red tratado como "permitido"— dejaría de aplicar el límite y el sistema
+> seguiría pareciendo protegido. La degradación en memoria, en cambio, es conocida, está
+> medida y avisa de sí misma.
+>
+> Lo que sí queda: la interfaz `RateLimiter`, de modo que añadir el backend es implementarla
+> sin tocar a quien la consume.
