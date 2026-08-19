@@ -31,8 +31,15 @@ describe('T-75-6 — toda action pasa por el envoltorio', () => {
 
     const sinMarca = Object.entries(actions)
       .filter(([, value]) => typeof value === 'function')
-      // `defineAction`, `ok` y `fail` son las herramientas, no actions.
-      .filter(([name]) => !['defineAction', 'ok', 'fail'].includes(name))
+      // Las herramientas del envoltorio no son actions. La lista es explícita a propósito:
+      // una exclusión por patrón ("todo lo que empiece por fail") dejaría pasar una action
+      // suelta el día que alguien la llame `failoverContent`.
+      .filter(
+        ([name]) =>
+          !['defineAction', 'ok', 'fail', 'failFields', 'fieldsFromZod', 'contentTag'].includes(
+            name
+          )
+      )
       .filter(([, value]) => (value as Record<symbol, unknown>)[ACTION_MARKER] !== true)
       .map(([name]) => name);
 

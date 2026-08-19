@@ -8,7 +8,7 @@ import 'server-only';
  * es la forma verificable de cumplir "chequeo de rol en cada action" (SPEC §7.1): sin ella,
  * la mitigación depende de que nadie se despiste.
  *
- * Las actions llegan en #77–#82. Hoy este fichero solo publica el contrato.
+ * Las actions restantes llegan en #78–#82.
  */
 
 export {
@@ -16,6 +16,8 @@ export {
   BUCKETS,
   defineAction,
   fail,
+  failFields,
+  fieldsFromZod,
   ok,
   type Action,
   type ActionErrorCode,
@@ -24,3 +26,5 @@ export {
   type ActionSession,
   type Role,
 } from './pipeline';
+
+export { saveDraft } from './content.actions';

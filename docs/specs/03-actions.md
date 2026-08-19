@@ -225,25 +225,33 @@ decisión de rol se sigue tomando antes que la del límite, como fija el orden d
 
 ### 4.3 `saveDraft` (#77)
 
-| ID     | Caso                                                              | Verificación                          |
-| ------ | ----------------------------------------------------------------- | ------------------------------------- |
-| T-77-1 | Guarda y devuelve el **nuevo** `version`                          |                                       |
-| T-77-2 | `version` viejo → `VERSION_CONFLICT` **y el contenido no cambia** |                                       |
-| T-77-3 | Dos guardados concurrentes: uno gana, el otro obtiene conflicto   | Dos promesas a la vez                 |
-| T-77-4 | El richtext se sanea al guardar                                   | `javascript:` en una marca `link`     |
-| T-77-5 | Guardar no publica                                                | `published` intacto                   |
-| T-77-6 | **El autosave no se corta**: 100 guardados seguidos pasan         | Es el caso real de §8, no uno teórico |
+| ID     | Caso                                                                                                     | Verificación                                                          |
+| ------ | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| T-77-1 | Guarda y devuelve el **nuevo** `version`                                                                 |                                                                       |
+| T-77-2 | `version` viejo → `VERSION_CONFLICT` **y el contenido no cambia**                                        |                                                                       |
+| T-77-3 | Dos guardados concurrentes: uno gana, el otro obtiene conflicto                                          | Dos promesas a la vez                                                 |
+| T-77-4 | El richtext se sanea al guardar                                                                          | `javascript:` en una marca `link`                                     |
+| T-77-5 | Guardar no publica                                                                                       | `published` intacto                                                   |
+| T-77-6 | **El autosave no se corta**: 100 guardados seguidos pasan                                                | Es el caso real de §8, no uno teórico                                 |
+| T-77-7 | Un richtext que no es un documento (`null`, texto, número, array) **se rechaza y no borra lo que había** | Sanear antes de validar convertiría el error en un borrado silencioso |
 
 ### 4.4 Publicación (#78)
 
-| ID     | Caso                                                                                   | Verificación                 |
-| ------ | -------------------------------------------------------------------------------------- | ---------------------------- |
-| T-78-1 | Publica y `revalidateTag` se llama con `content:<key>`                                 | Espía                        |
-| T-78-2 | Requerido vacío → `VALIDATION_FAILED` con el nombre visible del campo **y la sección** |                              |
-| T-78-3 | La revisión guarda **lo sustituido**, no lo nuevo                                      |                              |
-| T-78-4 | Se podan las revisiones por encima de 20                                               | 25 publicaciones → 20 filas  |
-| T-78-5 | Si falla la poda, no se publica                                                        | Todo en la misma transacción |
-| T-78-6 | `publishAll` publica lo válido y reporta lo que no                                     |                              |
+| ID     | Caso                                                                                   | Verificación                                                                                                  |
+| ------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| T-78-1 | Publica y `revalidateTag` se llama con `content:<key>`                                 | Espía                                                                                                         |
+| T-78-2 | Requerido vacío → `VALIDATION_FAILED` con el nombre visible del campo **y la sección** |                                                                                                               |
+| T-78-3 | La revisión guarda **lo sustituido**, no lo nuevo                                      |                                                                                                               |
+| T-78-4 | Se podan las revisiones por encima de 20                                               | 25 publicaciones → 20 filas                                                                                   |
+| T-78-5 | Si falla la poda, no se publica                                                        | Todo en la misma transacción                                                                                  |
+| T-78-6 | `publishAll` publica lo válido y reporta lo que no                                     |                                                                                                               |
+| T-78-7 | Publicar un borrador **idéntico** a lo publicado no crea revisión ni cambia nada       | Viene de la revisión de #77: `saveDraft` marca `changed` siempre, así que la comparación tiene que estar aquí |
+
+La comparación se hace en `publish` y no en `saveDraft` a propósito. `publish` ya necesita
+comparar para decidir si crea revisión, así que se escribe una vez; y equivocarse tiene coste
+asimétrico: marcar como "sin cambios" algo que sí cambió pierde trabajo del editor, mientras
+que marcar de más solo publica un no-op. Requiere comparación **estable**: `JSON.stringify`
+depende del orden de las claves.
 
 ### 4.5 Deshacer (#79)
 

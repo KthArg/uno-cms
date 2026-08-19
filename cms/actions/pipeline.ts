@@ -121,6 +121,33 @@ export function fail(code: ActionErrorCode, message?: string): ActionResult<neve
   return { ok: false, code, message: message ?? DEFAULT_MESSAGES[code] };
 }
 
+/**
+ * `VALIDATION_FAILED` desde el handler, con la lista de campos por completar.
+ *
+ * Hace falta porque no toda la validación cabe en el esquema de entrada del envoltorio: el
+ * esquema del contenido depende de qué entrada se está guardando, y eso solo se sabe después
+ * de leer su fila. `publish` lo usa igual con el esquema estricto (SPEC §5.3, §9).
+ */
+export function failFields(
+  fields: readonly ActionFieldError[],
+  message?: string
+): ActionResult<never> {
+  return {
+    ok: false,
+    code: 'VALIDATION_FAILED',
+    message: message ?? DEFAULT_MESSAGES.VALIDATION_FAILED,
+    fields,
+  };
+}
+
+/** Traduce los problemas de un esquema de contenido a errores de campo, ya en español. */
+export function fieldsFromZod(error: z.ZodError): ActionFieldError[] {
+  return error.issues.map((issue) => ({
+    path: issue.path.join('.'),
+    message: mensajeDeCampo(issue),
+  }));
+}
+
 export function ok<T>(data: T): ActionResult<T> {
   return { ok: true, data };
 }
@@ -323,10 +350,7 @@ export function defineAction<Input, Output>(
         ok: false,
         code: 'VALIDATION_FAILED',
         message: DEFAULT_MESSAGES.VALIDATION_FAILED,
-        fields: parsed.error.issues.map((issue) => ({
-          path: issue.path.join('.'),
-          message: mensajeDeCampo(issue),
-        })),
+        fields: fieldsFromZod(parsed.error),
       };
     }
 
