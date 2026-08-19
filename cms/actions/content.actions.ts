@@ -1,12 +1,15 @@
 'use server';
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import appConfig from '@/cms.config';
 import type { AnyField, ObjectSchema } from '@/cms/core/config';
 import { sanitizeRichText } from '@/cms/core/richtext';
 import { buildObjectSchema } from '@/cms/core/schema-gen';
-import { contentEntries, getDb } from '@/cms/db';
+import { contentTag } from '@/cms/core/content';
+import { contentEntries, getDb, revisions } from '@/cms/db';
+import type { ActionFieldError } from './pipeline';
 import { defineAction, fail, failFields, fieldsFromZod, ok } from './pipeline';
 
 /**
@@ -136,5 +139,250 @@ export const saveDraft = defineAction({
     // Devolver el viejo invitaría a que el cliente lo incrementara por su cuenta, que es
     // exactamente cómo se rompe un bloqueo optimista (spec de fase §3.4).
     return ok({ version: fila.version });
+  },
+});
+
+// ── Publicación ──────────────────────────────────────────────────────────────────────────
+
+/** SPEC §4: "Retención: máximo 20 revisiones por entrada". */
+const MAX_REVISIONS = 20;
+
+/**
+ * El nombre visible de una sección, para los avisos de validación (SPEC §9, ADR-406).
+ *
+ * Si falta la etiqueta se usa la clave. Es feo a propósito: se ve en el mensaje y se corrige
+ * añadiendo la etiqueta, en vez de quedarse en un valor inventado que parece correcto.
+ */
+function sectionLabel(type: string, schema: ObjectSchema): string {
+  const collection = (appConfig.collections as Record<string, { label?: string } | undefined>)[
+    type
+  ];
+  return schema.label ?? collection?.label ?? type;
+}
+
+/**
+ * Traduce los problemas del esquema estricto al mensaje de SPEC §9: "Falta el Título
+ * principal en Portada".
+ *
+ * Lo que M1 dejó a medias era esto: el esquema ya produce "Completa «Título principal» antes
+ * de publicar", pero sin decir **en qué sección**, y al publicar todo el editor recibe una
+ * lista de campos sin saber dónde están.
+ */
+function publishFieldErrors(
+  error: z.ZodError,
+  schema: ObjectSchema,
+  seccion: string
+): ActionFieldError[] {
+  return fieldsFromZod(error).map((field) => {
+    const definicion = schema.fields[field.path];
+    const etiqueta = definicion?.label ?? field.path;
+    return { path: field.path, message: `Falta ${etiqueta} en ${seccion}.` };
+  });
+}
+
+/**
+ * Serialización estable: las claves en orden, recursivamente.
+ *
+ * `JSON.stringify` conserva el orden de inserción, así que dos objetos con el mismo contenido
+ * y las claves en distinto orden darían cadenas distintas. Comparar así diría "ha cambiado"
+ * cada vez que un formulario mandara los campos en otro orden, y publicaría revisiones
+ * idénticas que se comerían el presupuesto de 20 de SPEC §4.
+ */
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+
+  if (typeof value === 'object' && value !== null) {
+    const entradas = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${entradas.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(',')}}`;
+  }
+
+  return JSON.stringify(value) ?? 'null';
+}
+
+type PublishOutcome =
+  | { readonly ok: true; readonly cambio: boolean }
+  | {
+      readonly ok: false;
+      readonly code: 'NOT_FOUND' | 'VERSION_CONFLICT' | 'VALIDATION_FAILED';
+      readonly fields?: ActionFieldError[];
+    };
+
+/**
+ * Publica **una** entrada, cada una en su propia transacción.
+ *
+ * Está separada de la action porque `publishAll` la reutiliza tal cual: ADR-401 dice que la
+ * publicación masiva es todo-o-nada **por entrada** y no global, así que un campo olvidado en
+ * una sección que a nadie le urge no puede bloquear el resto.
+ */
+async function publishEntry(
+  db: ReturnType<typeof getDb>,
+  key: string,
+  expectedVersion: number | null,
+  actorId: string
+): Promise<PublishOutcome> {
+  return db.transaction(async (tx) => {
+    // `FOR UPDATE`, que SPEC §4 exige por nombre. Sin el bloqueo, dos publicaciones
+    // simultáneas de la misma entrada leerían el mismo estado anterior y escribirían **dos
+    // revisiones idénticas**, perdiendo uno de los dos estados del historial.
+    const [row] = await tx
+      .select()
+      .from(contentEntries)
+      .where(eq(contentEntries.key, key))
+      .limit(1)
+      .for('update');
+
+    if (row === undefined) return { ok: false, code: 'NOT_FOUND' };
+
+    if (expectedVersion !== null && row.version !== expectedVersion) {
+      return { ok: false, code: 'VERSION_CONFLICT' };
+    }
+
+    const schema = schemaFor(row.type);
+    if (schema === null) return { ok: false, code: 'NOT_FOUND' };
+
+    // Esquema **estricto**: esta es la puerta de publicación, y el único sitio donde exigir
+    // los campos requeridos tiene sentido, porque aquí sí hay alguien a quien pedírselos.
+    const parsed = buildObjectSchema(schema, 'strict').safeParse(row.draft);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        code: 'VALIDATION_FAILED',
+        fields: publishFieldErrors(parsed.error, schema, sectionLabel(row.type, schema)),
+      };
+    }
+
+    const entrante = parsed.data as Record<string, unknown>;
+
+    // Publicar algo idéntico a lo ya publicado no genera revisión ni toca la fila (T-78-7).
+    // Sin esto, `saveDraft` marca `changed` en cada guardado —también al escribir una letra y
+    // borrarla—, y "publicar todo" iría creando revisiones iguales que se comen el
+    // presupuesto de 20.
+    if (row.published !== null && stableStringify(row.published) === stableStringify(entrante)) {
+      // Sí se corrige el `status`: la fila decía "con cambios" y no los tenía.
+      if (row.status !== 'published') {
+        await tx
+          .update(contentEntries)
+          .set({ status: 'published' })
+          .where(eq(contentEntries.key, key));
+      }
+      return { ok: true, cambio: false };
+    }
+
+    if (row.published !== null) {
+      // **Lo que se sustituye, no lo que entra** (ADR-402): una revisión sirve para volver
+      // atrás, y "atrás" es lo que había. Guardando lo entrante, la revisión más reciente
+      // sería idéntica a lo publicado actual y no serviría para nada.
+      await tx.insert(revisions).values({
+        entryKey: key,
+        data: row.published,
+        publishedBy: actorId,
+      });
+
+      // La poda, en la MISMA transacción (SPEC §4, criterio de #78): si falla, no se publica.
+      // Fuera de ella, el día que fallara la tabla crecería sin límite y nadie se enteraría,
+      // porque la publicación habría ido bien.
+      const sobrantes = await tx
+        .select({ id: revisions.id })
+        .from(revisions)
+        .where(eq(revisions.entryKey, key))
+        .orderBy(desc(revisions.publishedAt), desc(revisions.id))
+        .offset(MAX_REVISIONS);
+
+      if (sobrantes.length > 0) {
+        await tx.delete(revisions).where(
+          inArray(
+            revisions.id,
+            sobrantes.map((r) => r.id)
+          )
+        );
+      }
+    }
+
+    await tx
+      .update(contentEntries)
+      .set({
+        published: entrante,
+        status: 'published',
+        publishedAt: new Date(),
+        updatedBy: actorId,
+      })
+      .where(eq(contentEntries.key, key));
+
+    return { ok: true, cambio: true };
+  });
+}
+
+export const publish = defineAction({
+  name: 'content.publish',
+  role: 'editor',
+  bucket: 'publish',
+  input: z.object({ key: z.string().min(1).max(200), version: z.number().int().min(0) }),
+  targetType: 'content',
+  targetId: (input) => input.key,
+  handler: async (input, session) => {
+    const result = await publishEntry(getDb(), input.key, input.version, session.userId);
+
+    if (!result.ok) {
+      if (result.code === 'VALIDATION_FAILED') return failFields(result.fields ?? []);
+      return fail(result.code);
+    }
+
+    // **Fuera de la transacción y después de escribir** (SPEC §5.3). Invalidar antes de que el
+    // dato esté confirmado repuebla el caché con el estado viejo, y el editor ve que su
+    // publicación no aparece sin ningún error que lo explique.
+    revalidateTag(contentTag(input.key));
+
+    return ok({ key: input.key, changed: result.cambio });
+  },
+});
+
+export const publishAll = defineAction({
+  name: 'content.publishAll',
+  role: 'editor',
+  bucket: 'publish',
+  input: z.object({}),
+  targetType: 'content',
+  handler: async (_input, session) => {
+    const db = getDb();
+
+    const pendientes = await db
+      .select({ key: contentEntries.key })
+      .from(contentEntries)
+      .where(eq(contentEntries.status, 'changed'))
+      .orderBy(asc(contentEntries.key));
+
+    const publicadas: string[] = [];
+    const fallidas: { key: string; code: string; fields?: ActionFieldError[] }[] = [];
+
+    for (const { key } of pendientes) {
+      // Una transacción **por entrada** (ADR-401). Con una global, un `seo.description` a
+      // medias bloquearía la publicación de todo lo demás, y el editor tendría que arreglar
+      // algo que no estaba tocando para publicar lo que sí acaba de escribir.
+      //
+      // El precio es un estado mixto —unas secciones publicadas y otras no—, pero es visible
+      // en el panel (SPEC §9: tarjeta por sección con su estado), así que no es un estado
+      // oculto.
+      //
+      // `null` como versión esperada: aquí no hay un `version` que el editor tenga en la mano,
+      // se publica lo que haya.
+      const result = await publishEntry(db, key, null, session.userId);
+
+      if (result.ok) {
+        publicadas.push(key);
+        revalidateTag(contentTag(key));
+      } else {
+        fallidas.push({
+          key,
+          code: result.code,
+          ...(result.fields === undefined ? {} : { fields: result.fields }),
+        });
+      }
+    }
+
+    // El resultado por clave es obligatorio, no informativo: sin él el editor no sabe qué se
+    // publicó y qué se quedó fuera (ADR-401).
+    return ok({ published: publicadas, failed: fallidas });
   },
 });

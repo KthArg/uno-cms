@@ -272,10 +272,33 @@ function color<const O extends ColorOptions>(options: O): ColorField<Presence<O>
 export interface ObjectSchema<F extends Record<string, AnyField> = Record<string, AnyField>> {
   readonly kind: 'object';
   readonly fields: F;
+  /**
+   * Nombre visible de la sección (issue #89, ADR-406).
+   *
+   * `SPEC.md` §9 pide "Falta el Título principal en **Portada**", pero el `cms.config.ts` de
+   * §5.1 no le da nombre a ningún singleton: los campos tienen `label`, las colecciones
+   * tienen `label`, y los singletons solo tienen su clave técnica. Sin esto, el mensaje sería
+   * "…en hero", que es la clave del desarrollador asomando en la interfaz del editor.
+   *
+   * Es opcional para no romper las llamadas existentes; sin ella se usa la clave.
+   */
+  readonly label?: string;
 }
 
-function object<F extends Record<string, AnyField>>(fields: F): ObjectSchema<F> {
-  return { kind: 'object', fields };
+export interface ObjectOptions {
+  readonly label?: string;
+}
+
+function object<F extends Record<string, AnyField>>(
+  fields: F,
+  options: ObjectOptions = {}
+): ObjectSchema<F> {
+  // Los campos siguen siendo el primer argumento, así que la inferencia de tipos no cambia.
+  return {
+    kind: 'object',
+    fields,
+    ...(options.label === undefined ? {} : { label: options.label }),
+  };
 }
 
 /** El namespace que importa `cms.config.ts` (SPEC §5.1). */
