@@ -1,14 +1,30 @@
 import { eq } from 'drizzle-orm';
-import { beforeEach, expect, it } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { authenticate, invalidateSessions, isSessionStillValid } from '@/cms/auth/authenticate';
-import { hashPassword } from '@/cms/auth/passwords';
+import { hashPassword, verifyDecoy, verifyPassword } from '@/cms/auth/passwords';
 import { auditLog, getDb, users } from '@/cms/db';
 import { getLoginRateLimiter } from '@/cms/security/ratelimit';
 import { describeIntegration } from './env';
 
 /**
- * T-59-1 a T-59-11: el flujo de autenticación contra Postgres real (SPEC §7.1, ADR-004).
+ * T-59-1 a T-59-12: el flujo de autenticación contra Postgres real (SPEC §7.1, ADR-004).
  */
+
+/**
+ * El señuelo se envuelve para poder **contar** sus llamadas, sin sustituirlo.
+ *
+ * `vi.fn(real.verifyDecoy)` conserva la implementación: Argon2 se ejecuta de verdad y el coste
+ * se paga igual. Lo único que se añade es un contador.
+ *
+ * El motivo está en #131. Que el camino del correo inexistente verifique un señuelo es un hecho
+ * **estructural** sobre el código, y antes se afirmaba con un cronómetro que comparaba dos
+ * llamadas a `authenticate` con distinto trabajo de disco. Eso falla en CI sin que nada se haya
+ * roto, y falla en la dirección peor: en verde por casualidad cuando el disco va rápido.
+ */
+vi.mock('@/cms/auth/passwords', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/cms/auth/passwords')>();
+  return { ...real, verifyDecoy: vi.fn(real.verifyDecoy) };
+});
 
 const PASSWORD = 'una-contrasena-larga-y-poco-comun';
 const EMAIL = 'ana@ejemplo.com';
@@ -47,6 +63,7 @@ describeIntegration('autenticación', () => {
     // un test agotarían la cuota del siguiente y el fallo dependería del orden.
     getLoginRateLimiter().reset(`login:1.2.3.4:${EMAIL}`);
     getLoginRateLimiter().reset(`login:desconocida:${EMAIL}`);
+    vi.mocked(verifyDecoy).mockClear();
   });
 
   it('T-59-1: credenciales correctas devuelven usuario con rol', async () => {
@@ -78,24 +95,73 @@ describeIntegration('autenticación', () => {
   it('T-59-4: el correo inexistente también paga el coste de verificar', async () => {
     await crearUsuario();
 
-    const inicioReal = performance.now();
-    await authenticate({ email: EMAIL, password: 'incorrecta-pero-larga' });
-    const real = performance.now() - inicioReal;
-
-    const inicioFantasma = performance.now();
     await authenticate({ email: 'nadie@ejemplo.com', password: 'incorrecta-pero-larga' });
-    const fantasma = performance.now() - inicioFantasma;
 
-    // El umbral tiene que ser exigente, y aquí está el motivo: con `real / 10` este test
-    // pasaba **aunque se quitara el señuelo**. Lo comprobé por mutación. El camino del
-    // correo inexistente hace igualmente una consulta a la base de datos, que ya cuesta más
-    // que la décima parte de una verificación de Argon2, así que el umbral laxo lo cubría
-    // todo y no cubría nada.
+    // La afirmación que discrimina, y no depende de ningún reloj: el camino del correo
+    // inexistente **verifica el señuelo**. Quitar esa línea de `authenticate` pone esto en
+    // rojo siempre, no unas veces sí y otras no.
+    expect(vi.mocked(verifyDecoy)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(verifyDecoy)).toHaveBeenCalledWith('incorrecta-pero-larga');
+
+    // Y se ejecutó de verdad: un doble hueco devolvería `undefined`. Que ese `false` cueste
+    // decenas de milisegundos —o sea, que el hash señuelo tenga los parámetros de producción y
+    // no sea un adorno— lo afirma `tests/unit/passwords.test.ts`.
+    await expect(vi.mocked(verifyDecoy).mock.results[0]?.value).resolves.toBe(false);
+  });
+
+  it('T-59-4: y el coste se nota de punta a punta', { timeout: 60_000 }, async () => {
+    await crearUsuario();
+
+    // El coste de una verificación Argon2, medido **suelto**. Se toma el mínimo de tres
+    // muestras: el mínimo es la ejecución menos estorbada, o sea una cota inferior del coste
+    // real. Un tropiezo del planificador en una muestra no lo mueve.
+    const muestras: number[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      const inicio = performance.now();
+      await verifyPassword(hash, 'incorrecta-pero-larga');
+      muestras.push(performance.now() - inicio);
+    }
+    const argon2 = Math.min(...muestras);
+
+    const inicio = performance.now();
+    await authenticate({ email: 'nadie@ejemplo.com', password: 'incorrecta-pero-larga' });
+    const fantasma = performance.now() - inicio;
+
+    // Antes esto comparaba dos llamadas a `authenticate` entre sí, y por eso fallaba en CI
+    // (#131): el camino de contraseña incorrecta escribe **dos** filas —contador de fallos y
+    // auditoría— y el del correo inexistente una. La razón entre ambas depende de lo rápido
+    // que sea el disco, no de si el señuelo está.
     //
-    // Con el señuelo, ambos caminos hacen consulta + Argon2 y la razón ronda 1. Sin él,
-    // ronda 0,1. Un umbral de 0,5 separa las dos situaciones con margen de sobra para el
-    // ruido de medir en CI.
-    expect(fantasma / real).toBeGreaterThan(0.5);
+    // Contra el coste de Argon2 suelto no pasa eso. El camino fantasma hace, como mínimo, ese
+    // mismo Argon2 más una consulta y una inserción: un disco lento solo puede **subir** el
+    // numerador. La comprobación no puede romperse por lentitud, que es justo lo que le pasaba.
+    //
+    // Lo que caza esto y no caza el contador de arriba es el fallo gordo de punta a punta: que
+    // el señuelo se invoque pero responda al instante. Quien discrimina de verdad es el test
+    // anterior; este es la red por debajo.
+    expect(fantasma).toBeGreaterThan(argon2 * 0.5);
+  });
+
+  it('T-59-12: una cuenta desactivada no entra, y también paga el señuelo', async () => {
+    const user = await crearUsuario();
+    if (user === undefined) throw new Error('sin usuario');
+
+    await getDb().update(users).set({ active: false }).where(eq(users.id, user.id));
+
+    // Con la contraseña **correcta**: lo que cierra la puerta es `active`, no equivocarse.
+    expect(await authenticate({ email: EMAIL, password: PASSWORD })).toEqual({ ok: false });
+
+    // Y se verifica igualmente contra el señuelo. Sin esto, una cuenta desactivada respondería
+    // en microsegundos y una activa en decenas de milisegundos: "¿existe y está activa esta
+    // cuenta?" se contestaría con un cronómetro (SPEC §7.1, enumeración).
+    expect(vi.mocked(verifyDecoy)).toHaveBeenCalledTimes(1);
+
+    const filas = await getDb().select().from(auditLog);
+    expect(filas.map((fila) => fila.meta)).toContainEqual({ motivo: 'cuenta-desactivada' });
+
+    // El contador de fallos no se toca: la cuenta ya está cerrada y sumar intentos ahí solo
+    // serviría para que, al reactivarla, apareciera bloqueada sin motivo.
+    expect((await leerUsuario(user.id))?.failedLogins).toBe(0);
   });
 
   it('T-59-5: cinco fallos bloquean la cuenta 15 minutos', async () => {
