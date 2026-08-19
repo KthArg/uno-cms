@@ -27,23 +27,23 @@ export interface EntradaMenu {
   readonly href: string;
   readonly texto: string;
   readonly soloAdmin?: boolean;
-  /**
-   * Si la pantalla existe ya.
-   *
-   * **Bookkeeping temporal de M4** — PENDIENTE(#122), se va cuando el hito cierre. La alternativa era pintar
-   * el menú completo desde el primer PR, y eso significa ofrecerle al editor cuatro enlaces de
-   * los que tres dan 404. Un menú con enlaces rotos no es "en construcción": es una interfaz
-   * que miente sobre lo que hay.
-   *
-   * La otra alternativa —páginas vacías con un "próximamente"— es peor: parece que la función
-   * existe y no existe.
-   */
-  readonly disponible?: boolean;
 }
 
+/**
+ * El menú.
+ *
+ * Hasta #106 llevaba una bandera `disponible` que escondía las entradas cuya pantalla todavía
+ * no existía: un menú con enlaces que dan 404 no es "en construcción", es una interfaz que
+ * miente sobre lo que hay. Ya están las cuatro, así que la bandera se va (#122). Que se fuera
+ * sola era el trato.
+ *
+ * `soloAdmin` **no es un guard**: es comodidad, para no ofrecer lo que no se puede usar. La
+ * puerta está en cada página, con `soloAdmin()` de `cms/auth/panel.ts`, y hay un test que lo
+ * exige ruta por ruta (#70).
+ */
 const MENU: readonly EntradaMenu[] = [
-  { href: '/admin', texto: 'Contenido', disponible: true },
-  { href: '/admin/media', texto: 'Imágenes', disponible: true },
+  { href: '/admin', texto: 'Contenido' },
+  { href: '/admin/media', texto: 'Imágenes' },
   { href: '/admin/users', texto: 'Personas', soloAdmin: true },
   { href: '/admin/settings', texto: 'Ajustes', soloAdmin: true },
 ];
@@ -54,7 +54,7 @@ export function entradasVisibles(rol: 'admin' | 'editor'): readonly EntradaMenu[
 }
 
 export function PanelShell({ children, rol, nombreDeUsuario, rutaActual }: PanelShellProps) {
-  const entradas = entradasVisibles(rol).filter((entrada) => entrada.disponible === true);
+  const entradas = entradasVisibles(rol);
 
   return (
     <div className="flex min-h-dvh flex-col bg-slate-50">
@@ -68,7 +68,16 @@ export function PanelShell({ children, rol, nombreDeUsuario, rutaActual }: Panel
           </Link>
 
           <div className="flex items-center gap-4 text-sm">
-            <span className="text-slate-600">{nombreDeUsuario}</span>
+            {/* El nombre **es** el enlace a la propia cuenta, que es donde se busca. Una entrada
+                más en el menú lateral lo pondría al nivel de "Contenido" o "Personas", y no lo
+                está: no se administra la web desde ahí, se administra uno mismo. */}
+            <Link
+              href="/admin/account"
+              aria-current={rutaActual.startsWith('/admin/account') ? 'page' : undefined}
+              className="text-slate-600 underline-offset-4 hover:text-slate-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            >
+              {nombreDeUsuario}
+            </Link>
           </div>
         </div>
       </header>

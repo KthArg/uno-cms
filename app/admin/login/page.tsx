@@ -11,7 +11,7 @@ import { auth, signIn } from '@/cms/auth';
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; lista?: string; cambiada?: string }>;
 }) {
   const session = await auth();
   const params = await searchParams;
@@ -35,6 +35,23 @@ export default async function LoginPage({
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
       <h1 className="text-2xl font-semibold">Entrar</h1>
+
+      {/* Quien llega aquí desde poner su contraseña —por invitación o por cambiarla— no viene a
+          "entrar": viene de terminar algo. Sin este aviso se encuentra un formulario mudo y no
+          sabe si lo suyo se guardó. Es el mismo motivo por el que cambiar la contraseña avisa
+          antes de cerrar la sesión. */}
+      {params.lista !== undefined && (
+        <p className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          Tu contraseña ya está puesta. Entra con ella y tu correo.
+        </p>
+      )}
+
+      {params.cambiada !== undefined && (
+        <p className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          Contraseña cambiada. Se han cerrado todas las sesiones, así que entra otra vez con la
+          nueva.
+        </p>
+      )}
 
       <form action={iniciarSesion} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1">

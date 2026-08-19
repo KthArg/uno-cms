@@ -15,9 +15,8 @@ function montarShell(rol: 'admin' | 'editor', rutaActual = '/admin') {
 
 describe('armazón del panel', () => {
   it('T-A-3: el filtro por rol deja fuera lo que es solo de administración', () => {
-    // Se prueba sobre `entradasVisibles` y no sobre el DOM porque esas pantallas todavía no
-    // existen —llegan en #104 y #106— y el menú no pinta enlaces que darían 404. El filtro por
-    // rol sí existe ya, y es lo que hay que fijar antes de que aparezcan.
+    // Se prueba sobre `entradasVisibles` además de sobre el DOM: la función es la que decide, y
+    // fijarla aquí deja claro qué entra y qué no sin depender de cómo se pinte el menú.
     const deAdmin = entradasVisibles('admin').map((entrada) => entrada.href);
     const deEditor = entradasVisibles('editor').map((entrada) => entrada.href);
 
@@ -28,15 +27,28 @@ describe('armazón del panel', () => {
     expect(deEditor).toContain('/admin');
   });
 
-  it('el menú no pinta enlaces a pantallas que todavía no existen', () => {
-    // Un menú con enlaces rotos no es "en construcción": es una interfaz que miente sobre lo
-    // que hay. Este test se vuelve trivial —y se quita— cuando M4 termine.
+  it('el menú pinta las cuatro secciones, y ninguna lleva a un 404', () => {
+    // Hasta #106 el menú llevaba una bandera `disponible` que escondía las entradas cuya
+    // pantalla no existía: un menú con enlaces rotos no es "en construcción", es una interfaz
+    // que miente sobre lo que hay. Ya están las cuatro, así que la bandera se fue (#122).
+    //
+    // Este test es lo que impide que vuelva a colarse una entrada sin pantalla detrás: si
+    // alguien añade una al menú, tiene que añadirla aquí, y para eso tiene que existir.
     montarShell('admin');
 
     const enlaces = screen.getAllByRole('link').map((enlace) => enlace.getAttribute('href'));
-    // `/admin/media` ya existe desde #104, así que sale del menú. Quedan las de #106.
-    expect(enlaces).not.toContain('/admin/users');
-    expect(enlaces).not.toContain('/admin/settings');
+
+    expect(enlaces).toEqual(
+      expect.arrayContaining(['/admin', '/admin/media', '/admin/users', '/admin/settings'])
+    );
+  });
+
+  it('el nombre de quien mira lleva a su propia cuenta', () => {
+    // No es una entrada más del menú lateral: ahí estaría al nivel de "Contenido" o "Personas",
+    // y no lo está. Desde ahí no se administra la web, se administra uno mismo.
+    montarShell('editor');
+
+    expect(screen.getByRole('link', { name: 'Ana' })).toHaveAttribute('href', '/admin/account');
   });
 
   it('el menú no es el guard, y este test no pretende que lo sea', () => {

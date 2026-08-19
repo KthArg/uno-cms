@@ -699,3 +699,27 @@ La lógica no se duplica: los caracteres de control, el `//host` disfrazado de r
 - Duplicar sin el test sería dejar dos verdades sueltas esperando a separarse. Con él, separarse rompe CI, que es la única forma de duplicación que me parece aceptable.
 - El test tiene un segundo caso que no depende del primero: que ninguna de las dos listas contenga `javascript`, `data`, `blob`, `vbscript` ni `file`. Si alguien "arregla" una divergencia ampliando las dos a la vez, ese sigue en pie.
 - La frontera `server-only` de SPEC §7.1 queda intacta y la exención de #46 sigue siendo la de un único módulo que no emite JavaScript.
+
+---
+
+## ADR-412 — El canje de la invitación no es una server action, y su lista de rutas públicas vive fuera de `cms/auth`
+
+**Contexto.** `inviteUser` (#81) crea la cuenta con una contraseña aleatoria que no se devuelve nunca y entrega un enlace firmado de 24 h. Faltaba dónde canjearlo: hasta #106, esa cuenta era una cuenta a la que no podía entrar nadie.
+
+El problema es que **quien canjea no tiene sesión**, y `defineAction` empieza por `requireSession`. Todo lo que pasa por `cms/actions` exige rol, y aquí no hay ninguno que exigir.
+
+**Decisión.** Tres piezas:
+
+1. **`cms/auth/invitations.ts`, no una action.** Sigue el camino que ya abrió el bootstrap (`cms/auth/setup.ts`): un módulo del servidor con su propio límite de intentos, su validación y su auditoría, invocado desde un `'use server'` de la página. La alternativa —añadir un nivel `'publico'` a `defineAction`— habría metido un camino sin sesión en el envoltorio por el que pasa **todo** lo demás, y ese envoltorio es lo que sostiene "chequeo de rol en cada action" (SPEC §7.1). Un solo hueco ahí vale menos que dos módulos parecidos.
+
+2. **De un solo uso sin columna nueva.** El enlace lleva dentro de la firma el `password_version` de la cuenta. Canjear lo incrementa, así que el mismo enlace deja de coincidir. Es ADR-301 reutilizado: sin tabla que limpiar y sin una segunda caducidad que vigilar. La consecuencia, que conviene tener escrita: **cualquier cosa que suba esa versión gasta el enlace**, no solo canjearlo.
+
+3. **`cms/routes.ts` fuera de la frontera.** El middleware corre en edge, donde no se carga un módulo `server-only`, y la exención `// isomorphic:` está reservada a módulos que no emiten JavaScript. Así que la lista de rutas públicas del panel vive fuera de `cms/{core,db,auth,security}`. No es esquivar la frontera: lo que esa frontera protege son credenciales, consultas y sesiones, y esto es una lista de direcciones que ya se puede deducir pidiéndolas.
+
+**Por qué el orden de comprobación es el contrario al del bootstrap.** `completeSetup` valida la contraseña **antes** que el token, a propósito: allí el token se adivina a fuerza bruta y responder "contraseña débil" confirmaría haber acertado. Aquí el enlace es un HMAC de 24 h —no se adivina— y su validez **ya es observable**, porque la página tiene que comprobarla para decidir si pinta el formulario o devuelve 404. Sin oráculo que cerrar, lo que queda es a quién le sirve más cada orden: con la contraseña primero, quien llega con un enlace muerto la corrige, la reenvía y solo entonces descubre que necesita pedir otro. Se dice primero el problema que bloquea.
+
+**Consecuencias.**
+
+- Un enlace inválido, caducado, ya usado, de otro propósito o de una cuenta desactivada dan **404**, todos igual. Distinguirlos confirmaría que ese enlace fue real alguna vez.
+- La lista de rutas públicas es **una sola constante** que consultan el middleware y el test estructural de #70. Con dos copias, abrir una ruta en el middleware sin tocar el test dejaría una página sin guard y el test en verde.
+- El rol se comprueba **en cada página** con `soloAdmin()`, y hay un test que enumera las pantallas del panel y exige que cada una declare qué acceso pide y que las de administración llamen al guard. Esconder la entrada del menú no cierra nada.

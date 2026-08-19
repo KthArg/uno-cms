@@ -1,5 +1,6 @@
 import NextAuth from 'next-auth';
 import { NextResponse, type NextRequest } from 'next/server';
+import { esRutaPublicaDelPanel } from '@/cms/routes';
 
 /**
  * Cabeceras de seguridad, CSP con nonce y guard de `/admin` (SPEC §7.2, §7.1).
@@ -127,9 +128,12 @@ export default auth((request) => {
 
   const path = request.nextUrl.pathname;
   const isAdmin = path === '/admin' || path.startsWith('/admin/');
-  const isLogin = path === '/admin/login';
+  // La lista de rutas públicas es compartida con el test estructural de #70: si cada uno
+  // tuviera la suya, abrir una ruta aquí sin tocar el test dejaría una página sin guard y con
+  // el test en verde.
+  const esPublica = esRutaPublicaDelPanel(path);
 
-  if (isAdmin && !isLogin && request.auth === null) {
+  if (isAdmin && !esPublica && request.auth === null) {
     // Redirección, no 404 ni 403: quien llega aquí suele ser un editor con la sesión
     // caducada, y mandarle al login con la ruta de vuelta es lo útil. No se filtra nada,
     // porque la respuesta es idéntica exista o no la página de destino.
