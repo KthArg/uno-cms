@@ -11,6 +11,7 @@ import { describeIntegration } from './env';
  */
 
 const HERO_COMPLETO = { title: 'Título publicable' };
+const ABOUT_COMPLETO = { heading: 'Sobre nosotras', visible: true };
 
 vi.mock('next/cache', async () => {
   const actual = await vi.importActual<typeof import('next/cache')>('next/cache');
@@ -344,6 +345,88 @@ describeIntegration('publish', () => {
 
     expect(result).toMatchObject({ ok: true, data: { changed: false } });
     expect(await revisionesDe('about')).toHaveLength(0);
+  });
+
+  it('publishAll no se cae entera si una entrada lanza', async () => {
+    // El camino feo. La validación devuelve un resultado y ya estaba cubierta; una excepción
+    // —un deadlock, la conexión que se cae— salía del bucle y se llevaba por delante el
+    // informe de lo que sí se había publicado, que es justo el todo-o-nada global que ADR-401
+    // descarta.
+    await crearEntrada({ key: 'about', type: 'about', draft: ABOUT_COMPLETO });
+    await crearEntrada({ key: 'hero', type: 'hero', draft: HERO_COMPLETO });
+    await crearEntrada({ key: 'seo', type: 'seo', draft: { title: 'Mi sitio' } });
+
+    const db = getDb();
+    const real = db.transaction.bind(db);
+    let vuelta = 0;
+    const spy = vi.spyOn(db, 'transaction').mockImplementation(((cb: never) => {
+      vuelta += 1;
+      // Las entradas se recorren por clave: about, hero, seo. Revienta la segunda.
+      if (vuelta === 2) return Promise.reject(new Error('la conexión se cayó'));
+      return real(cb);
+    }) as typeof db.transaction);
+    const errores = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const result = await publishAll({});
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    // Lo anterior al fallo está publicado, lo posterior también, y el fallo se reporta.
+    expect(result.data.published.sort()).toEqual(['about', 'seo']);
+    expect(result.data.failed).toEqual([{ key: 'hero', code: 'INTERNAL' }]);
+    expect(errores).toHaveBeenCalled();
+
+    spy.mockRestore();
+  });
+
+  it('publishAll tiene un tope, y lo dice', async () => {
+    // Un tope silencioso sería peor que no tenerlo: leer `published: [...]` sin más da a
+    // entender que ya está todo.
+    for (let i = 0; i < 102; i += 1) {
+      await crearEntrada({
+        key: `testimonials.${String(i).padStart(3, '0')}`,
+        type: 'testimonials',
+        draft: { author: `Autora ${i}`, quote: 'Muy bien' },
+      });
+    }
+
+    const result = await publishAll({});
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.data.published).toHaveLength(100);
+    expect(result.data.remaining).toBe(2);
+  });
+
+  it('la auditoría de publishAll dice qué se publicó', async () => {
+    await crearEntrada({ key: 'hero', type: 'hero', draft: HERO_COMPLETO });
+    await crearEntrada({ key: 'about', type: 'about', draft: { visible: true } });
+
+    await publishAll({});
+
+    const { auditLog } = await import('@/cms/db');
+    const [row] = await getDb().select().from(auditLog);
+    // Sin esto, el rastro de la operación que cambia el sitio público de golpe no responde a
+    // la única pregunta que se le va a hacer.
+    expect(row?.meta).toMatchObject({ published: ['hero'], failed: ['about'], remaining: 0 });
+  });
+
+  it('la auditoría de publish distingue una publicación real de un no-op', async () => {
+    await crearEntrada({
+      key: 'hero',
+      type: 'hero',
+      draft: HERO_COMPLETO,
+      published: HERO_COMPLETO,
+      status: 'changed',
+    });
+
+    await publish({ key: 'hero', version: 0 });
+
+    const { auditLog } = await import('@/cms/db');
+    const [row] = await getDb().select().from(auditLog);
+    expect(row?.meta).toMatchObject({ changed: false });
   });
 
   it('una clave inexistente da NOT_FOUND', async () => {

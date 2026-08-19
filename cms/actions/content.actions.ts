@@ -1,6 +1,6 @@
 'use server';
 
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import appConfig from '@/cms.config';
@@ -148,6 +148,20 @@ export const saveDraft = defineAction({
 const MAX_REVISIONS = 20;
 
 /**
+ * Cuántas entradas publica como mucho un `publishAll`.
+ *
+ * El bucle hace una transacción por entrada, en secuencia, dentro de una Server Action. Con
+ * tres singletons no pasa nada; con una colección de doscientos elementos modificados, choca
+ * con el límite de duración de la función en un despliegue serverless. Y lo que se pierde al
+ * chocar no es la publicación —lo escrito está confirmado— sino **el informe**: la petición
+ * muere y el editor no sabe qué pasó con su sitio.
+ *
+ * El tope se **reporta** en `remaining`. Un límite silencioso sería peor que no tenerlo:
+ * leer `published: [...]` sin más da a entender que ya está todo.
+ */
+const MAX_PUBLISH_ALL = 100;
+
+/**
  * El nombre visible de una sección, para los avisos de validación (SPEC §9, ADR-406).
  *
  * Si falta la etiqueta se usa la clave. Es feo a propósito: se ve en el mensaje y se corrige
@@ -205,7 +219,7 @@ type PublishOutcome =
   | { readonly ok: true; readonly cambio: boolean }
   | {
       readonly ok: false;
-      readonly code: 'NOT_FOUND' | 'VERSION_CONFLICT' | 'VALIDATION_FAILED';
+      readonly code: 'NOT_FOUND' | 'VERSION_CONFLICT' | 'VALIDATION_FAILED' | 'INTERNAL';
       readonly fields?: ActionFieldError[];
     };
 
@@ -336,6 +350,9 @@ export const publish = defineAction({
 
     return ok({ key: input.key, changed: result.cambio });
   },
+  // Sin esto, el rastro de una publicación no distingue entre publicar de verdad y no hacer
+  // nada porque no había cambios (ADR-407).
+  auditMeta: (output) => ({ changed: output.changed }),
 });
 
 export const publishAll = defineAction({
@@ -347,16 +364,29 @@ export const publishAll = defineAction({
   handler: async (_input, session) => {
     const db = getDb();
 
-    const pendientes = await db
+    // Una cuenta aparte, y no `limit(tope + 1)` mirando cuántas volvieron. Esa versión decía
+    // "queda 1" hubiera 1 o hubiera mil, porque nunca traía más de una de sobra — un número
+    // que parece exacto y no lo es, que es peor que no darlo.
+    const [total] = await db
+      .select({ n: count() })
+      .from(contentEntries)
+      .where(eq(contentEntries.status, 'changed'));
+
+    const tanda = await db
       .select({ key: contentEntries.key })
       .from(contentEntries)
       .where(eq(contentEntries.status, 'changed'))
-      .orderBy(asc(contentEntries.key));
+      .orderBy(asc(contentEntries.key))
+      .limit(MAX_PUBLISH_ALL);
+
+    // Lo que no se llega a intentar. Las que se intentan y fallan van en `failed`, que es
+    // distinto: ahí sí hay algo que el editor tiene que arreglar.
+    const restantes = Math.max(0, (total?.n ?? 0) - tanda.length);
 
     const publicadas: string[] = [];
     const fallidas: { key: string; code: string; fields?: ActionFieldError[] }[] = [];
 
-    for (const { key } of pendientes) {
+    for (const { key } of tanda) {
       // Una transacción **por entrada** (ADR-401). Con una global, un `seo.description` a
       // medias bloquearía la publicación de todo lo demás, y el editor tendría que arreglar
       // algo que no estaba tocando para publicar lo que sí acaba de escribir.
@@ -367,7 +397,19 @@ export const publishAll = defineAction({
       //
       // `null` como versión esperada: aquí no hay un `version` que el editor tenga en la mano,
       // se publica lo que haya.
-      const result = await publishEntry(db, key, null, session.userId);
+      // El `try` no es defensivo por costumbre: sin él, un fallo de base de datos en **una**
+      // entrada —un deadlock, la conexión que se cae— sale del bucle y el envoltorio lo
+      // convierte en INTERNAL. Las entradas ya publicadas seguirían escritas y confirmadas,
+      // pero el editor recibiría un error genérico y ninguna lista: justo el todo-o-nada
+      // global que ADR-401 descarta, colándose por la puerta de las excepciones en vez de por
+      // la de la validación.
+      let result: PublishOutcome;
+      try {
+        result = await publishEntry(db, key, null, session.userId);
+      } catch (error) {
+        console.error(`[content.publishAll] '${key}' lanzó`, error);
+        result = { ok: false, code: 'INTERNAL' };
+      }
 
       if (result.ok) {
         publicadas.push(key);
@@ -383,6 +425,11 @@ export const publishAll = defineAction({
 
     // El resultado por clave es obligatorio, no informativo: sin él el editor no sabe qué se
     // publicó y qué se quedó fuera (ADR-401).
-    return ok({ published: publicadas, failed: fallidas });
+    return ok({ published: publicadas, failed: fallidas, remaining: restantes });
   },
+  auditMeta: (output) => ({
+    published: output.published,
+    failed: output.failed.map((f) => f.key),
+    remaining: output.remaining,
+  }),
 });
