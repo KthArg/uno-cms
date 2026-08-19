@@ -210,3 +210,90 @@ export const getCollection = cache(
       tags: [contentTag(key)],
     })()
 );
+
+// ── Resumen para el panel ────────────────────────────────────────────────────────────────
+
+/** El estado de una sección tal como lo ve el editor (SPEC §9). */
+export type SectionState = 'publicado' | 'con-cambios' | 'sin-publicar';
+
+export interface SectionSummary {
+  readonly key: string;
+  /** Lo que ve el editor. Nunca la clave técnica. */
+  readonly nombre: string;
+  readonly tipo: 'singleton' | 'coleccion';
+  readonly estado: SectionState;
+  /** Solo en listas. */
+  readonly elementos?: number;
+}
+
+function estadoDeFila(fila: { published: unknown; status: string }): SectionState {
+  // `published IS NULL` manda sobre el `status`. Una sección que nunca se publicó y tiene
+  // `changed` —que es lo que deja `saveDraft`— no tiene "cambios sin publicar": no tiene
+  // versión pública ninguna, y decir lo contrario sugiere que hay algo ahí fuera que difiere.
+  if (fila.published === null) return 'sin-publicar';
+  return fila.status === 'published' ? 'publicado' : 'con-cambios';
+}
+
+/**
+ * El estado de todas las secciones, para el dashboard (SPEC §9).
+ *
+ * Una sola consulta para toda la tabla y el resto en memoria: son unas pocas decenas de filas
+ * y el panel es una pantalla que se abre entera. Una consulta por sección serían diez viajes
+ * a la base de datos para pintar diez tarjetas.
+ */
+export async function listSections(): Promise<SectionSummary[]> {
+  const filas = await getDb()
+    .select({
+      key: contentEntries.key,
+      type: contentEntries.type,
+      published: contentEntries.published,
+      status: contentEntries.status,
+    })
+    .from(contentEntries);
+
+  const porClave = new Map(filas.map((fila) => [fila.key, fila]));
+  const resumen: SectionSummary[] = [];
+
+  for (const [key, schema] of Object.entries(appConfig.singletons) as [string, ObjectSchema][]) {
+    const fila = porClave.get(key);
+    resumen.push({
+      key,
+      nombre: schema.label ?? key,
+      tipo: 'singleton',
+      // Sin fila es lo mismo que sin publicar: la sección existe en la configuración y la
+      // landing la está enseñando con valores vacíos.
+      estado: fila === undefined ? 'sin-publicar' : estadoDeFila(fila),
+    });
+  }
+
+  for (const [key, definicion] of Object.entries(appConfig.collections) as [
+    string,
+    { label: string },
+  ][]) {
+    const elementos = filas.filter((fila) => fila.type === key);
+    const estados = elementos.map(estadoDeFila);
+
+    resumen.push({
+      key,
+      nombre: definicion.label,
+      tipo: 'coleccion',
+      // Una lista está "publicada" solo si **todos** sus elementos lo están. Con uno a medias,
+      // lo que el visitante ve no es lo que el editor tiene, y eso es lo que la tarjeta avisa.
+      //
+      // La lista vacía va primero a propósito: `[].every(...)` es `true`, así que sin este
+      // caso una colección sin elementos saldría como "Publicado" — diciéndole al editor que
+      // todo está en su sitio cuando lo que hay es nada. Lo encontró su propio test.
+      estado:
+        elementos.length === 0
+          ? 'sin-publicar'
+          : estados.every((estado) => estado === 'publicado')
+            ? 'publicado'
+            : estados.some((estado) => estado === 'publicado')
+              ? 'con-cambios'
+              : 'sin-publicar',
+      elementos: elementos.length,
+    });
+  }
+
+  return resumen;
+}

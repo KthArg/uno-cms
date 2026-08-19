@@ -67,6 +67,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:unit
+      # Los tests de componentes del panel van aquí y no en el job de integración: no
+      # necesitan base de datos, así que su sitio es la cadena rápida, donde un fallo de
+      # interfaz se ve sin esperar a que arranque Postgres.
+      - run: pnpm test:ui
 
   build:
     name: build

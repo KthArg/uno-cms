@@ -62,6 +62,26 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          /**
+           * Tests de componentes del panel (M4).
+           *
+           * Proyecto aparte y no una carpeta más dentro de `unit` porque necesitan `jsdom`, y
+           * arrancar un DOM para los 280 tests que no lo usan encarece la suite entera sin
+           * dar nada a cambio.
+           */
+          name: 'ui',
+          environment: 'jsdom',
+          include: ['tests/ui/**/*.test.tsx', 'tests/ui/**/*.test.ts'],
+          setupFiles: ['./tests/ui/setup.ts'],
+        },
+        // El JSX se transforma con la versión que no necesita `React` en ámbito. Sin esto,
+        // Vitest usa la transformación clásica y cada componente falla con
+        // `React is not defined` — el mismo JSX que Next compila sin problema.
+        esbuild: { jsx: 'automatic' },
+      },
+      {
+        extends: true,
+        test: {
           name: 'integration',
           environment: 'node',
           include: ['tests/integration/**/*.test.ts'],

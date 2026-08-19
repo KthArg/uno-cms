@@ -1,13 +1,16 @@
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { auth } from '@/cms/auth';
+import { PanelShell } from '@/cms/ui/PanelShell';
 
 /**
- * Guard de sesión del panel (SPEC §3, §7.1).
+ * Guard de sesión del panel (SPEC §3, §7.1) y armazón (M4).
  *
  * **Esta es la comprobación autoritativa**, no la del middleware. El middleware corre en
  * edge y solo puede verificar la firma del JWT; aquí, en el runtime de Node, `auth()` usa la
  * configuración completa, que incluye comprobar el claim `pwdV` contra la base de datos
- * (ADR-301). Es lo que expulsa a quien cambió su contraseña y a las cuentas borradas.
+ * (ADR-301). Es lo que expulsa a quien cambió su contraseña, a quien fue desactivado y a las
+ * cuentas borradas.
  *
  * ## Por qué esto vive en un grupo de rutas `(panel)` y no en `app/admin/layout.tsx`
  *
@@ -18,14 +21,24 @@ import { auth } from '@/cms/auth';
  *
  * El grupo `(panel)` no aparece en la URL —`/admin` sigue siendo `/admin`— pero deja el
  * login fuera del alcance del guard.
- *
- * El shell del panel (barra lateral, cabecera) es de M4. Aquí solo está el guard, que es lo
- * que exige el DoD de M2.
  */
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
 
   if (session === null) redirect('/admin/login');
 
-  return <>{children}</>;
+  // La ruta actual se lee de la cabecera que pone el middleware. Un layout de servidor no
+  // tiene `usePathname`, y hacer cliente todo el armazón solo para marcar la entrada activa
+  // sería descargar el panel entero en el navegador para pintar un fondo gris.
+  const rutaActual = (await headers()).get('x-pathname') ?? '/admin';
+
+  return (
+    <PanelShell
+      rol={session.user.role}
+      nombreDeUsuario={session.user.name || session.user.email}
+      rutaActual={rutaActual}
+    >
+      {children}
+    </PanelShell>
+  );
 }
