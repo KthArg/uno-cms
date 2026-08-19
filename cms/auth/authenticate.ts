@@ -131,6 +131,25 @@ export async function authenticate(
     return FAILED;
   }
 
+  // Una cuenta desactivada se comprueba **después** del bloqueo y **antes** de la
+  // contraseña, y se verifica igualmente contra el señuelo. Responder aquí sin gastar el
+  // tiempo de Argon2 haría que un intento contra una cuenta desactivada respondiera mucho
+  // más rápido que uno contra una activa, y eso convierte "¿existe y está activa esta
+  // cuenta?" en algo que se mide con un cronómetro (SPEC §7.1, enumeración).
+  if (!user.active) {
+    limiter.check(limitKey);
+    await verifyDecoy(input.password);
+    await audit({
+      action: 'login.fail',
+      actorId: user.id,
+      actorEmail: user.email,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      meta: { motivo: 'cuenta-desactivada' },
+    });
+    return FAILED;
+  }
+
   const passwordOk = await verifyPassword(user.passwordHash, input.password);
 
   if (!passwordOk) {
@@ -205,13 +224,18 @@ export async function isSessionStillValid(
   passwordVersion: number
 ): Promise<boolean> {
   const rows = await getDb()
-    .select({ passwordVersion: users.passwordVersion })
+    .select({ passwordVersion: users.passwordVersion, active: users.active })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
 
   const row = rows[0];
   if (row === undefined) return false;
+
+  // Desactivar tiene que echar a quien ya está dentro. `deactivateUser` incrementa además
+  // `password_version`, así que la comparación de abajo bastaría; esto es la segunda
+  // cerradura, y está porque la primera vive en otra action y podría dejar de hacerlo.
+  if (!row.active) return false;
 
   return row.passwordVersion === passwordVersion;
 }
