@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { publish, saveDraft } from '@/cms/actions';
+import { publish, revertDraft, saveDraft } from '@/cms/actions';
 import { definicionDeColeccion, tituloDeElemento } from '@/cms/core/collections';
 import { readEntryForEditor, schemaForType } from '@/cms/core/content';
 import { listMedia } from '@/cms/core/media';
@@ -72,6 +72,16 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
     };
   }
 
+  async function deshacerCambios(): Promise<ResultadoGuardado> {
+    'use server';
+
+    const resultado = await revertDraft({ key });
+
+    if (resultado.ok) return { ok: true, version: resultado.data.version };
+
+    return { ok: false, code: resultado.code, message: resultado.message };
+  }
+
   return (
     <EntryEditor
       nombreSeccion={nombre}
@@ -80,6 +90,12 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
       versionInicial={entrada.version}
       guardar={guardarBorrador}
       publicar={publicarEntrada}
+      deshacer={deshacerCambios}
+      entryKey={key}
+      // Deshacer solo tiene sentido si hay algo publicado a lo que volver. Sin ello,
+      // `revertDraft` devuelve NEVER_PUBLISHED (#79) y ofrecerlo sería un botón que solo
+      // sirve para dar un error.
+      sePuedeDeshacer={entrada.estado !== 'sin-publicar'}
       imagenes={imagenes}
       tiposAceptados={[...TIPOS_PERMITIDOS]}
       tamanoMaximoBytes={TAMANO_MAXIMO_BYTES}

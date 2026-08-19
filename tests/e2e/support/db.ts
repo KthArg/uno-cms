@@ -75,3 +75,27 @@ export function ponerBorrador(key: string, draft: Record<string, unknown>): void
     [key, JSON.stringify(draft)]
   );
 }
+
+/**
+ * Lee un valor de la base y lo devuelve como texto.
+ *
+ * Existe para poder afirmar **sobre la base de datos** y no sobre la pantalla. En el historial
+ * eso es lo único que demuestra que restaurar no publicó: la pantalla enseña el borrador, y el
+ * borrador cambia en los dos casos.
+ */
+export function consultarValor(sql: string, parametros: readonly unknown[] = []): string {
+  const script = `
+    const { Pool } = require('pg');
+    const [sql, parametros] = process.argv.slice(1);
+    (async () => {
+      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      const resultado = await pool.query(sql, JSON.parse(parametros));
+      process.stdout.write(JSON.stringify(Object.values(resultado.rows[0] ?? {})[0] ?? null));
+      await pool.end();
+    })().catch((error) => { console.error(error); process.exit(1); });
+  `;
+
+  return execFileSync('node', ['-e', script, sql, JSON.stringify(parametros)], {
+    encoding: 'utf8',
+  }).trim();
+}
