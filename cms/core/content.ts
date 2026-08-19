@@ -1,18 +1,12 @@
 import 'server-only';
+import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import { asc, eq } from 'drizzle-orm';
 import appConfig from '@/cms.config';
 import { contentEntries, getDb } from '@/cms/db';
 import type { AnyField, ObjectSchema } from './config';
 import { buildObjectSchema } from './schema-gen';
-import type {
-  CollectionItem,
-  CollectionItemDraft,
-  CollectionKey,
-  Content,
-  Draft,
-  SingletonKey,
-} from './types';
+import type { CollectionItem, CollectionKey, Content, Draft, SingletonKey } from './types';
 
 /**
  * Lectura de contenido para la landing pública (SPEC §5.2).
@@ -139,14 +133,20 @@ export async function readContent<K extends SingletonKey>(key: K): Promise<Conte
 }
 
 /**
- * Lo que usa la landing. `unstable_cache` con el tag `content:<key>`, que `publish`
- * invalida (SPEC §5.2, §5.3).
+ * Lo que usa la landing. **Dos cachés, y hacen cosas distintas** (SPEC §5.2):
+ *
+ * - `unstable_cache` guarda entre peticiones y lo invalida `publish` por el tag
+ *   `content:<key>`.
+ * - `cache` de React deduplica dentro de **una misma** petición. La landing de §6.3 renderiza
+ *   varias secciones y más de un componente lee la misma clave en el mismo render; sin esto,
+ *   el primer render tras publicar —que es justo cuando alguien está mirando— haría una
+ *   consulta por componente en lugar de una.
  */
-export function getContent<K extends SingletonKey>(key: K): Promise<Content<K>> {
-  return unstable_cache(() => readContent(key), ['content', key], {
+export const getContent = cache(<K extends SingletonKey>(key: K): Promise<Content<K>> =>
+  unstable_cache(() => readContent(key), ['content', key], {
     tags: [contentTag(key)],
-  })();
-}
+  })()
+);
 
 /**
  * El borrador, para el panel y la vista previa.
@@ -203,33 +203,10 @@ export async function readCollection<K extends CollectionKey>(
     .map((row) => resolveObject(schema, row.published, `${key}/${row.id}`)) as CollectionItem<K>[];
 }
 
-export function getCollection<K extends CollectionKey>(key: K): Promise<CollectionItem<K>[]> {
-  return unstable_cache(() => readCollection(key), ['collection', key], {
-    tags: [contentTag(key)],
-  })();
-}
-
-/** Los elementos de una colección tal como están en borrador, para el panel. */
-export async function getCollectionDrafts<K extends CollectionKey>(
-  key: K
-): Promise<{ id: string; data: CollectionItemDraft<K> }[]> {
-  const schema: ObjectSchema = appConfig.collections[key].schema;
-
-  const rows = await getDb()
-    .select({ id: contentEntries.id, draft: contentEntries.draft })
-    .from(contentEntries)
-    .where(eq(contentEntries.type, key))
-    // Desempate por `key`, que es único: dos elementos con el mismo `sortOrder` deben salir
-    // siempre en el mismo orden. Sin desempate, Postgres no promete ninguno y la landing
-    // barajaría los testimonios entre despliegues.
-    .orderBy(asc(contentEntries.sortOrder), asc(contentEntries.key));
-
-  return rows.map((row) => {
-    const parsed = buildObjectSchema(schema, 'draft').safeParse(row.draft ?? {});
-    if (!parsed.success) {
-      console.error(`[content:${key}/${row.id}] el borrador no pasa el esquema laxo`);
-      return { id: row.id, data: {} as CollectionItemDraft<K> };
-    }
-    return { id: row.id, data: parsed.data as CollectionItemDraft<K> };
-  });
-}
+/** Ídem que `getContent`: caché entre peticiones y deduplicación dentro de una. */
+export const getCollection = cache(
+  <K extends CollectionKey>(key: K): Promise<CollectionItem<K>[]> =>
+    unstable_cache(() => readCollection(key), ['collection', key], {
+      tags: [contentTag(key)],
+    })()
+);
