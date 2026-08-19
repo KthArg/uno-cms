@@ -173,6 +173,18 @@ Aplica a `updateUserRole` (degradar al último admin) y a `deactivateUser` (desa
 El caso se prueba con **dos operaciones concurrentes**, no secuenciales: un test secuencial
 pasa igual con la implementación ingenua.
 
+### 3.5 Qué rechazos se auditan
+
+`SPEC.md` §5.3 pone `audit()` después de la lógica y no dice qué pasa cuando la operación no
+llega a hacerse. Contrato (ADR-403): **se audita todo lo que ocurre después de que el límite
+haya dado el visto bueno** —`FORBIDDEN`, `VALIDATION_FAILED`, `INTERNAL` y los fallos del
+handler, cada uno con su código en `meta`—, y quedan fuera `UNAUTHORIZED` (no hay actor, y lo
+dispara un anónimo) y `RATE_LIMITED` (auditar lo que el límite acaba de frenar es el gasto
+que el límite evita).
+
+Para que eso sea cierto también en el rechazo por rol, un `FORBIDDEN` **consume cuota**. La
+decisión de rol se sigue tomando antes que la del límite, como fija el orden de §5.3.
+
 ## 4. Casos de prueba — la definición de "hecho"
 
 ### 4.1 Pipeline (#75)
@@ -185,6 +197,9 @@ pasa igual con la implementación ingenua.
 | T-75-4 | Una excepción interna → `INTERNAL` **sin filtrar el mensaje** | Se afirma que la respuesta no contiene el texto del error |
 | T-75-5 | Cada operación queda auditada con actor y acción              |                                                           |
 | T-75-6 | **Toda action exportada pasa por el envoltorio**              | Test que recorre el módulo; falla al añadir una suelta    |
+| T-75-7 | Un rechazo por rol queda auditado con `code: FORBIDDEN`       | Y un input inválido, con `VALIDATION_FAILED`              |
+| T-75-8 | Sin sesión **no** se audita                                   | Sería una escritura por petición anónima (ADR-403)        |
+| T-75-9 | `RATE_LIMITED` no se audita, y un `FORBIDDEN` gasta cuota     | Acota cuántas filas puede provocar un bucle               |
 
 ### 4.2 Lectura (#76)
 
