@@ -22,6 +22,21 @@ import { decidirSubida, nombreLegible, TIPOS_PERMITIDOS } from '@/cms/security/u
  *    formulario viaja en el cliente: es comodidad para quien sube, no una defensa.
  * 3. **El nombre lo ponemos nosotros.** Nunca el del usuario.
  *
+ * ## La comprobación va ANTES de llamar a Vercel
+ *
+ * La primera versión validaba dentro de `onBeforeGenerateToken`, que es donde la documentación
+ * de Blob invita a hacerlo. Parecía correcto y tenía un defecto de fondo: **nuestra decisión
+ * de seguridad quedaba detrás de una precondición de un tercero**. Sin
+ * `BLOB_READ_WRITE_TOKEN` configurado, `handleUpload` falla antes de llamar a la comprobación,
+ * y lo que recibe quien sube un SVG no es nuestro "ese tipo no se puede subir" sino un mensaje
+ * en inglés de Vercel sobre variables de entorno.
+ *
+ * Lo destapó CI, donde no hay token: en local pasaba porque yo había puesto uno falso.
+ *
+ * Ahora se valida primero y se delega después. La comprobación de dentro se queda igualmente
+ * —fija la ruta y los tipos que el token autoriza— pero como segunda cerradura, no como la
+ * única.
+ *
  * ## Y una cosa que el token no puede evitar
  *
  * El token que devuelve `handleUpload` autoriza **una** subida con la ruta y el tipo que
@@ -42,6 +57,10 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const cuerpo = (await request.json()) as HandleUploadBody;
+
+  // La decisión, antes de que ningún tercero entre en juego.
+  const rechazo = comprobarAntesDeDelegar(cuerpo);
+  if (rechazo !== null) return Response.json({ error: rechazo }, { status: 400 });
 
   try {
     const respuesta = await handleUpload({
@@ -109,6 +128,26 @@ export async function POST(request: Request): Promise<Response> {
     const mensaje = error instanceof Error ? error.message : 'No se ha podido subir la imagen.';
     return Response.json({ error: mensaje }, { status: 400 });
   }
+}
+
+/**
+ * Comprueba la petición de token **antes** de llamar a Vercel.
+ *
+ * Devuelve el mensaje de rechazo, o `null` si la subida es aceptable. Solo mira las peticiones
+ * que piden token: `handleUpload` atiende también el callback de subida completada, que llega
+ * firmado desde Vercel y no lleva payload de cliente.
+ */
+function comprobarAntesDeDelegar(cuerpo: HandleUploadBody): string | null {
+  if (cuerpo.type !== 'blob.generate-client-token') return null;
+
+  const datos = leerDatosDelCliente(cuerpo.payload.clientPayload);
+  const decision = decidirSubida({
+    contentType: datos.contentType,
+    sizeBytes: datos.sizeBytes,
+    filename: cuerpo.payload.pathname,
+  });
+
+  return decision.ok ? null : decision.mensaje;
 }
 
 /** Lo que el cliente adjunta a la petición. Todo opcional y todo sospechoso. */
