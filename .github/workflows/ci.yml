@@ -66,10 +66,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: unit + cobertura
-        # COVERAGE_ENFORCE se activará en M3, cuando cms/core y cms/security tengan
-        # código. Ver vitest.config.ts y SPEC §11.4.
-        run: pnpm test:coverage
+      - run: pnpm test:unit
 
   build:
     name: build
@@ -129,7 +126,22 @@ jobs:
       # tests; es idempotente, la suite lo repite y no pasa nada.
       - name: aplicar migraciones
         run: pnpm db:migrate
-      - run: pnpm test:integration
+      # **La cobertura se mide aquí y no en el job `unit`**, y esto merece explicación.
+      #
+      # SPEC §11.4 exige ≥ 80 % en `cms/core` y `cms/security`. Midiéndola solo sobre los
+      # tests unitarios daba 73 %, y no porque falten pruebas: la lectura de contenido, el
+      # envoltorio de actions y buena parte de `cms/security` se ejercitan **contra Postgres
+      # real**, que es donde tienen sentido. Un umbral que ignora la mitad de la suite mide
+      # cómo están repartidos los tests, no cuánto código está cubierto — y la forma cómoda de
+      # cumplirlo sería mover tests a unitarios con dobles, que es peor prueba.
+      #
+      # Así que corre sobre las dos suites, en el job que tiene base de datos. El precio es
+      # que los unitarios se ejecutan dos veces en CI; son cuarenta segundos y el job `unit`
+      # sigue existiendo aparte para que un fallo unitario se vea sin esperar a Postgres.
+      - name: integración + cobertura (SPEC §11.4)
+        env:
+          COVERAGE_ENFORCE: '1'
+        run: pnpm test:coverage
 
   e2e:
     name: e2e
