@@ -134,6 +134,9 @@ jobs:
   e2e:
     name: e2e
     runs-on: ubuntu-latest
+    # Un cuelgue debe fallar rápido, no quemar media hora de runner y dejar el PR
+    # bloqueado sin que nadie sepa por qué. El e2e completo tarda menos de dos minutos.
+    timeout-minutes: 10
     # El e2e comprueba el guard de /admin y las cabeceras de SPEC §7.2, así que necesita
     # secretos de sesión y una base de datos: el layout del panel consulta el claim `pwdV`
     # (ADR-301) y /api/health hace ping a Postgres.
@@ -182,15 +185,18 @@ jobs:
           # La clave cuelga de la versión de Playwright, no del lockfile: el lockfile
           # cambiará en casi todos los PR de M1 a M5 y la caché no acertaría nunca.
           key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-      # Un solo paso, sin condicional. La versión anterior separaba el caso "caché acertada"
-      # para ejecutar solo `install-deps`, y ese camino **se colgaba**: media hora sin
-      # terminar. Nunca se había ejecutado, porque hasta hoy la caché nunca había acertado —
-      # es exactamente el riesgo que el PR #23 anotó como no verificado.
+      # **Sin `--with-deps`**, y esto tiene historia.
       #
-      # `install --with-deps` con el navegador ya en caché se salta la descarga igualmente,
-      # así que el condicional no ahorraba nada y sí añadía un camino sin probar.
+      # La versión original separaba el caso "caché acertada" para ejecutar solo
+      # `install-deps`. Ese camino nunca se había ejecutado —el PR #23 dejó anotado que la
+      # caché no tenía acierto verificado— y la primera vez que acertó, **se colgó media
+      # hora**. Al quitar el condicional y dejar `install --with-deps`, se colgó igual.
+      #
+      # Lo que cuelga es el `apt-get` de `--with-deps`, no la caché. Y en los runners de
+      # GitHub esas librerías ya vienen en la imagen, así que el paso no aporta nada y sí
+      # depende de que el gestor de paquetes del runner esté libre.
       - name: instalar chromium
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install chromium
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v7
         if: failure()
