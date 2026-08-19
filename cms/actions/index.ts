@@ -39,3 +39,5 @@ export {
 } from './content.actions';
 
 export { changePassword, deactivateUser, inviteUser, updateUserRole } from './user.actions';
+
+export { createPreviewToken, updateSettings } from './settings.actions';
