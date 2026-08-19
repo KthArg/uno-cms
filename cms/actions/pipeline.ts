@@ -75,6 +75,48 @@ const DEFAULT_MESSAGES: Record<ActionErrorCode, string> = {
   INTERNAL: 'Algo ha fallado por nuestra parte. Vuelve a intentarlo.',
 };
 
+/**
+ * Traducción de los problemas de Zod a algo que un editor pueda leer.
+ *
+ * Existe por dos motivos, y el segundo importa más que el primero:
+ *
+ * 1. Los mensajes por defecto de Zod están en inglés, y `SPEC.md` §9 pide español llano.
+ *    Dejar `message` en español y `fields[].message` en inglés se nota en cuanto se usa.
+ * 2. Algunos **devuelven el valor recibido**: `z.enum` produce "Invalid enum value. Expected
+ *    'a' | 'b', received 'xyz'". React lo escapa al pintarlo, así que no es XSS, pero es
+ *    entrada del usuario reflejada sin motivo — y al editor no le dice nada que no sepa.
+ *
+ * El respaldo es deliberadamente genérico: ante un código que no está en la lista, se
+ * prefiere un mensaje poco útil a uno que arrastre el valor de vuelta.
+ */
+function mensajeDeCampo(issue: z.ZodIssue): string {
+  switch (issue.code) {
+    case 'invalid_type':
+      return issue.received === 'undefined' ? 'Este campo es obligatorio.' : 'Revisa este campo.';
+    case 'too_small':
+      return typeof issue.minimum === 'number' && issue.type === 'string' && issue.minimum <= 1
+        ? 'Este campo es obligatorio.'
+        : `Se ha quedado corto: mínimo ${String(issue.minimum)}.`;
+    case 'too_big':
+      return `Se ha pasado de largo: máximo ${String(issue.maximum)}.`;
+    case 'invalid_string':
+      return issue.validation === 'email'
+        ? 'Escribe un correo válido.'
+        : issue.validation === 'url'
+          ? 'Escribe una dirección válida.'
+          : 'Revisa el formato de este campo.';
+    case 'invalid_enum_value':
+      // A propósito sin listar lo recibido ni lo esperado: lo esperado es un desplegable en
+      // el panel, y lo recibido es entrada del usuario.
+      return 'Elige una de las opciones disponibles.';
+    case 'custom':
+      // Aquí el mensaje lo escribimos nosotros al definir el esquema, así que sí se usa.
+      return issue.message;
+    default:
+      return 'Revisa este campo.';
+  }
+}
+
 export function fail(code: ActionErrorCode, message?: string): ActionResult<never> {
   return { ok: false, code, message: message ?? DEFAULT_MESSAGES[code] };
 }
@@ -126,8 +168,18 @@ const defaultSessionProvider: SessionProvider = async () => {
 
 let sessionProvider: SessionProvider = defaultSessionProvider;
 
-/** Solo para tests. */
+/**
+ * Solo para tests, y con guard.
+ *
+ * A diferencia del resto de `*ForTests` del proyecto, que reinician estado, este **sustituye
+ * de dónde sale la sesión**: llamarlo fuera de un test convierte el guard de rol en
+ * decorativo. Un import despistado desde una ruta bastaría, y no lo detectaría ningún test.
+ * Tres líneas cierran esa vía.
+ */
 export function setSessionProviderForTests(provider: SessionProvider | null): void {
+  if (process.env['NODE_ENV'] !== 'test') {
+    throw new Error('setSessionProviderForTests solo puede usarse en tests.');
+  }
   sessionProvider = provider ?? defaultSessionProvider;
 }
 
@@ -273,12 +325,22 @@ export function defineAction<Input, Output>(
         message: DEFAULT_MESSAGES.VALIDATION_FAILED,
         fields: parsed.error.issues.map((issue) => ({
           path: issue.path.join('.'),
-          message: issue.message,
+          message: mensajeDeCampo(issue),
         })),
       };
     }
 
-    const targetId = definition.targetId?.(parsed.data);
+    // `targetId` lo escribe quien define la action, y es justo el sitio donde se cuela un
+    // acceso a `input.items[0].id` que revienta con la lista vacía. Si lanzara fuera del
+    // `try`, la excepción escaparía del envoltorio y pasaría exactamente lo que ADR-400
+    // quiere evitar: el error genérico de Next y un editor sin saber si se guardó su texto.
+    // Además no puede tumbar la operación: es un dato de auditoría, no de negocio.
+    let targetId: string | undefined;
+    try {
+      targetId = definition.targetId?.(parsed.data);
+    } catch (error) {
+      console.error(`[action:${definition.name}] targetId lanzó; se audita sin objetivo`, error);
+    }
 
     // 5. La lógica. Todo lo que lance aquí se convierte en INTERNAL sin filtrar su mensaje:
     //    una excepción no capturada en una Server Action se vuelve un error genérico de

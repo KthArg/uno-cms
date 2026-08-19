@@ -277,6 +277,64 @@ describeIntegration('envoltorio de actions', () => {
     expect((await gastar({})).ok).toBe(true);
   });
 
+  it('un targetId que lanza no tumba la operación ni escapa del envoltorio', async () => {
+    // El hueco que esto cierra: el cálculo del objetivo de auditoría lo escribe quien define
+    // la action, y si lanzara fuera de la protección la excepción saldría de la Server
+    // Action tal cual — el error genérico de Next que ADR-400 existe para evitar.
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const conTargetRoto = defineAction({
+      name: 'test.targetRoto',
+      role: 'editor',
+      bucket: 'saveDraft',
+      input: z.object({}),
+      targetType: 'content',
+      targetId: () => {
+        throw new Error('el callback de auditoría revienta');
+      },
+      handler: async () => ok('guardado'),
+    });
+
+    // Lo que importa: la operación se completa. El objetivo es un dato de auditoría, no de
+    // negocio, y perderlo no puede costar el trabajo del editor.
+    await expect(conTargetRoto({})).resolves.toMatchObject({ ok: true, data: 'guardado' });
+
+    const [row] = await getDb().select().from(auditLog);
+    expect(row?.action).toBe('test.targetRoto');
+    expect(row?.targetId).toBeNull();
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('los errores de campo van en español y no devuelven el valor recibido', async () => {
+    const conEnum = defineAction({
+      name: 'test.enum',
+      role: 'editor',
+      bucket: 'saveDraft',
+      input: z.object({ estado: z.enum(['borrador', 'publicado']) }),
+      handler: async () => ok(true),
+    });
+
+    const laRed = conEnum as unknown as (raw: unknown) => Promise<ActionResult<unknown>>;
+    const result = await laRed({ estado: '<script>ojo</script>' });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+
+    expect(result.fields?.[0]?.message).toBe('Elige una de las opciones disponibles.');
+    // Zod, por defecto, incluiría el valor recibido en el mensaje. React lo escaparía al
+    // pintarlo, pero devolver entrada del usuario sin motivo no aporta nada al editor.
+    expect(JSON.stringify(result)).not.toContain('script');
+  });
+
+  it('un campo obligatorio que falta lo dice en español', async () => {
+    const result = await escribir({} as { key: string });
+
+    expect(result.ok === false && result.fields?.[0]).toMatchObject({
+      path: 'key',
+      message: 'Este campo es obligatorio.',
+    });
+  });
+
   it('un fallo devuelto por el handler no se convierte en INTERNAL', async () => {
     const conflicto = defineAction({
       name: 'test.conflicto',
