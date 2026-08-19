@@ -433,3 +433,111 @@ export const publishAll = defineAction({
     remaining: output.remaining,
   }),
 });
+
+// ── Deshacer ─────────────────────────────────────────────────────────────────────────────
+
+export const revertDraft = defineAction({
+  name: 'content.revertDraft',
+  role: 'editor',
+  bucket: 'saveDraft',
+  input: z.object({ key: z.string().min(1).max(200) }),
+  targetType: 'content',
+  targetId: (input) => input.key,
+  handler: async (input, session) => {
+    const db = getDb();
+
+    return db.transaction(async (tx) => {
+      // `FOR UPDATE` por el mismo motivo que en `publish`: entre leer lo publicado y
+      // escribirlo en el borrador cabe otra publicación, y el editor se quedaría con un
+      // borrador que no es ninguno de los dos estados.
+      const [row] = await tx
+        .select()
+        .from(contentEntries)
+        .where(eq(contentEntries.key, input.key))
+        .limit(1)
+        .for('update');
+
+      if (row === undefined) return fail('NOT_FOUND');
+
+      // Descartar los cambios exige tener algo a lo que volver. Sin publicar, no lo hay, y
+      // vaciar el borrador sería destruir lo único que existe.
+      if (row.published === null) return fail('NEVER_PUBLISHED');
+
+      const [actualizada] = await tx
+        .update(contentEntries)
+        .set({
+          draft: row.published,
+          // Borrador y publicado vuelven a coincidir, que es la definición de `published`
+          // en SPEC §4.
+          status: 'published',
+          // La versión sube igual: para el bloqueo optimista esto **es** una escritura, y no
+          // subirla dejaría que un guardado en curso con la versión vieja pisara el
+          // descarte sin detectar el conflicto.
+          version: sql`${contentEntries.version} + 1`,
+          draftUpdatedAt: new Date(),
+          updatedBy: session.userId,
+        })
+        .where(eq(contentEntries.key, input.key))
+        .returning({ version: contentEntries.version });
+
+      return ok({ version: actualizada!.version });
+    });
+  },
+});
+
+export const restoreRevision = defineAction({
+  name: 'content.restoreRevision',
+  role: 'editor',
+  bucket: 'saveDraft',
+  input: z.object({
+    key: z.string().min(1).max(200),
+    revisionId: z.string().uuid(),
+  }),
+  targetType: 'content',
+  targetId: (input) => input.key,
+  handler: async (input, session) => {
+    const db = getDb();
+
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(contentEntries)
+        .where(eq(contentEntries.key, input.key))
+        .limit(1)
+        .for('update');
+
+      if (row === undefined) return fail('NOT_FOUND');
+
+      // **La revisión se busca por id Y por clave.** Buscarla solo por id dejaría restaurar
+      // el contenido de una sección dentro de otra: los identificadores son adivinables por
+      // fuerza bruta y el editor tiene permiso para tocar todo el contenido, así que el
+      // resultado no sería un escalado de privilegios, pero sí un destrozo silencioso —el
+      // texto del hero apareciendo dentro de un testimonio— que nadie sabría explicar.
+      const [revision] = await tx
+        .select({ data: revisions.data })
+        .from(revisions)
+        .where(and(eq(revisions.id, input.revisionId), eq(revisions.entryKey, input.key)))
+        .limit(1);
+
+      if (revision === undefined) return fail('NOT_FOUND');
+
+      const [actualizada] = await tx
+        .update(contentEntries)
+        .set({
+          // **Al borrador, no a lo publicado** (SPEC §9: "historial con Restaurar que lleva
+          // a borrador, nunca publica directo"). Volver atrás sigue siendo una acción
+          // deliberada de dos pasos: restaurar y luego publicar. Publicar directamente
+          // convertiría un clic exploratorio en el historial en un cambio del sitio público.
+          draft: revision.data,
+          status: 'changed',
+          version: sql`${contentEntries.version} + 1`,
+          draftUpdatedAt: new Date(),
+          updatedBy: session.userId,
+        })
+        .where(eq(contentEntries.key, input.key))
+        .returning({ version: contentEntries.version });
+
+      return ok({ version: actualizada!.version });
+    });
+  },
+});
