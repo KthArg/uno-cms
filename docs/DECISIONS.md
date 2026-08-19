@@ -461,3 +461,60 @@ memoria del proceso.
 >
 > Lo que sí queda: la interfaz `RateLimiter`, de modo que añadir el backend es implementarla
 > sin tocar a quien la consume.
+
+---
+
+## ADR-400 — Las actions devuelven un resultado, no lanzan
+
+**Contexto.** `SPEC.md` §5.3 dice que "los errores se devuelven como `{ ok: false, code, message }` con mensajes genéricos". No dice qué pasa con las excepciones que nadie previó.
+
+Y es la parte que importa: una excepción no capturada dentro de una Server Action se convierte en un error genérico de Next que el panel no puede explicar. El editor ve "algo ha fallado" sin saber si su texto se guardó, y en un CMS con autosave esa duda es peor que el fallo.
+
+**Decisión.** Un envoltorio único captura todo y devuelve `{ ok: false, code: 'INTERNAL' }`. El detalle del error va al log del servidor y **nunca a la respuesta**.
+
+Catálogo de códigos, con lo que revela cada uno:
+
+| Código                                      | Revela                                                              |
+| ------------------------------------------- | ------------------------------------------------------------------- |
+| `UNAUTHORIZED`, `RATE_LIMITED`, `INTERNAL`  | Nada                                                                |
+| `FORBIDDEN`                                 | Que la operación existe. Aceptable: quien lo recibe ya tiene sesión |
+| `NOT_FOUND`                                 | Deliberadamente ambiguo entre "no existe" y "no tienes permiso"     |
+| `VALIDATION_FAILED`                         | Solo campos del propio contenido del usuario                        |
+| `VERSION_CONFLICT`                          | Que hay otro editor. Es exactamente el punto                        |
+| `NEVER_PUBLISHED`, `LAST_ADMIN`, `CONFLICT` | Estado del propio sitio, nada sensible                              |
+
+**Consecuencias.**
+
+- El panel puede reaccionar a cada caso sin adivinar, que es lo que necesita el flujo de SPEC §9 ("Otra persona guardó cambios mientras editabas" → ofrecer recargar).
+- **Coste real:** las actions dejan de poder usar `throw` como control de flujo, y eso obliga a propagar resultados a mano por dentro. Es más verboso y es el precio de que ningún camino se escape sin convertirse en un código.
+- `message` va en español llano dirigido al editor, no en jerga. Un `code` sirve al panel; un `message` sirve a la persona.
+
+---
+
+## ADR-401 — `publishAll` es todo-o-nada por entrada, no global
+
+**Contexto.** `SPEC.md` §5.3 dice de `publishAll`: "iterando entries con `status='changed'`; **todo-o-nada por entry**, reporta resultado por key". La spec ya decide; este ADR registra por qué, porque la alternativa parece más segura y no lo es.
+
+**Decisión.** Cada entrada se publica en su propia transacción. Si una falla la validación estricta, las demás se publican igualmente y se devuelve el resultado por clave.
+
+**Consecuencias.**
+
+- Un campo requerido olvidado en una sección que a nadie le urge —un `seo.description` a medias— **no bloquea** la publicación del resto. Con una transacción global lo bloquearía, y el editor tendría que arreglar algo que no estaba tocando para publicar lo que sí acaba de escribir.
+- **A cambio:** el sitio puede quedar en un estado mixto, con unas secciones publicadas y otras no. Es visible en el panel (SPEC §9: tarjeta por sección con su estado), así que no es un estado oculto.
+- El resultado por clave es obligatorio, no informativo: sin él, el editor no sabe qué se publicó.
+
+---
+
+## ADR-402 — La revisión guarda el estado sustituido, no el entrante
+
+**Contexto.** `SPEC.md` §4 describe `revisions.data` como "snapshot de lo publicado" y §5.3 dice que `publish` hace "snapshot a `revisions`". Ambas frases admiten dos lecturas: el estado que **se va a sustituir** o el que **entra**.
+
+**Decisión.** Se guarda el que se sustituye, es decir, lo que estaba publicado **antes** de esta publicación.
+
+El motivo es para qué sirve una revisión: para volver atrás. Y "atrás" es lo que había. Guardando el estado entrante, la revisión más reciente sería idéntica a lo publicado actual —inútil— y para volver a la versión anterior habría que ir dos pasos atrás en la lista, cosa que nadie espera de un historial.
+
+**Consecuencias.**
+
+- La primera publicación de una entrada **no genera revisión**, porque no había nada que sustituir. El historial de un contenido recién publicado está vacío, y eso es correcto aunque a primera vista parezca un fallo.
+- El número de revisiones es siempre uno menos que el número de publicaciones. La poda a 20 de `SPEC.md` §4 se aplica sobre esa cuenta.
+- `restoreRevision` lleva el snapshot al **borrador** y no publica (SPEC §9), así que volver atrás sigue siendo una acción deliberada de dos pasos.
