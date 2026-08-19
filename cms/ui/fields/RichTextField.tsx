@@ -3,6 +3,7 @@
 import Link from '@tiptap/extension-link';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { useEffect, useRef } from 'react';
 import type { RichTextField as RichTextFieldDef } from '@/cms/core/config';
 import { PROTOCOLOS_DE_ENLACE } from './link-protocols';
 
@@ -51,6 +52,14 @@ export interface RichTextFieldProps {
 }
 
 export function CampoTextoRico({ id, field, value, onChange, error }: RichTextFieldProps) {
+  /**
+   * Lo último que este editor emitió, para distinguir un cambio propio de uno de fuera.
+   *
+   * Se declara antes que el editor porque `onUpdate` lo escribe: dejarlo debajo funciona
+   * —el callback corre después del render— pero obliga a leer el fichero al revés.
+   */
+  const ultimoEmitido = useRef<string | null>(null);
+
   const editor = useEditor({
     // `false` en el servidor: Tiptap lo pide explícitamente para no renderizar en SSR y
     // provocar una discrepancia de hidratación.
@@ -85,11 +94,50 @@ export function CampoTextoRico({ id, field, value, onChange, error }: RichTextFi
     },
     onUpdate: ({ editor: instancia }) => {
       const documento = instancia.getJSON();
+      ultimoEmitido.current = JSON.stringify(instancia.isEmpty ? null : documento);
       // Un documento sin nada se manda como ausencia, no como un `doc` vacío: son lo mismo
       // para el lector y distintos para el esquema, y `undefined` es lo que de verdad hay.
       onChange(instancia.isEmpty ? undefined : documento);
     },
   });
+
+  /**
+   * Sincroniza el contenido cuando el valor cambia **desde fuera**.
+   *
+   * `useEditor` recibe `content` una sola vez, al crearse. Sin esto, el editor se queda con lo
+   * de antes cuando alguien recupera el borrador local (#103), restaura una revisión (#105) o
+   * recarga tras un conflicto de versión — y como no dispara `onChange`, lo siguiente que se
+   * guarde sería el texto viejo pisando el que se acaba de recuperar.
+   *
+   * La parte delicada es **no pisar mientras se escribe**. Un efecto que asignara el contenido
+   * en cada render movería el cursor al principio con cada tecla. Por eso se compara contra lo
+   * último que el editor emitió: si coincide, el cambio venía de aquí y no hay nada que hacer.
+   */
+  useEffect(() => {
+    if (editor === null) return;
+
+    const entrante = JSON.stringify(value ?? null);
+    if (entrante === ultimoEmitido.current) return;
+    if (entrante === JSON.stringify(editor.getJSON())) return;
+
+    ultimoEmitido.current = entrante;
+    // `emitUpdate: false` porque aplicar un valor de fuera no es una edición: avisar
+    // provocaría un guardado de algo que acaba de leerse del servidor.
+    //
+    // **Y aquí hay algo que decir en vez de dar por hecho.** El tipo de Tiptap documenta que
+    // el valor por defecto es `true`, así que la opción debería importar. Pero al ponerla a
+    // `true` a propósito, el evento **tampoco** se emite: la mutación sobrevive y el test no
+    // distingue. O sea que en esta versión el comportamiento correcto se obtiene igual sin la
+    // opción, y esta línea es un cinturón contra el valor por defecto documentado, no algo que
+    // esté verificado.
+    //
+    // Se queda porque el coste es cero y el riesgo que cubre es real: si una versión futura
+    // empieza a emitir, recuperar un borrador dispararía un guardado inútil y gastaría un
+    // `version`. Lo que no hago es afirmar que está probado.
+    editor.commands.setContent((value ?? { type: 'doc', content: [] }) as Record<string, unknown>, {
+      emitUpdate: false,
+    });
+  }, [editor, value]);
 
   return (
     <>

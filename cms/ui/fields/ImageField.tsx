@@ -36,6 +36,11 @@ export function CampoImagen({ id, field, value, onChange, error, onElegir }: Ima
   const altObligatorio = !field.decorative;
   const faltaAlt = altObligatorio && value !== undefined && value.alt.trim() === '';
 
+  // El mensaje de verdad, no una cadena centinela. La primera versión pasaba `'falta'` para
+  // conseguir el borde rojo, y era el tipo de atajo que alguien "arregla" dentro de tres meses
+  // pintándolo en pantalla.
+  const mensajeDeAlt = faltaAlt ? 'Describe la imagen antes de publicar.' : undefined;
+
   return (
     <FieldShell
       id={id}
@@ -94,15 +99,15 @@ export function CampoImagen({ id, field, value, onChange, error, onElegir }: Ima
               onChange={(evento) => {
                 onChange({ ...value, alt: evento.target.value });
               }}
-              className={claseControl(faltaAlt ? 'falta' : error)}
-              {...idsDeCampo(`${id}-alt`, undefined, faltaAlt ? 'falta' : undefined)}
+              className={claseControl(mensajeDeAlt ?? error)}
+              {...idsDeCampo(`${id}-alt`, undefined, mensajeDeAlt)}
             />
             <p id={`${id}-alt-ayuda`} className="text-xs text-slate-500">
               Para quien no puede verla. Describe lo que se ve, no la palabra «imagen».
             </p>
-            {faltaAlt && (
+            {mensajeDeAlt !== undefined && (
               <p id={`${id}-alt-error`} className="text-sm text-red-700">
-                Describe la imagen antes de publicar.
+                {mensajeDeAlt}
               </p>
             )}
           </div>

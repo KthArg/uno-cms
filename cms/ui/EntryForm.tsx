@@ -89,7 +89,6 @@ export function EntryForm({
         <Campo
           key={nombre}
           id={`${idPrefix}-${nombre}`}
-          nombre={nombre}
           field={field}
           valor={values[nombre]}
           error={errorDe(nombre)}
@@ -111,7 +110,6 @@ export function EntryForm({
 
 interface CampoProps {
   readonly id: string;
-  readonly nombre: string;
   readonly field: AnyField;
   readonly valor: unknown;
   readonly error: string | undefined;
