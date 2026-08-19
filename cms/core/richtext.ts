@@ -196,3 +196,127 @@ export function richTextHasContent(value: unknown): boolean {
 export function emptyRichTextDoc(): { type: 'doc'; content: [] } {
   return { type: 'doc', content: [] };
 }
+
+/**
+ * Limpia un documento de richtext dejando **solo** lo que está en la allowlist.
+ *
+ * ## Por qué limpiar y no rechazar
+ *
+ * `richTextDocSchema` rechaza lo que no reconoce, y para publicar eso es lo correcto. Para
+ * **guardar un borrador**, no: `SPEC.md` §5.3 dice literalmente "sanitiza richtext" en
+ * `saveDraft`, y el motivo se ve al pensar en el autosave de §8.
+ *
+ * El editor pega un párrafo copiado de una web. Viene con un `<a>` raro, un `class`, un nodo
+ * que Tiptap no conoce. Si el guardado lo rechaza, **el autosave falla en bucle cada dos
+ * segundos** y el editor sigue escribiendo sin saber que nada se está guardando. Perdería
+ * todo su trabajo por un atributo que ni sabe que pegó.
+ *
+ * Limpiando, se guarda el texto y desaparece lo que sobra — que es justo lo que el editor
+ * esperaba al pegar, aunque pierda un enlace.
+ *
+ * ## Qué hace exactamente
+ *
+ * - Descarta los nodos cuyo tipo no está permitido, **con sus hijos**. No los "desenvuelve":
+ *   sacar los hijos de un nodo desconocido puede dejar contenido en línea colgando de la
+ *   raíz, que no es un documento válido, y arreglarlo bien exige conocer el esquema de
+ *   ProseMirror entero.
+ * - Descarta las marcas no permitidas y **conserva el texto**: perder la negrita no es
+ *   perder la frase.
+ * - Descarta los atributos que no estén en la lista de su nodo o marca, incluidos `class` y
+ *   `style` (SPEC §6.3).
+ * - Descarta la marca `link` cuyo `href` no pase `isSafeLink`, conservando el texto. Es el
+ *   caso de `javascript:`.
+ * - Un `heading` con nivel fuera de h2–h4 se degrada a `paragraph` en vez de desaparecer: el
+ *   texto de un titular importa más que su nivel.
+ *
+ * El resultado siempre pasa `richTextDocSchema`, y hay un test que lo comprueba con entradas
+ * hostiles en vez de darlo por hecho.
+ */
+export function sanitizeRichText(value: unknown): { type: 'doc'; content: unknown[] } {
+  if (typeof value !== 'object' || value === null) return emptyRichTextDoc();
+
+  const content = (value as { content?: unknown }).content;
+  return { type: 'doc', content: sanitizeNodes(content) };
+}
+
+function sanitizeNodes(nodes: unknown): unknown[] {
+  if (!Array.isArray(nodes)) return [];
+
+  const limpios: unknown[] = [];
+  for (const node of nodes) {
+    const limpio = sanitizeNode(node);
+    if (limpio !== null) limpios.push(limpio);
+  }
+  return limpios;
+}
+
+function sanitizeNode(node: unknown): Record<string, unknown> | null {
+  if (typeof node !== 'object' || node === null) return null;
+
+  const { type, text, marks, attrs, content } = node as {
+    type?: unknown;
+    text?: unknown;
+    marks?: unknown;
+    attrs?: unknown;
+    content?: unknown;
+  };
+
+  if (typeof type !== 'string') return null;
+  // `doc` solo es válido en la raíz; anidado, es basura.
+  if (type === 'doc' || !(type in ALLOWED_NODES)) return null;
+
+  // Un `heading` con nivel raro se degrada en vez de desaparecer: el texto del titular
+  // importa más que su nivel.
+  const level = (attrs as Record<string, unknown> | undefined)?.['level'];
+  const esHeadingInvalido =
+    type === 'heading' && (typeof level !== 'number' || !ALLOWED_HEADING_LEVELS.has(level));
+  const tipoFinal = esHeadingInvalido ? 'paragraph' : type;
+
+  const limpio: Record<string, unknown> = { type: tipoFinal };
+
+  if (typeof text === 'string') limpio['text'] = text;
+
+  const attrsLimpios = esHeadingInvalido
+    ? {}
+    : sanitizeAttrs(attrs, ALLOWED_NODE_ATTRS[tipoFinal] ?? []);
+  if (Object.keys(attrsLimpios).length > 0) limpio['attrs'] = attrsLimpios;
+
+  const marcasLimpias = sanitizeMarks(marks);
+  if (marcasLimpias.length > 0) limpio['marks'] = marcasLimpias;
+
+  if (content !== undefined) limpio['content'] = sanitizeNodes(content);
+
+  return limpio;
+}
+
+function sanitizeMarks(marks: unknown): unknown[] {
+  if (!Array.isArray(marks)) return [];
+
+  const limpias: unknown[] = [];
+  for (const mark of marks) {
+    if (typeof mark !== 'object' || mark === null) continue;
+
+    const { type, attrs } = mark as { type?: unknown; attrs?: unknown };
+    if (typeof type !== 'string' || !(type in ALLOWED_MARKS)) continue;
+
+    const attrsLimpios = sanitizeAttrs(attrs, ALLOWED_MARK_ATTRS[type] ?? []);
+
+    // Un enlace con destino no permitido pierde la marca y conserva el texto. Es el caso de
+    // `javascript:`, y descartar la frase entera por él sería peor que quitarle el enlace.
+    if (type === 'link' && !isSafeLink(attrsLimpios['href'])) continue;
+
+    limpias.push(Object.keys(attrsLimpios).length > 0 ? { type, attrs: attrsLimpios } : { type });
+  }
+  return limpias;
+}
+
+function sanitizeAttrs(attrs: unknown, allowed: readonly string[]): Record<string, unknown> {
+  if (typeof attrs !== 'object' || attrs === null) return {};
+
+  const limpios: Record<string, unknown> = {};
+  for (const name of allowed) {
+    const value = (attrs as Record<string, unknown>)[name];
+    if (value !== undefined) limpios[name] = value;
+  }
+  return limpios;
+}
