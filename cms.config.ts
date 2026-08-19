@@ -12,25 +12,36 @@ export default defineConfig({
 
   // SINGLETONS: exactamente una instancia. Las secciones fijas de la landing.
   singletons: {
-    hero: s.object({
-      title: s.text({ label: 'Título principal', max: 120, required: true }),
-      subtitle: s.text({ label: 'Subtítulo', max: 300, multiline: true }),
-      ctaLabel: s.text({ label: 'Texto del botón', max: 40 }),
-      ctaHref: s.link({ label: 'Enlace del botón' }),
-      image: s.image({ label: 'Imagen de fondo' }),
-    }),
+    hero: s.object(
+      {
+        title: s.text({ label: 'Título principal', max: 120, required: true }),
+        subtitle: s.text({ label: 'Subtítulo', max: 300, multiline: true }),
+        ctaLabel: s.text({ label: 'Texto del botón', max: 40 }),
+        ctaHref: s.link({ label: 'Enlace del botón' }),
+        image: s.image({ label: 'Imagen de fondo' }),
+      },
+      // El nombre que ve el editor en los avisos de validación (SPEC §9). Sin él, el mensaje
+      // diría "en hero", que es la clave técnica asomando en su interfaz.
+      { label: 'Portada' }
+    ),
 
-    about: s.object({
-      heading: s.text({ label: 'Encabezado', required: true }),
-      body: s.richtext({ label: 'Contenido' }),
-      visible: s.boolean({ label: 'Mostrar sección', default: true }),
-    }),
+    about: s.object(
+      {
+        heading: s.text({ label: 'Encabezado', required: true }),
+        body: s.richtext({ label: 'Contenido' }),
+        visible: s.boolean({ label: 'Mostrar sección', default: true }),
+      },
+      { label: 'Sobre nosotros' }
+    ),
 
-    seo: s.object({
-      title: s.text({ label: 'Título SEO', max: 60 }),
-      description: s.text({ label: 'Descripción SEO', max: 160, multiline: true }),
-      ogImage: s.image({ label: 'Imagen para redes' }),
-    }),
+    seo: s.object(
+      {
+        title: s.text({ label: 'Título SEO', max: 60 }),
+        description: s.text({ label: 'Descripción SEO', max: 160, multiline: true }),
+        ogImage: s.image({ label: 'Imagen para redes' }),
+      },
+      { label: 'SEO y redes sociales' }
+    ),
   },
 
   // COLLECTIONS: N instancias ordenables.

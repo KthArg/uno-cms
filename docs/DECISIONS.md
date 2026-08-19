@@ -578,3 +578,40 @@ Que el envoltorio sea el correcto se comprueba con la propia limitación, que re
 
 - La invalidación real (publicar y ver la landing cambiar) se verifica en e2e, en M5, donde hay un servidor de verdad. Hasta entonces, lo que hay es que `publish` llama a `revalidateTag` con el tag correcto, y eso sí se prueba en #78.
 - El aserto del invariante depende de un mensaje interno de Next. Si una versión lo cambia, el test falla y hay que actualizarlo; es un fallo ruidoso y no silencioso, que es la propiedad que importa.
+
+---
+
+## ADR-406 — Los singletons tienen nombre visible (resuelve #89)
+
+**Contexto.** `SPEC.md` §9 fija el aviso de validación al publicar: "Falta el Título principal en **Portada**". Pero el `cms.config.ts` de §5.1 no le da nombre a ningún singleton: los campos tienen `label`, las colecciones tienen `label`, y los singletons solo tienen su clave técnica. Lo único disponible para nombrar la sección era `hero`, y "Falta el Título principal en hero" es la clave del desarrollador asomando en la interfaz del editor.
+
+**Decisión.** `s.object` acepta un segundo argumento opcional con la etiqueta:
+
+```ts
+hero: s.object({ … }, { label: 'Portada' })
+```
+
+Compatible hacia atrás y sin tocar la inferencia de tipos, porque los campos siguen siendo el primer argumento. Sin etiqueta se usa la clave.
+
+**Consecuencias.**
+
+- Los tres singletons de `cms.config.ts` pasan a llamarse "Portada", "Sobre nosotros" y "SEO y redes sociales". Son también los nombres que verá el panel en M4.
+- El respaldo a la clave técnica es **feo a propósito**: si alguien añade un singleton sin etiqueta, lo verá en el mensaje y lo corregirá. Un respaldo bonito —humanizar la clave a "Hero"— daría un nombre inventado que parece correcto y nadie arreglaría nunca.
+- `ObjectSchema.label` es opcional, así que ningún esquema existente deja de compilar.
+
+---
+
+## ADR-407 — Publicar lo mismo no crea revisión, y la comparación tiene que ser estable
+
+**Contexto.** `saveDraft` marca `status = 'changed'` en cada guardado, también cuando el editor escribe una letra y la borra. Sin más, "publicar todo" acabaría publicando entradas que no han cambiado y creando una revisión idéntica a la anterior en cada pasada — comiéndose el presupuesto de 20 revisiones por entrada de `SPEC.md` §4 con copias del mismo estado.
+
+**Decisión.** `publish` compara el borrador validado con lo publicado y, si son iguales, no crea revisión ni reescribe el contenido. Sí corrige el `status`, porque la fila decía "con cambios" y no los tenía.
+
+La comparación se hace con una serialización **estable** —claves ordenadas, recursivamente— y no con `JSON.stringify`. No es un refinamiento teórico: lo publicado vuelve de Postgres como JSONB, que ordena las claves por longitud (`body`, `heading`, `visible`), mientras que Zod las devuelve en el orden del esquema (`heading`, `body`, `visible`). Con `JSON.stringify` a secas, `about` daría "ha cambiado" **siempre**.
+
+Ese detalle sobrevivió a la primera tanda de mutación porque el caso de prueba usaba `hero`, donde los dos órdenes coinciden por casualidad. El caso está ahora escrito sobre `about`.
+
+**Consecuencias.**
+
+- La comparación vive en `publish` y no en `saveDraft`, aunque el `status` inexacto nazca allí. `publish` ya necesita comparar para decidir la revisión, así que se escribe una vez; y equivocarse tiene coste asimétrico: marcar como "sin cambios" algo que sí cambió pierde trabajo del editor, mientras que marcar de más solo publica un no-op.
+- `publish` devuelve `changed: false` en ese caso, para que el panel pueda decir "no había nada que publicar" en vez de fingir una publicación.

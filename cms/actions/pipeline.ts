@@ -266,6 +266,15 @@ export interface ActionDefinition<Input, Output> {
   readonly targetType?: AuditTargetType;
   /** Qué identificador se registra en la auditoría, a partir del input ya validado. */
   readonly targetId?: (input: Input) => string | undefined;
+  /**
+   * Metadatos para la auditoría, a partir del resultado.
+   *
+   * Existe porque hay operaciones cuyo rastro no dice nada sin ellos: una fila
+   * `content.publishAll` con solo el actor no responde a la única pregunta que se le va a
+   * hacer, que es **qué secciones se publicaron**. `audit` ya redacta las claves sensibles,
+   * así que lo que salga de aquí pasa por el mismo filtro que todo lo demás.
+   */
+  readonly auditMeta?: (output: Output) => Record<string, unknown>;
   readonly handler: (input: Input, session: ActionSession) => Promise<ActionResult<Output>>;
 }
 
@@ -385,12 +394,22 @@ export function defineAction<Input, Output>(
       return result;
     }
 
+    let meta: Record<string, unknown> | undefined;
+    try {
+      meta = definition.auditMeta?.(result.data);
+    } catch (error) {
+      // Mismo criterio que `targetId`: un fallo calculando metadatos de auditoría no puede
+      // tumbar una operación que ya está escrita y confirmada.
+      console.error(`[action:${definition.name}] auditMeta lanzó; se audita sin metadatos`, error);
+    }
+
     await audit({
       action: definition.name,
       actorId: session.userId,
       actorEmail: session.email,
       ...(definition.targetType === undefined ? {} : { targetType: definition.targetType }),
       ...(targetId === undefined ? {} : { targetId }),
+      ...(meta === undefined ? {} : { meta }),
     });
 
     return result;
