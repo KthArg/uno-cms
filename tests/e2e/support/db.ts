@@ -53,3 +53,25 @@ export function dejarSinPublicar(key: string, draft: Record<string, unknown>, ty
     [key, type, JSON.stringify(draft)]
   );
 }
+
+/**
+ * Vacía una colección entera.
+ *
+ * Hace falta porque los tests que **crean** elementos dejan rastro, y el siguiente que busque
+ * "Marta Ruiz" encuentra tres. En CI no se nota —la base es nueva en cada ejecución— y en local
+ * falla a la segunda pasada: un test que solo pasa con la base recién creada es un test que
+ * miente sobre su propio estado.
+ */
+export function limpiarColeccion(type: string): void {
+  ejecutarSql('delete from content_entries where type = $1', [type]);
+}
+
+/** Deja el borrador de una entrada en un estado conocido, sin tocar lo publicado. */
+export function ponerBorrador(key: string, draft: Record<string, unknown>): void {
+  ejecutarSql(
+    `insert into content_entries (key, type, draft)
+     values ($1, $1, $2::jsonb)
+     on conflict (key) do update set draft = excluded.draft`,
+    [key, JSON.stringify(draft)]
+  );
+}

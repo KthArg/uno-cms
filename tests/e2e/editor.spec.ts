@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { ponerBorrador } from './support/db';
 import { crearYEntrar } from './support/session';
 
 /**
@@ -72,6 +73,12 @@ test('publicar sin un campo obligatorio dice cuál y dónde', async ({ page }) =
 test('#121: el cursor se queda donde el editor lo dejó', async ({ page }) => {
   // El caso que jsdom no puede comprobar. Con navegador de verdad sí hay maquetación, así que
   // ProseMirror sitúa el punto de inserción y se puede escribir en medio de un párrafo.
+  //
+  // El borrador se pone en blanco primero: este test **escribe**, así que en una base que ya
+  // ha visto otra ejecución arrastraría el texto anterior y compararía contra un párrafo que
+  // no puso él.
+  ponerBorrador('about', { heading: 'Sobre nosotras' });
+
   await crearYEntrar(page, { email: 'editor-cursor@ejemplo.com', role: 'admin' });
 
   await page.goto('/admin/content/about');

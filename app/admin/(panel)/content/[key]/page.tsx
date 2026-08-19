@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { publish, saveDraft } from '@/cms/actions';
+import { definicionDeColeccion, tituloDeElemento } from '@/cms/core/collections';
 import { readEntryForEditor, schemaForType } from '@/cms/core/content';
 import { listMedia } from '@/cms/core/media';
 import { TAMANO_MAXIMO_BYTES, TIPOS_PERMITIDOS } from '@/cms/security/uploads';
@@ -25,7 +26,17 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
   const schema = schemaForType(entrada.type);
   if (schema === null) notFound();
 
-  const nombre = schema.label ?? entrada.key;
+  // El nombre que ve el editor.
+  //
+  // Para un elemento de colección, `schema.label` no existe —la etiqueta vive en la definición
+  // de la colección, no en su esquema— así que la versión anterior enseñaba la clave técnica
+  // entera: «Testimonios: testimonials.3f2a-…». Eso es justo la jerga que §9 prohíbe, y encima
+  // la más fea posible.
+  const coleccion = definicionDeColeccion(entrada.type);
+  const nombre =
+    coleccion === null
+      ? (schema.label ?? entrada.key)
+      : `${coleccion.label}: ${tituloDeElemento(entrada.draft, coleccion.titleField)}`;
   const imagenes = await listMedia();
 
   async function guardarBorrador(
