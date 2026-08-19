@@ -55,16 +55,38 @@ test('publicar dice que se ha publicado', async ({ page }) => {
   await expect(page.getByText(/Publicado/)).toBeVisible({ timeout: 10_000 });
 });
 
-test('publicar sin un campo obligatorio dice cuál y dónde', async ({ page }) => {
+test('publicar tras vaciar un campo obligatorio dice cuál y dónde', async ({ page }) => {
+  // **El estado de partida lo pone el test.** La primera versión daba por hecho que
+  // `about.heading` tendría algo, y en una base que ya había visto otra ejecución estaba
+  // vacío: `fill('')` no cambiaba nada, no había guardado pendiente, y el test recorría un
+  // camino distinto del que creía. Fallaba una de cada tres.
+  ponerBorrador('about', { heading: 'Un encabezado que voy a borrar' });
+
   await crearYEntrar(page, { email: 'editor-valida@ejemplo.com', role: 'admin' });
 
   await page.goto('/admin/content/about');
-  // `about.heading` es obligatorio: se vacía para provocar el aviso.
   await page.getByLabel(/Encabezado/).fill('');
   await page.getByRole('button', { name: 'Publicar cambios' }).click();
 
   // SPEC §9: "Falta el Título principal en Portada". Nombre del campo y de la sección, nunca
   // la clave técnica.
+  await expect(page.getByText(/Falta Encabezado en Sobre nosotros/)).toBeVisible({
+    timeout: 10_000,
+  });
+});
+
+test('publicar sin haber tocado nada también avisa', async ({ page }) => {
+  // El otro camino, y merece su propio test: publicar cuando **no hay nada pendiente** es una
+  // acción legítima —"no he cambiado nada, publica igual"— y recorre el código por otro sitio,
+  // porque el guardado no llega a mandarse. Los dos estaban mezclados en un solo test cuyo
+  // camino dependía de lo que hubiera dejado la ejecución anterior.
+  ponerBorrador('about', { visible: true });
+
+  await crearYEntrar(page, { email: 'editor-sin-tocar@ejemplo.com', role: 'admin' });
+
+  await page.goto('/admin/content/about');
+  await page.getByRole('button', { name: 'Publicar cambios' }).click();
+
   await expect(page.getByText(/Falta Encabezado en Sobre nosotros/)).toBeVisible({
     timeout: 10_000,
   });
@@ -87,8 +109,15 @@ test('#121: el cursor se queda donde el editor lo dejó', async ({ page }) => {
   await cuerpo.click();
   await page.keyboard.type('hola mundo');
 
+  // **Se espera al guardado antes de mover el cursor.** Lo que este test mide es dónde entra
+  // el texto, no cómo convive con el autosave: con un guardado en vuelo, el editor recibe el
+  // valor de vuelta mientras se teclea y el cursor se va al final por un motivo que no tiene
+  // nada que ver con lo que se quiere comprobar. Salió al ejecutar la suite dos veces
+  // seguidas, con los tiempos justo distintos.
+  await expect(page.getByText('Guardado ✓')).toBeVisible({ timeout: 10_000 });
+
   // Se coloca el cursor detrás de «hola» y se escribe: el texto tiene que quedar ahí, no al
-  // principio del documento.
+  // principio ni al final del documento.
   await page.keyboard.press('Home');
   for (let i = 0; i < 4; i += 1) await page.keyboard.press('ArrowRight');
   await page.keyboard.type(' cruel');
