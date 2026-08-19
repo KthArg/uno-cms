@@ -8,9 +8,15 @@ const repoRoot = fileURLToPath(new URL('.', import.meta.url));
  * aquí desde el primer día, pero solo se **aplica** cuando `COVERAGE_ENFORCE=1`, que CI
  * activa a partir de M3.
  *
- * Motivo: hasta M3 esos dos árboles están prácticamente vacíos. Un umbral sobre cero
- * ficheros no mide nada y, peor, da un verde que parece cobertura y no lo es. Ver
- * docs/specs/00-fundaciones.md §3.2 y el issue #6.
+ * Activo desde M3 (#83). Hasta entonces esos dos árboles estaban prácticamente vacíos y un
+ * umbral sobre cero ficheros no mide nada — peor, da un verde que parece cobertura y no lo
+ * es. Ver docs/specs/00-fundaciones.md §3.2 y el issue #6.
+ *
+ * La medición corre sobre **las dos suites**, unitaria e integración, en el job de CI que
+ * tiene Postgres. Medir solo la unitaria daba 73 % y no por falta de pruebas: la lectura de
+ * contenido y el envoltorio de actions se ejercitan contra base de datos real, que es donde
+ * tienen sentido. Un umbral que ignora media suite mide cómo están repartidos los tests, no
+ * cuánto código está cubierto.
  */
 const coverageThresholds = {
   'cms/core/**': { statements: 80, branches: 80, functions: 80, lines: 80 },

@@ -169,19 +169,19 @@ allí; ningún caso quedó dado por bueno estando en rojo.
 
 ### La tabla de amenazas de §7.1
 
-| Amenaza                     | Estado                                                                                                                       |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Fuerza bruta en login       | ✅ Lockout persistente + rate limit + Argon2id                                                                               |
-| XSS vía contenido           | ✅ Cerrada en M1                                                                                                             |
-| CSRF                        | ✅ Comprobación de origen en el middleware, sobre lo que ya hacen las Server Actions                                         |
-| Clickjacking                | ✅ `frame-ancestors 'self'`, verificado sobre la respuesta real                                                              |
-| Inyección SQL               | ✅ Regla de lint (M0) + Drizzle (M1)                                                                                         |
-| **Escalada de privilegios** | ⚠️ **Abierta.** §7.1 pide "chequeo de rol en cada action", y las actions son de M3. M2 aporta que el rol exista y sea fiable |
-| Robo de sesión              | ✅ Cookies, claim `pwdV`, cuenta borrada = sesión inválida                                                                   |
-| **Abuso de uploads**        | ⚠️ **Abierta.** No hay uploads todavía; M4                                                                                   |
-| Enumeración                 | ✅ Mismo resultado y mismo coste temporal en login, tokens y bootstrap                                                       |
-| Secretos en cliente         | ✅ Frontera `server-only` (M0/M1)                                                                                            |
-| Dependencias                | ✅ `pnpm audit` bloqueante                                                                                                   |
+| Amenaza                     | Estado                                                                               |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| Fuerza bruta en login       | ✅ Lockout persistente + rate limit + Argon2id                                       |
+| XSS vía contenido           | ✅ Cerrada en M1                                                                     |
+| CSRF                        | ✅ Comprobación de origen en el middleware, sobre lo que ya hacen las Server Actions |
+| Clickjacking                | ✅ `frame-ancestors 'self'`, verificado sobre la respuesta real                      |
+| Inyección SQL               | ✅ Regla de lint (M0) + Drizzle (M1)                                                 |
+| **Escalada de privilegios** | ⚠️ Abierta en M2; **cerrada en M3** con el envoltorio de actions y T-75-6            |
+| Robo de sesión              | ✅ Cookies, claim `pwdV`, cuenta borrada = sesión inválida                           |
+| **Abuso de uploads**        | ⚠️ **Abierta.** No hay uploads todavía; M4                                           |
+| Enumeración                 | ✅ Mismo resultado y mismo coste temporal en login, tokens y bootstrap               |
+| Secretos en cliente         | ✅ Frontera `server-only` (M0/M1)                                                    |
+| Dependencias                | ✅ `pnpm audit` bloqueante                                                           |
 
 Dos filas abiertas **con dueño**, tal como declara el spec de fase. Una fila abierta con
 dueño vale más que una cerrada de forma optimista.
@@ -228,9 +228,100 @@ descubrieron por mutación, no leyendo:
 Y dos veces el **build** cazó lo que los tests no: el `const enum` de Argon2 y el prerender
 de la landing.
 
-## M3 — API de contenido (server actions) ⏳
+## M3 — API de contenido (server actions) ✅
 
-Pendiente. Aquí se activa `COVERAGE_ENFORCE=1` en CI (SPEC §11.4).
+Nueve issues, nueve PR, todos con autorrevisión. Es el hito donde el CMS pasa de tener piezas
+a tener una API.
+
+### Qué funciona
+
+| Área              | Estado                                                                                                                                                                  |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Envoltorio        | `defineAction` impone el pipeline de §5.3: sesión → rol → límite → Zod → lógica → auditoría. **Toda** action pasa por él, y hay un test que falla si aparece una suelta |
+| Contrato          | Diez códigos de error con mensaje en español llano; los diez ejercitados por al menos un test, comprobado automáticamente                                               |
+| Lectura           | `getContent`, `getCollection`, `getDraft`, con `unstable_cache` + `cache()` de React y el tag `content:<key>`                                                           |
+| Contenido         | `saveDraft` con bloqueo optimista, `publish`/`publishAll` con revisiones y poda a 20, `revertDraft`, `restoreRevision`                                                  |
+| Colecciones       | `createItem`, `deleteItem` (con sus revisiones), `reorderItems`                                                                                                         |
+| Usuarios          | `inviteUser`, `updateUserRole`, `deactivateUser`, `changePassword`, con `LAST_ADMIN` serializado por `FOR UPDATE`                                                       |
+| Ajustes y preview | `updateSettings`, `createPreviewToken`, `GET /api/content/:key`                                                                                                         |
+| Cobertura         | **`COVERAGE_ENFORCE=1` activo**: 93 % global, por encima del 80 % que exige §11.4 en `cms/core` y `cms/security`                                                        |
+
+469 tests automáticos (281 unitarios, 188 de integración contra Postgres real) y 24 e2e.
+
+### La tabla de amenazas de §7.1, actualizada
+
+| Amenaza                     | Estado                                                                                                                  |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Escalada de privilegios** | ✅ **Cerrada.** Rol comprobado en el servidor y desde la sesión en cada action, con el test T-75-6 que impide reabrirla |
+| **Abuso de uploads**        | ⚠️ **Abierta.** Sigue sin haber uploads; M4                                                                             |
+
+El resto siguen como las dejó M2. La fila de escalada se cierra con dos garantías, no con una:
+el envoltorio comprueba el rol desde la sesión —nunca desde el input, y hay un test que lo
+ataca desde el payload— y **T-75-6 recorre `cms/actions/` y falla si alguna función exportada
+no pasa por el envoltorio**. Sin lo segundo, la fila se cerraría hoy y se reabriría sola con la
+primera action de M4 sin que nadie lo notara.
+
+Ese test ya ha hecho su trabajo una vez: rechazó `readSettings` en el PR #97, que estaba puesta
+junto a las actions sin ser una. Leer no es mutar, y se movió a `cms/core`.
+
+### Qué es frágil
+
+- **`publishAll` corre en secuencia y tiene un tope de 100 entradas por llamada.** Está
+  reportado en `remaining`, no truncado en silencio, pero un sitio con muchas colecciones
+  necesitará varias pasadas. El tope existe porque el bucle vive dentro de una Server Action y
+  en serverless hay un límite de duración; lo que se pierde al agotarlo no es la publicación
+  —lo escrito está confirmado— sino el informe.
+- **La invalidación de caché no está verificada de extremo a extremo.** Se comprueba que
+  `publish` llama a `revalidateTag` con el tag correcto, pero que la landing cambie de verdad al
+  publicar necesita un servidor: llega en e2e, en M5 (ADR-405).
+- **Dos creaciones simultáneas en la misma colección pueden empatar en `sortOrder`.** Está dicho
+  en el código con todas las letras, incluido por qué el `FOR UPDATE` que probé **no lo
+  arregla**: bloquea filas existentes y no protege de una fila que otra transacción inserta. El
+  orden resultante sigue siendo determinista y el editor lo arregla arrastrando.
+- **El token de invitación no se puede canjear todavía.** `inviteUser` funciona y entrega un
+  token de 24 h, pero no hay ninguna ruta que lo consuma, así que hoy una invitación crea una
+  cuenta a la que nadie puede entrar. Issue #95, M4.
+- **Los ajustes no los lee nadie aún.** `readSettings` y el tag `settings` existen y están
+  probados; el layout que los use llega en M5.
+- **Las cuotas siguen siendo por instancia**, como todo el rate limit desde M2 (issue #65).
+
+### Qué probaría a mano
+
+1. Guardar un borrador desde dos pestañas con la misma versión y ver que la segunda avisa del
+   conflicto en vez de pisar.
+2. Publicar una sección con un campo requerido vacío y leer el mensaje: tiene que decir "Falta
+   Título principal en Portada", no una clave técnica.
+3. Publicar 25 veces la misma sección y contar las revisiones: 20.
+4. Degradar a un administrador desde otra cuenta y comprobar que **al recargar ya no entra** en
+   el panel, no siete días después.
+5. Pedir `GET /api/content/hero` sin sesión y confirmar que no aparece nada del borrador.
+6. Pegar un párrafo copiado de una web en un campo de texto rico y ver que se guarda sin el
+   formato raro, en vez de fallar el autosave en silencio.
+
+### Lo que enseñó este hito
+
+**Los tests de concurrencia con `Promise.all` no prueban concurrencia.** Es el hallazgo más útil
+de M3 y salió de una mutación que sobrevivía. Dos actions lanzadas a la vez no se entrelazan: la
+primera reutiliza la conexión libre del pool y la segunda tiene que abrir una nueva —saludo TCP
+y autenticación—, así que la primera termina su transacción entera antes de que la segunda
+consulte. Lo confirmé midiendo con `pg_sleep`: las transacciones sí se entrelazan cuando una
+tarda; lo que serializa es la latencia de conexión.
+
+El patrón que sí funciona es abrir una transacción a mano, tomar el bloqueo, arrancar la action,
+**esperar**, y solo entonces soltar. Está usado en `publish`, en `LAST_ADMIN` y en colecciones.
+Tres tests que parecían cubrir carreras y no cubrían nada.
+
+**Dos comentarios prometían lo que el código no hacía.** En `createItem`, que la transacción
+evitaba un empate que no evitaba; en `ogImageUrl`, que el destino se validaba con `isSafeLink`
+cuando no se validaba con nada. Los dos tienen la misma forma —un razonamiento correcto escrito
+junto a una implementación que no lo cumple— y los dos pasan una lectura normal, porque el
+comentario convence. Lo que los detectó fue preguntar por cada afirmación si la cumple el código
+de al lado.
+
+**La spec se contradijo tres veces, y las tres se resolvieron por escrito** (#86, #89, #94): la
+lectura pública aplicando el esquema estricto a valores vacíos, los singletons sin nombre visible
+para un mensaje que exige nombrarlos, y `deactivateUser` sin columna donde apoyarse. Ninguna se
+resolvió en silencio.
 
 ## M4 — Panel de administración ⏳
 
