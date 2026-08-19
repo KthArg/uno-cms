@@ -32,7 +32,7 @@ export interface UsersScreenProps {
     nombre: string;
     correo: string;
     rol: 'admin' | 'editor';
-  }) => Promise<{ ok: boolean; enlace?: string; message?: string }>;
+  }) => Promise<{ ok: boolean; enlace?: string; userId?: string; message?: string }>;
   readonly onCambiarRol: (
     userId: string,
     rol: 'admin' | 'editor'
@@ -68,19 +68,22 @@ export function UsersScreen({
     const resultado = await onInvitar({ nombre, correo, rol });
     setOcupado(false);
 
-    if (!resultado.ok || resultado.enlace === undefined) {
+    const { enlace: nuevoEnlace, userId } = resultado;
+
+    if (!resultado.ok || nuevoEnlace === undefined || userId === undefined) {
       setAviso(resultado.message ?? 'No se ha podido invitar.');
       return;
     }
 
     setAviso(null);
-    setEnlace(resultado.enlace);
-    // La lista se completa con la persona recién invitada sin recargar. Su identificador real
-    // no hace falta aquí: la fila nueva no ofrece acciones hasta que la página se recargue,
-    // y eso es correcto — todavía no ha entrado nadie con ella.
+    setEnlace(nuevoEnlace);
+    // La lista se completa sin recargar, y con el identificador **real** que devuelve la action.
+    // Inventarlo dejaría una fila que ofrece cambiar el rol y quitar el acceso mandando algo que
+    // no es un identificador: la action lo rechaza, pero quien administra ve un error
+    // incomprensible al usar algo que la pantalla le acaba de ofrecer.
     setLista((previas) => [
       ...previas,
-      { id: `nueva:${correo}`, nombre, correo, rol, activa: true, sinEstrenar: true },
+      { id: userId, nombre, correo, rol, activa: true, sinEstrenar: true },
     ]);
   };
 

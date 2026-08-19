@@ -22,7 +22,7 @@ export default async function PantallaDePersonas() {
     nombre: string;
     correo: string;
     rol: 'admin' | 'editor';
-  }): Promise<{ ok: boolean; enlace?: string; message?: string }> {
+  }): Promise<{ ok: boolean; enlace?: string; userId?: string; message?: string }> {
     'use server';
 
     const resultado = await inviteUser({
@@ -38,6 +38,7 @@ export default async function PantallaDePersonas() {
     // de auditoría junto con la credencial que lleva dentro.
     return {
       ok: true,
+      userId: resultado.data.userId,
       enlace: `${sitio}/admin/invitacion?c=${encodeURIComponent(resultado.data.token)}`,
     };
   }

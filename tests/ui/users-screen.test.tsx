@@ -31,6 +31,7 @@ function montar(overrides: Partial<Parameters<typeof UsersScreen>[0]> = {}) {
   const onInvitar = vi.fn(async () => ({
     ok: true,
     enlace: 'https://ejemplo.com/admin/invitacion?c=xyz',
+    userId: 'cccccccc-3333-4333-8333-cccccccccccc',
   }));
   const onCambiarRol = vi.fn(async () => ({ ok: true }));
   const onDesactivar = vi.fn(async () => ({ ok: true }));
@@ -78,6 +79,21 @@ describe('invitar', () => {
       correo: 'carmen@ejemplo.com',
       rol: 'admin',
     });
+  });
+
+  it('la fila que aparece lleva el identificador de verdad, no uno inventado', async () => {
+    const { onCambiarRol } = montar();
+
+    await userEvent.type(screen.getByLabelText('Nombre'), 'Carmen');
+    await userEvent.type(screen.getByLabelText('Correo'), 'carmen@ejemplo.com');
+    await userEvent.click(screen.getByRole('button', { name: 'Invitar' }));
+
+    // La fila nueva ofrece los mismos controles que las demás, así que tienen que funcionar.
+    // Con un identificador fabricado, la action los rechaza —su entrada es un UUID— y quien
+    // administra ve un error incomprensible al usar algo que la pantalla acaba de ofrecerle.
+    await userEvent.selectOptions(await screen.findByLabelText('Qué puede hacer Carmen'), 'admin');
+
+    expect(onCambiarRol).toHaveBeenCalledWith('cccccccc-3333-4333-8333-cccccccccccc', 'admin');
   });
 
   it('un fallo se cuenta en vez de dejar la pantalla igual', async () => {

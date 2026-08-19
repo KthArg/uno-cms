@@ -16,8 +16,19 @@ test.describe.configure({ mode: 'serial' });
 const INVITADA = 'invitada-e2e@ejemplo.com';
 const CONTRASENA_ELEGIDA = 'la-que-elige-quien-canjea-2026';
 
+/** La cuenta del test que **cambia su propia contraseña**. Ver el `beforeAll`. */
+const QUE_CAMBIA = 'cambia-e2e@ejemplo.com';
+
 test.beforeAll(() => {
+  // Las dos cuentas se rehacen en cada ejecución, y la segunda es la que enseña por qué.
+  //
+  // `crearYEntrar` inserta con `on conflict do nothing`, así que una cuenta que sobrevive de la
+  // ejecución anterior se reutiliza **con la contraseña que tuviera**. Estos dos tests dejan la
+  // suya cambiada: uno la elige al canjear la invitación y el otro la cambia a propósito. Sin
+  // borrarlas, los dos pasan la primera vez y fallan todas las demás, que es la peor forma de
+  // fallar — en CI, donde la base nace limpia, seguirían verdes para siempre.
   ejecutarSql('delete from users where email = $1', [INVITADA]);
+  ejecutarSql('delete from users where email = $1', [QUE_CAMBIA]);
 });
 
 test('T-E-4: un editor no entra en Personas aunque escriba la dirección', async ({ page }) => {
@@ -98,8 +109,7 @@ test('T-E-6: un enlace manipulado tampoco vale', async ({ page }) => {
 });
 
 test('cambiar la propia contraseña cierra la sesión', async ({ page }) => {
-  const correo = 'cambia-e2e@ejemplo.com';
-  await crearYEntrar(page, { email: correo, role: 'editor' });
+  await crearYEntrar(page, { email: QUE_CAMBIA, role: 'editor' });
 
   await page.goto('/admin/account');
   await page.getByLabel('Tu contraseña actual').fill(CONTRASENA);

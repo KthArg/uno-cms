@@ -37,11 +37,12 @@ que sea una limitación conocida y no una función por construir.
 
 ### En M4 (el hito actual)
 
-| Qué                                                      | Por qué se aplazó                                                                                                                                           | Issue                                                |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| La pantalla de una colección                             | El dashboard **ya enlaza** a `/admin/collections/[key]` y las actions existen desde M3. Encontrado auditando lo aplazado: ningún issue la construía         | [#111](https://github.com/KthArg/uno-cms/issues/111) |
-| Nada impide llamar a código de cliente desde el servidor | Ha pasado dos veces en M4, y las dos con `typecheck`, `lint` y `build` en verde. Hace falta la frontera al revés que `server-only`                          | [#125](https://github.com/KthArg/uno-cms/issues/125) |
-| Las rutas de `/api` no tienen inventario de acceso       | Los guards de #70 cubren `/admin`; una ruta bajo `/api` se protege sola y nada dice cuáles deben ser públicas. Se cierra con la primera ruta de API privada | [#104](https://github.com/KthArg/uno-cms/issues/104) |
+| Qué                                                      | Por qué se aplazó                                                                                                                                                                  | Issue                                                |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| La pantalla de una colección                             | El dashboard **ya enlaza** a `/admin/collections/[key]` y las actions existen desde M3. Encontrado auditando lo aplazado: ningún issue la construía                                | [#111](https://github.com/KthArg/uno-cms/issues/111) |
+| «Publicar todo» pisa a los tests del editor en paralelo  | Dos ficheros e2e tocan `about` a la vez y el segundo recibe un `VERSION_CONFLICT`. **CI no lo ve**: allí la suite corre con un solo worker, así que el fallo solo aparece en local | [#134](https://github.com/KthArg/uno-cms/issues/134) |
+| Nada impide llamar a código de cliente desde el servidor | Ha pasado dos veces en M4, y las dos con `typecheck`, `lint` y `build` en verde. Hace falta la frontera al revés que `server-only`                                                 | [#125](https://github.com/KthArg/uno-cms/issues/125) |
+| Las rutas de `/api` no tienen inventario de acceso       | Los guards de #70 cubren `/admin`; una ruta bajo `/api` se protege sola y nada dice cuáles deben ser públicas. Se cierra con la primera ruta de API privada                        | [#104](https://github.com/KthArg/uno-cms/issues/104) |
 
 ### En M5
 

@@ -50,8 +50,13 @@ export async function direccionDelSitio(): Promise<string> {
 
   const cabeceras = await headers();
   const host = cabeceras.get('host') ?? 'localhost:3000';
-  const protocolo =
-    cabeceras.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
+
+  // Next rellena `x-forwarded-proto` él mismo, así que en la práctica siempre está — lo
+  // comprobé con una sonda antes de escribir esto, porque un `https` de más habría dado
+  // enlaces que no abren en un servidor de pruebas por HTTP. El valor por defecto es el
+  // seguro: si algún día falta, un enlace `https` que no cargue se nota; uno `http` que sí
+  // cargue mandaría la credencial en claro sin que nadie lo notara.
+  const protocolo = cabeceras.get('x-forwarded-proto') ?? 'https';
 
   return `${protocolo}://${host}`;
 }
