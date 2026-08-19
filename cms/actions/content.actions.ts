@@ -663,7 +663,8 @@ export const createItem = defineAction({
       // transacción **inserta**, que es justo el caso—. Lo comprobé escribiendo el bloqueo y
       // viendo que el test seguía dando lo mismo.
       //
-      // Cubrirlo de verdad exige un bloqueo consultivo por colección o el nivel
+      // PENDIENTE(#122): nada que arreglar aquí; queda como deuda aceptada en
+      // docs/PENDIENTES.md. Cubrirlo de verdad exige un bloqueo consultivo o el nivel
       // `SERIALIZABLE`. No sale a cuenta: el daño de un empate es que dos elementos creados
       // en el mismo milisegundo salgan en el orden que decida el desempate por clave en vez
       // de por creación. El orden sigue siendo **determinista** —hay un test que lo fija— y

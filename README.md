@@ -18,15 +18,16 @@ El detalle honesto de qué funciona, qué es frágil y qué habría que probar a
 
 ## Documentación
 
-| Documento                                | Para quién                                                            |
-| ---------------------------------------- | --------------------------------------------------------------------- |
-| [`SPEC.md`](SPEC.md)                     | **Fuente de verdad** del proyecto. Ante cualquier duda, manda esto    |
-| [`docs/SETUP.md`](docs/SETUP.md)         | Quien despliega su web. Sin jerga, sin terminal _(esqueleto, M6)_     |
-| [`docs/DEVELOPER.md`](docs/DEVELOPER.md) | Quien monta UnoCMS sobre otra landing                                 |
-| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Los ADR: qué se decidió donde la spec callaba, y a cambio de qué      |
-| [`docs/PROGRESS.md`](docs/PROGRESS.md)   | Estado real por hito                                                  |
-| [`docs/SECURITY.md`](docs/SECURITY.md)   | Reporte de vulnerabilidades y modelo de amenazas _(esqueleto, M6)_    |
-| [`docs/specs/`](docs/specs/)             | Documentos de fase: alcance, contratos y casos de prueba de cada hito |
+| Documento                                  | Para quién                                                                  |
+| ------------------------------------------ | --------------------------------------------------------------------------- |
+| [`SPEC.md`](SPEC.md)                       | **Fuente de verdad** del proyecto. Ante cualquier duda, manda esto          |
+| [`docs/SETUP.md`](docs/SETUP.md)           | Quien despliega su web. Sin jerga, sin terminal _(esqueleto, M6)_           |
+| [`docs/DEVELOPER.md`](docs/DEVELOPER.md)   | Quien monta UnoCMS sobre otra landing                                       |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md)   | Los ADR: qué se decidió donde la spec callaba, y a cambio de qué            |
+| [`docs/PROGRESS.md`](docs/PROGRESS.md)     | Estado real por hito                                                        |
+| [`docs/PENDIENTES.md`](docs/PENDIENTES.md) | Todo lo aplazado, con su motivo y su issue. Nada vive solo en un comentario |
+| [`docs/SECURITY.md`](docs/SECURITY.md)     | Reporte de vulnerabilidades y modelo de amenazas _(esqueleto, M6)_          |
+| [`docs/specs/`](docs/specs/)               | Documentos de fase: alcance, contratos y casos de prueba de cada hito       |
 
 ## Levantarlo en local
 

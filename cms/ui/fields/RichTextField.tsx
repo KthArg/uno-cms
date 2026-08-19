@@ -133,7 +133,8 @@ export function CampoTextoRico({ id, field, value, onChange, error }: RichTextFi
     //
     // Se queda porque el coste es cero y el riesgo que cubre es real: si una versión futura
     // empieza a emitir, recuperar un borrador dispararía un guardado inútil y gastaría un
-    // `version`. Lo que no hago es afirmar que está probado.
+    // `version`. PENDIENTE(#121): averiguar por qué no se emite y que un test lo detecte
+    // antes que un editor.
     editor.commands.setContent((value ?? { type: 'doc', content: [] }) as Record<string, unknown>, {
       emitUpdate: false,
     });
