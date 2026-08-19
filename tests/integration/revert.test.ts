@@ -1,11 +1,18 @@
 import { eq } from 'drizzle-orm';
-import { afterEach, beforeEach, expect, it } from 'vitest';
-import { restoreRevision, revertDraft } from '@/cms/actions';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { publish, restoreRevision, revertDraft } from '@/cms/actions';
 import { resetBucketsForTests, setSessionProviderForTests } from '@/cms/actions/pipeline';
 import { contentEntries, getDb, revisions, users } from '@/cms/db';
 import { describeIntegration } from './env';
 
 /** T-79-1 a T-79-4: deshacer (SPEC §5.3, §9). */
+
+// `revalidateTag` necesita el contexto de petición de Next y lanza fuera de él (ADR-405).
+// Aquí solo se usa de refilón, al comprobar que el borrador restaurado es publicable.
+vi.mock('next/cache', async () => {
+  const actual = await vi.importActual<typeof import('next/cache')>('next/cache');
+  return { ...actual, revalidateTag: vi.fn() };
+});
 
 async function crearEditor() {
   const [user] = await getDb()
@@ -50,6 +57,7 @@ describeIntegration('deshacer', () => {
 
   afterEach(() => {
     setSessionProviderForTests(null);
+    vi.restoreAllMocks();
   });
 
   it('T-79-1: revertDraft deja el borrador igual que lo publicado', async () => {
@@ -142,6 +150,62 @@ describeIntegration('deshacer', () => {
 
     expect(result).toMatchObject({ ok: false, code: 'NOT_FOUND' });
     expect((await leer('hero')).draft).toMatchObject({ title: 'hero' });
+  });
+
+  it('restaurar una revisión anterior a un cambio de config no deja al editor encerrado', async () => {
+    const errores = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await crearEntrada({ key: 'hero', type: 'hero', draft: { title: 'ahora' } });
+
+    // Una revisión de cuando la config tenía otro campo, y con un tipo que ya no encaja.
+    const [revision] = await getDb()
+      .insert(revisions)
+      .values({
+        entryKey: 'hero',
+        data: {
+          title: 'Título que sí sigue valiendo',
+          campoQueYaNoExiste: 'texto viejo',
+          subtitle: 12345,
+        },
+      })
+      .returning();
+
+    const result = await restoreRevision({ key: 'hero', revisionId: revision!.id });
+    expect(result.ok).toBe(true);
+
+    const draft = (await leer('hero')).draft as Record<string, unknown>;
+
+    // Lo que sigue encajando se conserva…
+    expect(draft['title']).toBe('Título que sí sigue valiendo');
+    // …y lo que no, se descarta. Sin esto, el formulario del panel —generado desde la
+    // config— no pintaría esos campos y el publicado los rechazaría por desconocidos: el
+    // editor no podría publicar ni arreglar lo que se lo impide, porque no lo ve.
+    expect(draft).not.toHaveProperty('campoQueYaNoExiste');
+    expect(draft).not.toHaveProperty('subtitle');
+    expect(errores).toHaveBeenCalled();
+
+    // La prueba de que no está encerrado: el borrador restaurado es publicable.
+    const publicado = await publish({ key: 'hero', version: 1 });
+    expect(publicado.ok).toBe(true);
+  });
+
+  it('revertDraft aplica el mismo filtro a lo publicado', async () => {
+    const errores = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await crearEntrada({
+      key: 'hero',
+      type: 'hero',
+      draft: { title: 'cambios' },
+      published: { title: 'publicado', campoFantasma: 'de otra época' },
+    });
+
+    const result = await revertDraft({ key: 'hero' });
+    expect(result.ok).toBe(true);
+
+    const draft = (await leer('hero')).draft as Record<string, unknown>;
+    expect(draft['title']).toBe('publicado');
+    expect(draft).not.toHaveProperty('campoFantasma');
+    expect(errores).toHaveBeenCalled();
   });
 
   it('una revisión que no existe da NOT_FOUND', async () => {
