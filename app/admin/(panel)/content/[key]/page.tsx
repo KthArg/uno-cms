@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import { publish, saveDraft } from '@/cms/actions';
 import { readEntryForEditor, schemaForType } from '@/cms/core/content';
+import { listMedia } from '@/cms/core/media';
+import { TAMANO_MAXIMO_BYTES, TIPOS_PERMITIDOS } from '@/cms/security/uploads';
 import { EntryEditor } from '@/cms/ui/EntryEditor';
 import type { ResultadoGuardado } from '@/cms/ui/useAutosave';
 
@@ -24,6 +26,7 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
   if (schema === null) notFound();
 
   const nombre = schema.label ?? entrada.key;
+  const imagenes = await listMedia();
 
   async function guardarBorrador(
     valores: Record<string, unknown>,
@@ -66,6 +69,9 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
       versionInicial={entrada.version}
       guardar={guardarBorrador}
       publicar={publicarEntrada}
+      imagenes={imagenes}
+      tiposAceptados={[...TIPOS_PERMITIDOS]}
+      tamanoMaximoBytes={TAMANO_MAXIMO_BYTES}
     />
   );
 }

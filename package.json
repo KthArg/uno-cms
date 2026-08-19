@@ -43,6 +43,7 @@
     "@tiptap/extension-link": "3.30.2",
     "@tiptap/react": "3.30.2",
     "@tiptap/starter-kit": "3.30.2",
+    "@vercel/blob": "2.8.0",
     "drizzle-orm": "0.45.2",
     "next": "15.5.23",
     "next-auth": "5.0.0-beta.32",

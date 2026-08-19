@@ -34,8 +34,9 @@ describe('armazón del panel', () => {
     montarShell('admin');
 
     const enlaces = screen.getAllByRole('link').map((enlace) => enlace.getAttribute('href'));
-    expect(enlaces).not.toContain('/admin/media');
+    // `/admin/media` ya existe desde #104, así que sale del menú. Quedan las de #106.
     expect(enlaces).not.toContain('/admin/users');
+    expect(enlaces).not.toContain('/admin/settings');
   });
 
   it('el menú no es el guard, y este test no pretende que lo sea', () => {
