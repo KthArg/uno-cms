@@ -652,3 +652,30 @@ Las alternativas se descartan por lo que cuestan:
 - `deactivateUser` incrementa `password_version`, que expulsa las sesiones abiertas (ADR-301). Sin eso, la persona a la que acabas de desactivar sigue trabajando siete días.
 - `isSessionStillValid` comprueba `active` además de la versión. Es redundante con lo anterior y está a propósito: la primera cerradura vive en otra action y podría dejar de estar.
 - La cuenta de administradores para `LAST_ADMIN` mira solo los **activos**. Contar a un administrador que no puede entrar sería contar a alguien que no administra nada, y dejaría degradar al único que sí puede.
+
+---
+
+## ADR-410 — Los ajustes `site` y `seo`, y en qué se diferencian del contenido
+
+**Contexto.** `SPEC.md` §4 define la tabla `settings` con las claves `'seo' | 'site' | 'setup_completed'`, y §5.3 da a `updateSettings` la entrada `{ key: 'seo'|'site', value }` con un "valida por schema" que no concreta cuál. No hay ningún esquema declarado para esos valores, así que hay que fijarlo.
+
+Y hay una ambigüedad que se nota enseguida: **`cms.config.ts` ya tiene un singleton llamado `seo`**. Dos cosas con el mismo nombre y distinto comportamiento es la clase de detalle que se resuelve mal si no se nombra.
+
+**Decisión.** Son cosas distintas y se tratan como tales:
+
+- El **singleton `seo`** es contenido. Lo edita quien escribe, pasa por borrador y publicación, y tiene historial.
+- El **ajuste `seo`** son los valores por defecto del sitio, que se aplican donde el contenido no dice nada. Los toca un administrador, tienen efecto inmediato y no se publican: no son texto de una página, son configuración.
+
+Los esquemas, declarados en `cms/actions/settings.actions.ts` y `strict()`:
+
+| Clave  | Campos                                                                                       |
+| ------ | -------------------------------------------------------------------------------------------- |
+| `site` | `siteName` (obligatorio, 1–120)                                                              |
+| `seo`  | `defaultTitle` (≤60), `defaultDescription` (≤160), `ogImageUrl` (≤2048), los tres opcionales |
+
+**Consecuencias.**
+
+- Un solo tag de caché, `settings`, para las dos claves: se leen en el layout, así que cualquier cambio afecta a todas las páginas y separar por clave no ahorraría nada.
+- `readSettings` cae a los valores por defecto si lo guardado ya no encaja con su esquema, con el mismo criterio que ADR-404: un ajuste que dejó de encajar no puede tumbar el sitio entero.
+- `site.siteName` toma su valor por defecto de `cms.config.ts`, así que un despliegue recién hecho renderiza sin que nadie haya guardado nada.
+- `ogImageUrl` no se valida con `z.url()`: ahí caben rutas internas además de absolutas, y el criterio de qué destino es aceptable ya está en `isSafeLink`. Dos validaciones del mismo concepto acabarían discrepando.

@@ -286,12 +286,14 @@ depende del orden de las claves.
 
 ### 4.8 Ajustes y token de preview (#82)
 
-| ID     | Caso                                                             | Verificación |
-| ------ | ---------------------------------------------------------------- | ------------ |
-| T-82-1 | `updateSettings` solo para `admin`                               |              |
-| T-82-2 | `createPreviewToken` emite un token válido de 2 h para esa clave |              |
-| T-82-3 | `GET /api/content/:key` devuelve publicado con `Cache-Control`   |              |
-| T-82-4 | Esa ruta **no** expone borradores                                |              |
+| ID     | Caso                                                             | Verificación                                               |
+| ------ | ---------------------------------------------------------------- | ---------------------------------------------------------- |
+| T-82-1 | `updateSettings` solo para `admin`                               |                                                            |
+| T-82-2 | `createPreviewToken` emite un token válido de 2 h para esa clave |                                                            |
+| T-82-3 | `GET /api/content/:key` devuelve publicado con `Cache-Control`   |                                                            |
+| T-82-4 | Esa ruta **no** expone borradores                                | e2e: es la respuesta real y sin sesión                     |
+| T-82-5 | La ruta solo acepta claves declaradas en `cms.config.ts`         | Si no, sería un lector genérico de `content_entries`       |
+| T-82-6 | El token de vista previa lleva la clave **dentro** de la firma   | Sin ella sería una llave maestra de la vista previa (§6.1) |
 
 ## 5. Definition of Done de M3
 
