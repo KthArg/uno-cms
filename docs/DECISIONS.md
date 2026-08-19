@@ -518,3 +518,22 @@ El motivo es para qué sirve una revisión: para volver atrás. Y "atrás" es lo
 - La primera publicación de una entrada **no genera revisión**, porque no había nada que sustituir. El historial de un contenido recién publicado está vacío, y eso es correcto aunque a primera vista parezca un fallo.
 - El número de revisiones es siempre uno menos que el número de publicaciones. La poda a 20 de `SPEC.md` §4 se aplica sobre esa cuenta.
 - `restoreRevision` lleva el snapshot al **borrador** y no publica (SPEC §9), así que volver atrás sigue siendo una acción deliberada de dos pasos.
+
+---
+
+## ADR-403 — Qué rechazos se auditan, y cuáles no
+
+**Contexto.** `SPEC.md` §5.3 coloca `audit()` después de la lógica, y §4 describe `audit_log` como el rastro de "quién hizo qué". Ninguna de las dos dice qué pasa cuando la operación **no** se hace. Escribir el envoltorio obliga a decidirlo: el primer borrador auditaba solo lo que devolvía el handler, y un editor intentando ejecutar una action de administrador no dejaba ni una línea. Lo detectó un test que afirmaba justo eso.
+
+**Decisión.** Se audita **todo lo que ocurre después de que el límite haya dado el visto bueno**: `FORBIDDEN`, `VALIDATION_FAILED`, `INTERNAL` y los fallos que devuelve el handler, cada uno con su código en `meta`. Quedan fuera dos casos:
+
+- `UNAUTHORIZED`. No hay actor que registrar, y quien lo dispara es un anónimo: una fila por petición sin sesión deja que cualquiera en internet haga crecer una tabla nuestra. Los intentos de acceso sí se auditan, pero en `authenticate.ts`, donde al menos hay un correo.
+- `RATE_LIMITED`. Auditar justo lo que el límite acaba de frenar convierte la protección en una escritura por cada petición bloqueada, que es el gasto que el límite existe para evitar.
+
+Para que "después del límite" sea cierto también en el rechazo por rol, **un `FORBIDDEN` consume cuota**. La decisión de rol se sigue tomando antes que la del límite, como fija el orden de §5.3 —un editor llamando a una action de admin recibe `FORBIDDEN`, nunca `RATE_LIMITED`—, pero la cuota se gasta igual.
+
+**Consecuencias.**
+
+- El número de filas de auditoría que puede provocar un editor llamando en bucle a una action que no le corresponde queda acotado por su propia cuota: 20 en cinco minutos, no una por petición.
+- Un rechazo por rol gasta cuota de un bucket que ese usuario no puede usar. Es intencionado y no afecta a nadie que trabaje normalmente.
+- Un pico de `RATE_LIMITED` no deja rastro en `audit_log`. Si algún día hace falta verlo, el sitio es una métrica o un log, no la tabla de auditoría.
