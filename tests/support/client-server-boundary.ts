@@ -78,6 +78,13 @@ interface Importacion {
   readonly especificador: string;
   readonly nombres: string[];
   readonly soloTipos: boolean;
+  /**
+   * `import * as X`.
+   *
+   * Se marca aparte porque no hay nombres que juzgar y **no tiene uso legítimo desde el
+   * servidor**: aunque solo se usaran componentes, se estaría trayendo el módulo entero.
+   */
+  readonly espacioDeNombres: boolean;
 }
 
 /**
@@ -107,6 +114,7 @@ export function leerImportaciones(fuente: string): Importacion[] {
     if (desde === null) continue;
 
     const soloTipos = /^\s*import\s+type\s/.test(bloque);
+    const espacioDeNombres = /import\s+\*\s+as\s/.test(bloque);
 
     const llaves = /\{([\s\S]*?)\}/.exec(bloque);
     const nombres: string[] = [];
@@ -130,11 +138,49 @@ export function leerImportaciones(fuente: string): Importacion[] {
       if (porDefecto?.[1] !== undefined) nombres.push(porDefecto[1]);
     }
 
-    salida.push({ linea: i + 1, especificador: desde[1] ?? '', nombres, soloTipos });
+    salida.push({
+      linea: i + 1,
+      especificador: desde[1] ?? '',
+      nombres,
+      soloTipos,
+      espacioDeNombres,
+    });
     i = j;
   }
 
   return salida;
+}
+
+/**
+ * Lee las reexportaciones: `export { X } from './y'`.
+ *
+ * Sin esto, un módulo que no es de cliente puede **lavar el origen**: reexporta una función de
+ * cliente y cualquier página de servidor la importa de él sin que nada lo vea. Era el hueco
+ * que este mismo módulo tenía escrito en su documentación, y cerrarlo cuesta lo mismo que
+ * describirlo.
+ *
+ * Se reutiliza el lector de importaciones cambiando la palabra: la forma es la misma.
+ */
+export function leerReexportaciones(fuente: string): Importacion[] {
+  // Las líneas que **no** son reexportaciones se dejan en blanco en vez de conservarse: así
+  // los números de línea siguen siendo los del fichero de verdad, que es lo que se le enseña
+  // a quien tiene que arreglarlo.
+  //
+  // La primera versión las conservaba tal cual y pasaba el fichero entero al lector, que
+  // devolvía **también los imports normales**. En un repositorio limpio no se notaba —
+  // duplicaba hallazgos que no existían— y salió al verificar a mano un caso hostil: el
+  // mismo aviso dos veces, con dos verbos distintos.
+  const soloReexportaciones = fuente
+    .split('\n')
+    .map((linea) =>
+      /^export (?:type )?[{*]/.test(linea.replace(/\s+/g, ' ').trim())
+        ? linea.replace('export', 'import')
+        : ''
+    )
+    .join('\n');
+
+  // Solo las que tienen `from`: un `export {}` local no reexporta nada de otro módulo.
+  return leerImportaciones(soloReexportaciones).filter((reexport) => reexport.especificador !== '');
 }
 
 /** Resuelve un especificador a un fichero del repositorio, o `null` si es de fuera. */
@@ -210,27 +256,46 @@ export function analizarFrontera(): HallazgoDeFrontera[] {
 
     const relativa = relative(RAIZ, ruta).replace(/\\/g, '/');
 
-    // Regla 1.
-    for (const importacion of leerImportaciones(fuente)) {
-      if (importacion.soloTipos) continue;
+    // Reglas 1 y 1b: lo que se importa y lo que se reexporta se juzgan igual.
+    const cruces = [
+      ...leerImportaciones(fuente).map((x) => ({ ...x, verbo: 'importa' })),
+      ...leerReexportaciones(fuente).map((x) => ({ ...x, verbo: 'reexporta' })),
+    ];
 
-      const destino = resolver(importacion.especificador, ruta);
+    for (const cruce of cruces) {
+      if (cruce.soloTipos) continue;
+
+      const destino = resolver(cruce.especificador, ruta);
       if (destino === null) continue;
 
       const fuenteDestino = fuentes.get(destino);
       if (fuenteDestino === undefined || !esDeCliente(fuenteDestino)) continue;
 
-      for (const nombre of importacion.nombres) {
+      const nombreDestino = relative(RAIZ, destino).split('\\').join('/');
+
+      if (cruce.espacioDeNombres) {
+        hallazgos.push({
+          fichero: relativa,
+          linea: cruce.linea,
+          regla: 'valor-de-cliente-en-servidor',
+          detalle:
+            `${cruce.verbo} el espacio de nombres entero de ${nombreDestino}, que es un ` +
+            `m\u00f3dulo de cliente. No hay forma leg\u00edtima de hacerlo desde el servidor`,
+        });
+        continue;
+      }
+
+      for (const nombre of cruce.nombres) {
         if (pareceComponente(nombre)) continue;
 
         hallazgos.push({
           fichero: relativa,
-          linea: importacion.linea,
+          linea: cruce.linea,
           regla: 'valor-de-cliente-en-servidor',
           detalle:
-            `importa «${nombre}» de ${relative(RAIZ, destino).replace(/\\/g, '/')}, que es ` +
-            `un módulo de cliente. Lo que llega al servidor no es el valor sino una ` +
-            `referencia, así que llamarlo revienta en tiempo de ejecución`,
+            `${cruce.verbo} \u00ab${nombre}\u00bb de ${nombreDestino}, que es un m\u00f3dulo de ` +
+            `cliente. Lo que llega al servidor no es el valor sino una referencia, as\u00ed que ` +
+            `llamarlo revienta en tiempo de ejecuci\u00f3n`,
         });
       }
     }

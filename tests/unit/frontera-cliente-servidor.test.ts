@@ -4,6 +4,7 @@ import {
   esDeCliente,
   funcionesEnLinea,
   leerImportaciones,
+  leerReexportaciones,
   pareceComponente,
 } from '../support/client-server-boundary';
 
@@ -82,6 +83,37 @@ describe('el detector detecta', () => {
 
     expect(hallazgos).toHaveLength(1);
     expect(hallazgos[0]?.detalle).toContain('action');
+  });
+});
+
+describe('las dos formas de saltarse la regla 1', () => {
+  it('un import de espacio de nombres se marca siempre', () => {
+    // No hay nombres que juzgar, y no hay forma legítima de hacerlo: aunque solo se usaran
+    // componentes, se estaría trayendo el módulo entero al servidor.
+    const [importacion] = leerImportaciones("import * as Botones from './PublishAllButton';");
+
+    expect(importacion?.espacioDeNombres).toBe(true);
+  });
+
+  it('una reexportación se lee igual que un import', () => {
+    // Es el hueco que este módulo tenía **escrito en su propia documentación**: un fichero sin
+    // marca de cliente que reexporta una función de cliente lava el origen, y cualquier página
+    // de servidor la importa de él sin que nada lo vea.
+    const [reexport] = leerReexportaciones("export { motivoLegible } from './PublishAllButton';");
+
+    expect(reexport?.nombres).toEqual(['motivoLegible']);
+    expect(reexport?.especificador).toBe('./PublishAllButton');
+  });
+
+  it('un export local no cuenta como reexportación', () => {
+    // `export { x }` sin `from` no trae nada de ningún otro módulo.
+    expect(leerReexportaciones('export { algo };')).toEqual([]);
+  });
+
+  it('una reexportación de solo tipos se ignora', () => {
+    const [reexport] = leerReexportaciones("export type { Algo } from './x';");
+
+    expect(reexport?.soloTipos).toBe(true);
   });
 });
 
