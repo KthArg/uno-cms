@@ -102,18 +102,22 @@ convertiría una pestaña olvidada en una máquina de resucitar texto viejo.
 
 `SPEC.md` §5.3 no detalla las actions de media más allá del nombre. Contrato de esta fase:
 
-| Regla              | Valor                                                              | Por qué                                                                                                |
-| ------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| Tipos permitidos   | `image/jpeg`, `image/png`, `image/webp`, `image/avif`, `image/gif` | Allowlist, nunca denylist. `image/svg+xml` **queda fuera**: un SVG es un documento que ejecuta scripts |
-| Tamaño máximo      | 5 MB                                                               | Una imagen de landing por encima de eso ya es un problema de rendimiento                               |
-| Quién sube         | Rol `editor`                                                       | Es contenido                                                                                           |
-| Dónde se decide    | **En el servidor, al emitir el token de subida**                   | El cliente no decide nada: el `accept` del input es comodidad, no una defensa                          |
-| Nombre del fichero | Generado, nunca el del usuario                                     | Un nombre controlado por quien sube es una vía de sobrescritura y de rutas raras                       |
-| `alt`              | Obligatorio salvo `decorative: true`                               | §8, y ya lo exige el esquema de M1                                                                     |
+| Regla              | Valor                                                              | Por qué                                                                                                                                                                                       |
+| ------------------ | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tipos permitidos   | `image/jpeg`, `image/png`, `image/webp`, `image/avif`, `image/gif` | Allowlist, nunca denylist. `image/svg+xml` **queda fuera**: un SVG es un documento que ejecuta scripts                                                                                        |
+| Tamaño máximo      | 10 MB                                                              | Lo fija `SPEC.md` §5.3. La primera versión de este documento puso 5 MB con un argumento de rendimiento, sin marcarlo como desviación; el argumento es una preferencia, no un fallo de la spec |
+| Quién sube         | Rol `editor`                                                       | Es contenido                                                                                                                                                                                  |
+| Dónde se decide    | **En el servidor, al emitir el token de subida**                   | El cliente no decide nada: el `accept` del input es comodidad, no una defensa                                                                                                                 |
+| Nombre del fichero | Generado, nunca el del usuario                                     | Un nombre controlado por quien sube es una vía de sobrescritura y de rutas raras                                                                                                              |
+| `alt`              | Obligatorio salvo `decorative: true`                               | §8, y ya lo exige el esquema de M1                                                                                                                                                            |
 
-**El SVG fuera de la lista es la decisión de seguridad de este hito** y merece su ADR: es el
-formato que todo el mundo espera poder subir a un CMS y el único de la lista que puede
-contener `<script>`.
+**El SVG fuera de la lista lo decide ya `SPEC.md` §5.3**, que lo dice con todas las letras:
+"SVG se rechaza en MVP (vector XSS)". Así que no hace falta ADR para eso — la primera versión
+de este documento decía que sí, y era pasarse de decisor sobre algo ya decidido.
+
+Lo que sí es decisión de implementación, y va escrita donde se implementa: **la allowlist se
+aplica en el servidor, al emitir el token**. El `accept` del formulario viaja en el cliente,
+así que es comodidad para quien sube, no una defensa.
 
 ### 3.5 Los dos guards de `/admin` (#70)
 
@@ -208,8 +212,8 @@ Lo mínimo verificable, y solo lo que se puede afirmar con un test:
 
 ## 6. Decisiones que exigen ADR
 
-- **SVG fuera de la lista de tipos permitidos**, y por qué la allowlist se aplica en el
-  servidor y no en el `accept` del input.
+- Por qué la allowlist se aplica en el servidor y no en el `accept` del formulario. (El SVG
+  fuera de la lista no necesita ADR: lo decide `SPEC.md` §5.3.)
 - **`localStorage` como red de seguridad del autosave**: qué se guarda, cuándo se borra y por
   qué se ofrece en vez de aplicarse.
 - **Tiptap como editor de texto rico**, cargado con `dynamic` (§8), y qué extensiones se

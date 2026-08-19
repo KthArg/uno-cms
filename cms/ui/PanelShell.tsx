@@ -43,7 +43,7 @@ export interface EntradaMenu {
 
 const MENU: readonly EntradaMenu[] = [
   { href: '/admin', texto: 'Contenido', disponible: true },
-  { href: '/admin/media', texto: 'Imágenes' },
+  { href: '/admin/media', texto: 'Imágenes', disponible: true },
   { href: '/admin/users', texto: 'Personas', soloAdmin: true },
   { href: '/admin/settings', texto: 'Ajustes', soloAdmin: true },
 ];

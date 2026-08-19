@@ -41,3 +41,5 @@ export {
 export { changePassword, deactivateUser, inviteUser, updateUserRole } from './user.actions';
 
 export { createPreviewToken, updateSettings } from './settings.actions';
+
+export { deleteMedia, updateMediaAlt } from './media.actions';

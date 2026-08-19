@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import type { ActionFieldError } from '@/cms/actions/pipeline';
 import type { ObjectSchema } from '@/cms/core/config';
+import type { ImagenDeBiblioteca } from '@/cms/core/media';
 import { EntryForm, type ValoresDeEntrada } from './EntryForm';
 import { EstadoGuardado } from './EstadoGuardado';
+import { MediaPicker } from './MediaPicker';
 import { useAutosave, type ResultadoGuardado } from './useAutosave';
 
 /**
@@ -31,6 +33,10 @@ export interface EntryEditorProps {
     version: number
   ) => Promise<ResultadoGuardado>;
   readonly publicar: (version: number) => Promise<ResultadoGuardado>;
+  /** La biblioteca, para el selector de imágenes. */
+  readonly imagenes?: readonly ImagenDeBiblioteca[];
+  readonly tiposAceptados?: readonly string[];
+  readonly tamanoMaximoBytes?: number;
   /** Solo para tests: acorta la espera del autosave. */
   readonly esperaMs?: number;
 }
@@ -42,9 +48,13 @@ export function EntryEditor({
   versionInicial,
   guardar,
   publicar,
+  imagenes = [],
+  tiposAceptados = [],
+  tamanoMaximoBytes = 0,
   esperaMs,
 }: EntryEditorProps) {
   const [valores, setValores] = useState<ValoresDeEntrada>(valoresIniciales);
+  const [campoDeImagen, setCampoDeImagen] = useState<string | null>(null);
   const [erroresDePublicar, setErroresDePublicar] = useState<readonly ActionFieldError[]>([]);
   const [avisoDePublicar, setAvisoDePublicar] = useState<string | null>(null);
 
@@ -101,6 +111,31 @@ export function EntryEditor({
 
       {autosave.estado.tipo === 'conflicto' && <AvisoDeConflicto />}
 
+      {campoDeImagen !== null && (
+        <MediaPicker
+          imagenes={imagenes}
+          tiposAceptados={tiposAceptados}
+          tamanoMaximoBytes={tamanoMaximoBytes}
+          onElegir={(imagen) => {
+            // El `alt` que ya tenga la imagen se hereda como punto de partida; el editor puede
+            // cambiarlo para esta sección sin tocar la biblioteca, porque una misma foto se
+            // describe distinto según dónde aparece.
+            cambiar({
+              ...valores,
+              [campoDeImagen]: {
+                mediaId: imagen.id,
+                url: imagen.url,
+                alt: imagen.alt,
+              },
+            });
+            setCampoDeImagen(null);
+          }}
+          onCerrar={() => {
+            setCampoDeImagen(null);
+          }}
+        />
+      )}
+
       <div className="grid gap-8 lg:grid-cols-2">
         {/* `onBlur` en el contenedor y no en cada campo: el evento burbujea, y ponerlo en los
             ocho componentes de campo sería ocho sitios donde olvidarlo. */}
@@ -115,6 +150,9 @@ export function EntryEditor({
             values={valores}
             onChange={cambiar}
             errors={erroresDePublicar}
+            onElegirImagen={(campo) => {
+              setCampoDeImagen(campo);
+            }}
           />
         </form>
 
