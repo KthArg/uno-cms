@@ -1,9 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import type { ActionFieldError } from '@/cms/actions/pipeline';
 import type { ObjectSchema } from '@/cms/core/config';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
+import { ConfirmarAccion } from './ConfirmarAccion';
 import { EntryForm, type ValoresDeEntrada } from './EntryForm';
 import { EstadoGuardado } from './EstadoGuardado';
 import { MediaPicker } from './MediaPicker';
@@ -33,6 +35,12 @@ export interface EntryEditorProps {
     version: number
   ) => Promise<ResultadoGuardado>;
   readonly publicar: (version: number) => Promise<ResultadoGuardado>;
+  /** Descartar los cambios sin publicar (SPEC §9: "Deshacer cambios"). */
+  readonly deshacer: () => Promise<ResultadoGuardado>;
+  /** La clave, para enlazar al historial. */
+  readonly entryKey: string;
+  /** Si hay algo publicado a lo que volver. Sin ello, deshacer no tiene sentido. */
+  readonly sePuedeDeshacer: boolean;
   /** La biblioteca, para el selector de imágenes. */
   readonly imagenes?: readonly ImagenDeBiblioteca[];
   readonly tiposAceptados?: readonly string[];
@@ -48,6 +56,9 @@ export function EntryEditor({
   versionInicial,
   guardar,
   publicar,
+  deshacer,
+  entryKey,
+  sePuedeDeshacer,
   imagenes = [],
   tiposAceptados = [],
   tamanoMaximoBytes = 0,
@@ -55,6 +66,7 @@ export function EntryEditor({
 }: EntryEditorProps) {
   const [valores, setValores] = useState<ValoresDeEntrada>(valoresIniciales);
   const [campoDeImagen, setCampoDeImagen] = useState<string | null>(null);
+  const [confirmandoDeshacer, setConfirmandoDeshacer] = useState(false);
   const [erroresDePublicar, setErroresDePublicar] = useState<readonly ActionFieldError[]>([]);
   const [avisoDePublicar, setAvisoDePublicar] = useState<string | null>(null);
 
@@ -96,10 +108,33 @@ export function EntryEditor({
     setAvisoDePublicar(resultado.message ?? 'No se ha podido publicar.');
   };
 
+  const alDeshacer = async (): Promise<void> => {
+    setConfirmandoDeshacer(false);
+    const resultado = await deshacer();
+
+    if (!resultado.ok) {
+      setAvisoDePublicar(resultado.message ?? 'No se ha podido deshacer.');
+      return;
+    }
+
+    // Se recarga en vez de reconstruir el estado a mano: lo que hay que enseñar es exactamente
+    // lo que quedó en la base de datos, y con la versión nueva. Reconstruirlo aquí sería una
+    // segunda verdad que puede discrepar.
+    window.location.reload();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-slate-900">{nombreSeccion}</h1>
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">{nombreSeccion}</h1>
+          <Link
+            href={`/admin/history/${entryKey}`}
+            className="text-sm text-slate-600 underline underline-offset-4 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+          >
+            Ver versiones anteriores
+          </Link>
+        </div>
         <EstadoGuardado estado={autosave.estado} />
       </div>
 
@@ -114,6 +149,20 @@ export function EntryEditor({
       )}
 
       {autosave.estado.tipo === 'conflicto' && <AvisoDeConflicto />}
+
+      {confirmandoDeshacer && (
+        <ConfirmarAccion
+          titulo="¿Deshacer los cambios sin publicar?"
+          descripcion="Se descarta todo lo que has escrito desde la última vez que publicaste y vuelve lo que hay en tu web ahora mismo. No se puede recuperar."
+          textoConfirmar="Sí, deshacer"
+          onConfirmar={() => {
+            void alDeshacer();
+          }}
+          onCancelar={() => {
+            setConfirmandoDeshacer(false);
+          }}
+        />
+      )}
 
       {campoDeImagen !== null && (
         <MediaPicker
@@ -176,6 +225,18 @@ export function EntryEditor({
         >
           Publicar cambios
         </button>
+
+        {sePuedeDeshacer && (
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmandoDeshacer(true);
+            }}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+          >
+            Deshacer cambios
+          </button>
+        )}
 
         {avisoDePublicar !== null && (
           <p
