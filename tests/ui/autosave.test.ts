@@ -176,6 +176,81 @@ describe('autosave', () => {
     });
   });
 
+  it('guardarYa devuelve la versión ya actualizada, no la de antes', async () => {
+    // El defecto que esto fija: `guardarYa` no devolvía nada y quien publicaba justo después
+    // leía la versión del estado de React —la de antes del guardado—. El servidor respondía
+    // `VERSION_CONFLICT` y el editor leía "otra persona guardó cambios mientras editabas"
+    // siendo él mismo medio segundo antes.
+    //
+    // Solo pasaba si había algo pendiente al pulsar Publicar, o sea en el caso normal de
+    // escribir y publicar. Lo destapó ejecutar la suite e2e dos veces seguidas.
+    const guardar = vi.fn(async () => ({ ok: true, version: 7 }) as ResultadoGuardado);
+    const { result } = montar(guardar);
+
+    act(() => {
+      result.current.alCambiar({ title: 'Algo' });
+    });
+
+    let devuelta = -1;
+    await act(async () => {
+      devuelta = await result.current.guardarYa();
+    });
+
+    expect(devuelta).toBe(7);
+  });
+
+  it('guardarYa con un guardado ya en vuelo espera, no devuelve la versión vieja', async () => {
+    // La otra rama del mismo defecto, y la que fallaba una de cada dos veces. Al pulsar
+    // Publicar dos segundos después de teclear, el temporizador ya había disparado el guardado:
+    // `guardarYa` se encontraba uno en vuelo, se rendía y devolvía la versión de antes. El
+    // servidor respondía `VERSION_CONFLICT` en un caso normalísimo — escribir y publicar.
+    let resolver: ((valor: ResultadoGuardado) => void) | null = null;
+    const guardar = vi.fn(
+      () =>
+        new Promise<ResultadoGuardado>((resolve) => {
+          resolver = resolve;
+        })
+    );
+
+    const { result } = montar(guardar, { versionInicial: 4 });
+
+    act(() => {
+      result.current.alCambiar({ title: 'Algo' });
+    });
+    // Se deja que el temporizador dispare el guardado.
+    await waitFor(() => {
+      expect(guardar).toHaveBeenCalledTimes(1);
+    });
+
+    // Y ahora se pulsa Publicar, con el guardado a medio camino.
+    let devuelta = -1;
+    const publicando = act(async () => {
+      devuelta = await result.current.guardarYa();
+    });
+
+    act(() => {
+      resolver?.({ ok: true, version: 5 });
+    });
+    await publicando;
+
+    // La versión nueva, no la de antes.
+    expect(devuelta).toBe(5);
+  });
+
+  it('guardarYa sin nada pendiente devuelve la versión actual', async () => {
+    // Publicar sin haber tocado nada tiene que seguir funcionando, y con la versión buena.
+    const guardar = vi.fn();
+    const { result } = montar(guardar, { versionInicial: 3 });
+
+    let devuelta = -1;
+    await act(async () => {
+      devuelta = await result.current.guardarYa();
+    });
+
+    expect(devuelta).toBe(3);
+    expect(guardar).not.toHaveBeenCalled();
+  });
+
   it('T-C-6: el borrador local se escribe al cambiar y se borra al confirmar', async () => {
     const guardar = vi.fn(async () => ({ ok: true, version: 1 }) as ResultadoGuardado);
     const almacenamiento = almacenamientoFalso();

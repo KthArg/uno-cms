@@ -75,12 +75,16 @@ export function EntryEditor({
   };
 
   const alPublicar = async (): Promise<void> => {
-    // Se guarda primero. Publicar lee el borrador **de la base de datos**, así que sin esto
-    // se publicaría lo de antes del último tecleo — y el editor vería publicado algo distinto
-    // de lo que tiene delante.
-    autosave.guardarYa();
+    // Se guarda primero **y se espera**. Publicar lee el borrador de la base de datos, así que
+    // sin guardar se publicaría lo de antes del último tecleo.
+    //
+    // Y hay que esperar de verdad: sin el `await`, se publicaba con la versión que había en el
+    // estado de React —la de antes del guardado— y el servidor respondía `VERSION_CONFLICT`.
+    // El editor leía "otra persona guardó cambios mientras editabas" siendo él mismo medio
+    // segundo antes.
+    const version = await autosave.guardarYa();
 
-    const resultado = await publicar(autosave.version);
+    const resultado = await publicar(version);
 
     if (resultado.ok) {
       setAvisoDePublicar('Publicado. Ya se ve en tu web.');
@@ -140,7 +144,9 @@ export function EntryEditor({
         {/* `onBlur` en el contenedor y no en cada campo: el evento burbujea, y ponerlo en los
             ocho componentes de campo sería ocho sitios donde olvidarlo. */}
         <form
-          onBlur={autosave.guardarYa}
+          onBlur={() => {
+            void autosave.guardarYa();
+          }}
           onSubmit={(evento) => {
             evento.preventDefault();
           }}

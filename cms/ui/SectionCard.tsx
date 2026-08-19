@@ -1,6 +1,8 @@
 // isomorphic: solo presentación, sin acceso a base de datos ni a la sesión. Se renderiza en
 // el servidor, pero no arrastra nada de `cms/db` ni de `cms/auth`.
 import Link from 'next/link';
+import type { SectionState } from '@/cms/core/content';
+import { EstadoDeSeccion } from './EstadoDeSeccion';
 
 /**
  * La tarjeta de una sección en el panel (SPEC §9: "tarjeta por sección con estado").
@@ -16,35 +18,16 @@ import Link from 'next/link';
  * sitio está publicado cuando no lo está.
  */
 
-export type EstadoSeccion = 'publicado' | 'con-cambios' | 'sin-publicar';
-
-const ETIQUETAS: Record<EstadoSeccion, { texto: string; clase: string }> = {
-  publicado: {
-    texto: 'Publicado',
-    clase: 'bg-emerald-50 text-emerald-800 ring-emerald-600/20',
-  },
-  'con-cambios': {
-    texto: 'Cambios sin publicar',
-    clase: 'bg-amber-50 text-amber-800 ring-amber-600/30',
-  },
-  'sin-publicar': {
-    texto: 'Sin publicar todavía',
-    clase: 'bg-slate-100 text-slate-700 ring-slate-500/20',
-  },
-};
-
 export interface SectionCardProps {
   /** Lo que ve el editor. Nunca la clave técnica (SPEC §9). */
   readonly nombre: string;
   readonly href: string;
-  readonly estado: EstadoSeccion;
+  readonly estado: SectionState;
   /** Cuántos elementos tiene, si es una lista. */
   readonly elementos?: number;
 }
 
 export function SectionCard({ nombre, href, estado, elementos }: SectionCardProps) {
-  const etiqueta = ETIQUETAS[estado];
-
   return (
     <Link
       href={href}
@@ -52,11 +35,7 @@ export function SectionCard({ nombre, href, estado, elementos }: SectionCardProp
     >
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-medium text-slate-900 group-hover:underline">{nombre}</h3>
-        <span
-          className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${etiqueta.clase}`}
-        >
-          {etiqueta.texto}
-        </span>
+        <EstadoDeSeccion estado={estado} />
       </div>
 
       {elementos !== undefined && (

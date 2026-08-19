@@ -102,8 +102,19 @@ export interface Autosave {
   /** Un borrador local que **no** se ha aplicado, esperando decisión. */
   readonly recuperable: BorradorLocal | null;
   readonly alCambiar: (valores: Record<string, unknown>) => void;
-  /** Guardado inmediato, sin esperar al debounce (SPEC §8: al perder el foco). */
-  readonly guardarYa: () => void;
+  /**
+   * Guardado inmediato, sin esperar al debounce (SPEC §8: al perder el foco).
+   *
+   * Devuelve la versión **ya actualizada**, y esa es la parte que importa. La primera versión
+   * no devolvía nada y el editor publicaba justo después leyendo `version` del estado de
+   * React, que todavía era el de antes del guardado: el servidor respondía
+   * `VERSION_CONFLICT` y el editor leía "otra persona guardó cambios mientras editabas"
+   * siendo él mismo medio segundo antes.
+   *
+   * Solo se veía si había algo pendiente que guardar al pulsar Publicar — o sea, en el caso
+   * normal de escribir y publicar. Lo destapó ejecutar la suite e2e dos veces seguidas.
+   */
+  readonly guardarYa: () => Promise<number>;
   readonly aplicarRecuperable: () => void;
   readonly descartarRecuperable: () => void;
 }
@@ -123,7 +134,13 @@ export function useAutosave(opciones: OpcionesAutosave): Autosave {
 
   const pendiente = useRef<Record<string, unknown> | null>(null);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const guardando = useRef(false);
+  /**
+   * El guardado en marcha, si lo hay.
+   *
+   * Se guarda **la operación entera** y no un booleano: quien llega mientras otro guarda tiene
+   * que esperarlo y quedarse con su resultado, no rendirse y devolver la versión de antes.
+   */
+  const operacion = useRef<Promise<number> | null>(null);
   const detenido = useRef(false);
   const versionRef = useRef(versionInicial);
 
@@ -156,18 +173,22 @@ export function useAutosave(opciones: OpcionesAutosave): Autosave {
     [almacenamiento, key]
   );
 
-  const enviar = useCallback(async () => {
-    if (detenido.current || guardando.current) return;
-
+  /**
+   * Ejecuta **un** guardado y devuelve la versión resultante.
+   *
+   * Separado de `enviar` para que la promesa que se guarda en `operacion` incluya la
+   * actualización de `versionRef`. La primera versión guardaba una promesa que resolvía
+   * *antes* de esa actualización, así que quien la esperaba seguía leyendo la versión de
+   * antes — el mismo fallo que se creía arreglado, una capa más adentro.
+   */
+  const ejecutar = useCallback(async (): Promise<number> => {
     const valores = pendiente.current;
-    if (valores === null) return;
+    if (valores === null) return versionRef.current;
 
     pendiente.current = null;
-    guardando.current = true;
     setEstado({ tipo: 'guardando' });
 
     const resultado = await guardar(valores, versionRef.current);
-    guardando.current = false;
 
     if (resultado.ok && resultado.version !== undefined) {
       versionRef.current = resultado.version;
@@ -176,10 +197,7 @@ export function useAutosave(opciones: OpcionesAutosave): Autosave {
       // Se borra **después** de confirmar. Borrarlo antes dejaría al editor sin red justo
       // durante el viaje de red, que es cuando hace falta.
       almacenamiento?.removeItem(claveLocal(key));
-
-      // Si llegaron más cambios mientras se guardaba, se encadena.
-      if (pendiente.current !== null) void enviar();
-      return;
+      return resultado.version;
     }
 
     if (resultado.code === 'VERSION_CONFLICT') {
@@ -187,7 +205,7 @@ export function useAutosave(opciones: OpcionesAutosave): Autosave {
       // persona, que es justo lo que el bloqueo optimista impide.
       detenido.current = true;
       setEstado({ tipo: 'conflicto' });
-      return;
+      return versionRef.current;
     }
 
     setEstado({
@@ -195,7 +213,42 @@ export function useAutosave(opciones: OpcionesAutosave): Autosave {
       mensaje: resultado.message ?? 'No se ha podido guardar.',
       ...(resultado.fields === undefined ? {} : { campos: resultado.fields }),
     });
+
+    return versionRef.current;
   }, [almacenamiento, guardar, key]);
+
+  /**
+   * Guarda lo pendiente y devuelve la versión **ya actualizada**.
+   *
+   * Si hay otro guardado en marcha, **se espera a que termine** en vez de rendirse. Ese detalle
+   * es el que hacía fallar publicar-tras-escribir una de cada dos veces: al pulsar el botón, el
+   * `blur` del formulario ya había lanzado su propio guardado, y quien llegaba después recibía
+   * la versión de antes y publicaba con ella. El servidor respondía `VERSION_CONFLICT` en la
+   * acción más normal que existe.
+   *
+   * Y al terminar se vuelve a mirar: puede haber quedado algo que mandar detrás.
+   */
+  const enviar = useCallback(async (): Promise<number> => {
+    if (detenido.current) return versionRef.current;
+
+    if (operacion.current !== null) {
+      await operacion.current;
+      return pendiente.current === null ? versionRef.current : enviar();
+    }
+
+    if (pendiente.current === null) return versionRef.current;
+
+    const promesa = ejecutar();
+    operacion.current = promesa;
+
+    try {
+      const version = await promesa;
+      // Si llegaron más cambios mientras se guardaba, se encadena.
+      return pendiente.current === null ? version : enviar();
+    } finally {
+      operacion.current = null;
+    }
+  }, [ejecutar]);
 
   const alCambiar = useCallback(
     (valores: Record<string, unknown>) => {
@@ -213,9 +266,9 @@ export function useAutosave(opciones: OpcionesAutosave): Autosave {
     [enviar, escribirLocal, esperaMs]
   );
 
-  const guardarYa = useCallback(() => {
+  const guardarYa = useCallback(async () => {
     if (temporizador.current !== null) clearTimeout(temporizador.current);
-    void enviar();
+    return enviar();
   }, [enviar]);
 
   const aplicarRecuperable = useCallback(() => {
