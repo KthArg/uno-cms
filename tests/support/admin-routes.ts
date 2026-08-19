@@ -1,5 +1,6 @@
 import { readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { RUTAS_PUBLICAS_DEL_PANEL } from '@/cms/routes';
 
 /**
  * Las rutas del panel, leídas del sistema de ficheros (issue #70).
@@ -38,17 +39,13 @@ export interface RutaDelPanel {
 /**
  * Las rutas públicas del panel, con su motivo.
  *
- * Que haya que escribir el motivo es parte del diseño: una lista de excepciones sin
- * explicación crece hasta que nadie sabe cuáles siguen teniendo razón de ser, y esta lista
- * decide qué páginas del panel se sirven sin sesión.
+ * **Reexportadas de `cms/routes.ts`, que es donde viven.** Es la misma constante
+ * que consulta el middleware para decidir a quién manda al acceso. Tenerla dos veces —una aquí
+ * y otra allí— permitiría abrir una ruta en el middleware sin tocar este test: la página se
+ * quedaría sin guard y el test seguiría en verde, que es exactamente el fallo que este test
+ * existe para impedir.
  */
-export const RUTAS_PUBLICAS: { url: string; motivo: string }[] = [
-  {
-    url: '/admin/login',
-    motivo:
-      'Es la página de acceso. Protegerla con el guard la haría redirigir a sí misma, en bucle.',
-  },
-];
+export const RUTAS_PUBLICAS = RUTAS_PUBLICAS_DEL_PANEL;
 
 function recorrer(dir: string): string[] {
   const salida: string[] = [];
