@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { PanelShell } from '@/cms/ui/PanelShell';
+import { entradasVisibles, PanelShell } from '@/cms/ui/PanelShell';
 import { SectionCard } from '@/cms/ui/SectionCard';
 
 /** T-A-1 y T-A-3: armazón del panel y tarjetas de sección (SPEC §3, §9). */
@@ -14,26 +14,34 @@ function montarShell(rol: 'admin' | 'editor', rutaActual = '/admin') {
 }
 
 describe('armazón del panel', () => {
-  it('T-A-3: un editor no ve la entrada de personas ni la de ajustes', () => {
-    montarShell('editor');
+  it('T-A-3: el filtro por rol deja fuera lo que es solo de administración', () => {
+    // Se prueba sobre `entradasVisibles` y no sobre el DOM porque esas pantallas todavía no
+    // existen —llegan en #104 y #106— y el menú no pinta enlaces que darían 404. El filtro por
+    // rol sí existe ya, y es lo que hay que fijar antes de que aparezcan.
+    const deAdmin = entradasVisibles('admin').map((entrada) => entrada.href);
+    const deEditor = entradasVisibles('editor').map((entrada) => entrada.href);
 
-    expect(screen.queryByRole('link', { name: 'Personas' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Ajustes' })).not.toBeInTheDocument();
-    // Lo que sí le corresponde, sigue estando.
-    expect(screen.getByRole('link', { name: 'Contenido' })).toBeInTheDocument();
+    expect(deAdmin).toContain('/admin/users');
+    expect(deAdmin).toContain('/admin/settings');
+    expect(deEditor).not.toContain('/admin/users');
+    expect(deEditor).not.toContain('/admin/settings');
+    expect(deEditor).toContain('/admin');
   });
 
-  it('T-A-3: un admin sí las ve', () => {
+  it('el menú no pinta enlaces a pantallas que todavía no existen', () => {
+    // Un menú con enlaces rotos no es "en construcción": es una interfaz que miente sobre lo
+    // que hay. Este test se vuelve trivial —y se quita— cuando M4 termine.
     montarShell('admin');
 
-    expect(screen.getByRole('link', { name: 'Personas' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Ajustes' })).toBeInTheDocument();
+    const enlaces = screen.getAllByRole('link').map((enlace) => enlace.getAttribute('href'));
+    expect(enlaces).not.toContain('/admin/media');
+    expect(enlaces).not.toContain('/admin/users');
   });
 
   it('el menú no es el guard, y este test no pretende que lo sea', () => {
-    // Esconder una opción del menú se parece mucho a proteger algo. Lo que cierra la puerta
-    // es el guard de la ruta, que se prueba aparte (#70 y T-E-4). Aquí solo se comprueba que
-    // no se le ofrezca al editor una puerta que se le va a cerrar en la cara.
+    // Esconder una opción del menú se parece mucho a proteger algo. Lo que cierra la puerta es
+    // el guard de la ruta, que se prueba aparte (#70 y T-E-4). Aquí solo se comprueba que no
+    // se le ofrezca al editor una puerta que se le va a cerrar en la cara.
     montarShell('editor');
 
     expect(screen.getAllByRole('link').map((enlace) => enlace.getAttribute('href'))).not.toContain(
@@ -43,17 +51,15 @@ describe('armazón del panel', () => {
 
   it('la entrada activa se marca con aria-current, no solo con color', () => {
     // Quien navega con lector de pantalla no ve el fondo gris.
-    montarShell('admin', '/admin/media');
+    montarShell('admin', '/admin');
 
-    expect(screen.getByRole('link', { name: 'Imágenes' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Contenido' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: 'Contenido' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('estar en una subruta marca su sección, pero /admin no se marca desde una subruta', () => {
+  it('/admin no se marca como activa desde una subruta', () => {
     // `startsWith('/admin')` marcaría "Contenido" en todas las pantallas del panel.
     montarShell('admin', '/admin/users');
 
-    expect(screen.getByRole('link', { name: 'Personas' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Contenido' })).not.toHaveAttribute('aria-current');
   });
 

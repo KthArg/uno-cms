@@ -23,21 +23,38 @@ export interface PanelShellProps {
   readonly rutaActual: string;
 }
 
-interface EntradaMenu {
+export interface EntradaMenu {
   readonly href: string;
   readonly texto: string;
   readonly soloAdmin?: boolean;
+  /**
+   * Si la pantalla existe ya.
+   *
+   * **Bookkeeping temporal de M4**, y se va cuando el hito cierre. La alternativa era pintar
+   * el menú completo desde el primer PR, y eso significa ofrecerle al editor cuatro enlaces de
+   * los que tres dan 404. Un menú con enlaces rotos no es "en construcción": es una interfaz
+   * que miente sobre lo que hay.
+   *
+   * La otra alternativa —páginas vacías con un "próximamente"— es peor: parece que la función
+   * existe y no existe.
+   */
+  readonly disponible?: boolean;
 }
 
 const MENU: readonly EntradaMenu[] = [
-  { href: '/admin', texto: 'Contenido' },
+  { href: '/admin', texto: 'Contenido', disponible: true },
   { href: '/admin/media', texto: 'Imágenes' },
   { href: '/admin/users', texto: 'Personas', soloAdmin: true },
   { href: '/admin/settings', texto: 'Ajustes', soloAdmin: true },
 ];
 
+/** Las entradas que le corresponden a un rol. Exportada para poder fijarla con un test. */
+export function entradasVisibles(rol: 'admin' | 'editor'): readonly EntradaMenu[] {
+  return MENU.filter((entrada) => entrada.soloAdmin !== true || rol === 'admin');
+}
+
 export function PanelShell({ children, rol, nombreDeUsuario, rutaActual }: PanelShellProps) {
-  const entradas = MENU.filter((entrada) => entrada.soloAdmin !== true || rol === 'admin');
+  const entradas = entradasVisibles(rol).filter((entrada) => entrada.disponible === true);
 
   return (
     <div className="flex min-h-dvh flex-col bg-slate-50">
@@ -52,12 +69,6 @@ export function PanelShell({ children, rol, nombreDeUsuario, rutaActual }: Panel
 
           <div className="flex items-center gap-4 text-sm">
             <span className="text-slate-600">{nombreDeUsuario}</span>
-            <Link
-              href="/admin/account"
-              className="text-slate-700 underline underline-offset-4 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
-            >
-              Tu cuenta
-            </Link>
           </div>
         </div>
       </header>

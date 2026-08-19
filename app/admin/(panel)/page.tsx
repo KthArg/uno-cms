@@ -18,7 +18,23 @@ export default async function PanelContenido() {
 
   const nombrePorClave = new Map(secciones.map((seccion) => [seccion.key, seccion.nombre]));
 
-  async function publicarTodo(): Promise<PublishAllResult> {
+  /**
+   * La Server Action que consume el botón.
+   *
+   * La firma es la de `useActionState` —`(estadoAnterior, formData)`— aunque no se usen los
+   * argumentos, porque **se pasa la función tal cual al componente de cliente**. Envolverla en
+   * una flecha (`action={() => publicarTodo()}`) parece equivalente y no lo es: esa flecha se
+   * crea en el servidor y no lleva la marca de `'use server'`, así que Next no puede
+   * serializarla y la página revienta con "Functions cannot be passed directly to Client
+   * Components".
+   *
+   * Ni `typecheck` ni `build` lo detectan. Lo encontró el e2e al renderizar la página con una
+   * sesión de verdad.
+   */
+  async function publicarTodo(
+    _anterior: PublishAllResult | null,
+    _formData: FormData
+  ): Promise<PublishAllResult> {
     'use server';
 
     const resultado = await publishAll({});
@@ -54,7 +70,7 @@ export default async function PanelContenido() {
           </p>
         </div>
 
-        {pendientes > 0 && <PublishAllButton action={() => publicarTodo()} />}
+        {pendientes > 0 && <PublishAllButton action={publicarTodo} />}
       </div>
 
       <ul className="grid gap-4 sm:grid-cols-2">
