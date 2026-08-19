@@ -37,13 +37,14 @@ que sea una limitación conocida y no una función por construir.
 
 ### En M4 (el hito actual)
 
-| Qué                                        | Por qué se aplazó                                                                                                                                      | Issue                                                |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
-| La marca `disponible` del menú del panel   | Se pintaría un menú con enlaces a pantallas que aún no existen. Es bookkeeping temporal y **tiene que desaparecer** al cerrar el hito                  | [#122](https://github.com/KthArg/uno-cms/issues/122) |
-| Los dos guards de `/admin` pueden divergir | Hay uno en el middleware (edge, solo firma) y otro en el layout (autoritativo). Nada impide que una ruta nueva quede cubierta por uno y no por el otro | [#70](https://github.com/KthArg/uno-cms/issues/70)   |
-| La pantalla de una colección               | El dashboard **ya enlaza** a `/admin/collections/[key]` y las actions existen desde M3. Encontrado auditando lo aplazado: ningún issue la construía    | [#111](https://github.com/KthArg/uno-cms/issues/111) |
-| El token de invitación no se puede canjear | `inviteUser` crea cuentas a las que nadie puede entrar todavía                                                                                         | [#106](https://github.com/KthArg/uno-cms/issues/106) |
-| `changePassword` no tiene pantalla         | La action existe desde M3 y no estaba en ningún issue de M4. Hueco del plan, no de un PR                                                               | [#106](https://github.com/KthArg/uno-cms/issues/106) |
+| Qué                                                      | Por qué se aplazó                                                                                                                                      | Issue                                                |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| La marca `disponible` del menú del panel                 | Se pintaría un menú con enlaces a pantallas que aún no existen. Es bookkeeping temporal y **tiene que desaparecer** al cerrar el hito                  | [#122](https://github.com/KthArg/uno-cms/issues/122) |
+| Los dos guards de `/admin` pueden divergir               | Hay uno en el middleware (edge, solo firma) y otro en el layout (autoritativo). Nada impide que una ruta nueva quede cubierta por uno y no por el otro | [#70](https://github.com/KthArg/uno-cms/issues/70)   |
+| La pantalla de una colección                             | El dashboard **ya enlaza** a `/admin/collections/[key]` y las actions existen desde M3. Encontrado auditando lo aplazado: ningún issue la construía    | [#111](https://github.com/KthArg/uno-cms/issues/111) |
+| El token de invitación no se puede canjear               | `inviteUser` crea cuentas a las que nadie puede entrar todavía                                                                                         | [#106](https://github.com/KthArg/uno-cms/issues/106) |
+| `changePassword` no tiene pantalla                       | La action existe desde M3 y no estaba en ningún issue de M4. Hueco del plan, no de un PR                                                               | [#106](https://github.com/KthArg/uno-cms/issues/106) |
+| Nada impide llamar a código de cliente desde el servidor | Ha pasado dos veces en M4, y las dos con `typecheck`, `lint` y `build` en verde. Hace falta la frontera al revés que `server-only`                     | [#125](https://github.com/KthArg/uno-cms/issues/125) |
 
 ### En M5
 
@@ -81,6 +82,7 @@ redescubra como si fueran un hallazgo.
 | `revertDraft` no lleva `version`                                          | La entrada la fija `SPEC.md` §5.3 y la operación es destructiva por definición. Lo que falta no es un chequeo en la action, es la confirmación en la interfaz — que sí está planificada                                                                                                                                                                                             |
 | `trustHost: true` en Auth.js                                              | `SPEC.md` §0 pide auto-hospedable, así que hay que confiar en el `Host`. Las mitigaciones están en ADR de M2 y en `.env.example`; lo que queda vivo se cierra definiendo `AUTH_URL` en el despliegue                                                                                                                                                                                |
 | Las claves de colección son UUID y no nanoid                              | `SPEC.md` §5.3 dice nanoid; la propiedad que hace falta la da `crypto.randomUUID()` sin una dependencia de tiempo de ejecución (ADR-408). La cadena no la lee nadie                                                                                                                                                                                                                 |
+| El editor guarda al pasar de un campo a otro                              | SPEC §8 habla del "blur del formulario" y el `onBlur` del contenedor salta también al tabular entre campos. Guardar de más es el lado correcto en el que equivocarse; la alternativa —comparar `relatedTarget`— es más código y más frágil por una escritura barata                                                                                                                 |
 
 ---
 

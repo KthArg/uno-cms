@@ -1,7 +1,8 @@
 import { auth } from '@/cms/auth';
 import { publishAll } from '@/cms/actions';
 import { listSections } from '@/cms/core/content';
-import { motivoLegible, PublishAllButton, type PublishAllResult } from '@/cms/ui/PublishAllButton';
+import { motivoLegible } from '@/cms/ui/motivoLegible';
+import { PublishAllButton, type PublishAllResult } from '@/cms/ui/PublishAllButton';
 import { SectionCard } from '@/cms/ui/SectionCard';
 
 /**

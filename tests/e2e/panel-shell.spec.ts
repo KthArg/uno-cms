@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { dejarSinPublicar } from './support/db';
 import { crearYEntrar } from './support/session';
 
 /**
@@ -18,9 +19,16 @@ test('el panel carga con sesión y lista las secciones', async ({ page }) => {
 });
 
 test('T-A-2: publicar todo dice qué se quedó fuera', async ({ page }) => {
+  // El estado, puesto por el test. Dar por hecho "el sitio arranca sin publicar" funciona
+  // hasta que otro test publica algo, y entonces el botón desaparece y este falla por un
+  // motivo que no tiene que ver con lo que prueba.
+  // Un elemento de colección **propio de este test**: los singletons son tres y fijos, así
+  // que usar uno se pisa con los tests del editor. Este no lo toca nadie más.
+  dejarSinPublicar('testimonials.e2e-pendiente', { author: 'Ana' }, 'testimonials');
+
   await crearYEntrar(page, { email: 'panel-publica@ejemplo.com', role: 'admin' });
 
-  // Sin nada publicado, el sitio arranca con secciones pendientes y el botón tiene que estar.
+  // Con una sección pendiente, el botón tiene que estar.
   // La primera versión de este test lo envolvía en un `if (await boton.isVisible())`, y así
   // pasaba en verde **con la página rota** — que es peor que no tenerlo.
   const boton = page.getByRole('button', { name: 'Publicar todo' });

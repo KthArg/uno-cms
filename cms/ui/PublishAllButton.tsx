@@ -1,7 +1,6 @@
 'use client';
 
 import { useActionState } from 'react';
-import type { ActionFieldError } from '@/cms/actions/pipeline';
 
 /**
  * "Publicar todo" (SPEC §9).
@@ -28,15 +27,6 @@ export type PublishAllAction = (
   anterior: PublishAllResult | null,
   formData: FormData
 ) => Promise<PublishAllResult>;
-
-/** Traduce los campos que faltan a una frase, para no enseñar una lista de rutas técnicas. */
-export function motivoLegible(codigo: string, campos?: readonly ActionFieldError[]): string {
-  if (codigo === 'VALIDATION_FAILED' && campos !== undefined && campos.length > 0) {
-    return campos.map((campo) => campo.message).join(' ');
-  }
-  if (codigo === 'VERSION_CONFLICT') return 'Alguien la modificó mientras publicabas.';
-  return 'No se ha podido publicar. Vuelve a intentarlo.';
-}
 
 export function PublishAllButton({ action }: { action: PublishAllAction }) {
   const [resultado, formAction, pendiente] = useActionState<PublishAllResult | null, FormData>(
