@@ -4,6 +4,9 @@ Un apartado por hito. Se cierra al terminarlo, con tres respuestas: **qué funci
 es frágil** y **qué habría que probar a mano**. Sin maquillar: el valor de este documento
 depende por completo de que la columna de lo frágil sea creíble.
 
+Lo frágil que además hay que **arreglar** vive en [`PENDIENTES.md`](PENDIENTES.md), con su
+issue. Aquí se cuenta cómo quedó cada hito; allí, qué falta por hacer y dónde está anotado.
+
 ---
 
 ## M0 — Fundaciones e infraestructura ✅

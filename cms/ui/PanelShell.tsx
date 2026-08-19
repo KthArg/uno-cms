@@ -30,7 +30,7 @@ export interface EntradaMenu {
   /**
    * Si la pantalla existe ya.
    *
-   * **Bookkeeping temporal de M4**, y se va cuando el hito cierre. La alternativa era pintar
+   * **Bookkeeping temporal de M4** — PENDIENTE(#122), se va cuando el hito cierre. La alternativa era pintar
    * el menú completo desde el primer PR, y eso significa ofrecerle al editor cuatro enlaces de
    * los que tres dan 404. Un menú con enlaces rotos no es "en construcción": es una interfaz
    * que miente sobre lo que hay.

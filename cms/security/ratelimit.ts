@@ -21,7 +21,7 @@ import 'server-only';
  * M2 y **no es un olvido**: no hay ninguna instancia de Upstash contra la que ejercitarlo,
  * ni en local ni en CI, así que sería código de seguridad sin un solo test. Preferimos la
  * degradación documentada y medible al integrarlo a ciegas. El hueco está en el issue que
- * acompaña a este módulo y se cierra en M6, con el despliegue de verificación.
+ * acompaña a este módulo. PENDIENTE(#65): backend distribuido, en M6.
  */
 
 export interface RateLimitResult {
