@@ -37,14 +37,15 @@ que sea una limitación conocida y no una función por construir.
 
 ### En M4 (el hito actual)
 
-| Qué                                                      | Por qué se aplazó                                                                                                                                      | Issue                                                |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
-| La marca `disponible` del menú del panel                 | Se pintaría un menú con enlaces a pantallas que aún no existen. Es bookkeeping temporal y **tiene que desaparecer** al cerrar el hito                  | [#122](https://github.com/KthArg/uno-cms/issues/122) |
-| Los dos guards de `/admin` pueden divergir               | Hay uno en el middleware (edge, solo firma) y otro en el layout (autoritativo). Nada impide que una ruta nueva quede cubierta por uno y no por el otro | [#70](https://github.com/KthArg/uno-cms/issues/70)   |
-| La pantalla de una colección                             | El dashboard **ya enlaza** a `/admin/collections/[key]` y las actions existen desde M3. Encontrado auditando lo aplazado: ningún issue la construía    | [#111](https://github.com/KthArg/uno-cms/issues/111) |
-| El token de invitación no se puede canjear               | `inviteUser` crea cuentas a las que nadie puede entrar todavía                                                                                         | [#106](https://github.com/KthArg/uno-cms/issues/106) |
-| `changePassword` no tiene pantalla                       | La action existe desde M3 y no estaba en ningún issue de M4. Hueco del plan, no de un PR                                                               | [#106](https://github.com/KthArg/uno-cms/issues/106) |
-| Nada impide llamar a código de cliente desde el servidor | Ha pasado dos veces en M4, y las dos con `typecheck`, `lint` y `build` en verde. Hace falta la frontera al revés que `server-only`                     | [#125](https://github.com/KthArg/uno-cms/issues/125) |
+| Qué                                                      | Por qué se aplazó                                                                                                                                           | Issue                                                |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| La marca `disponible` del menú del panel                 | Se pintaría un menú con enlaces a pantallas que aún no existen. Es bookkeeping temporal y **tiene que desaparecer** al cerrar el hito                       | [#122](https://github.com/KthArg/uno-cms/issues/122) |
+| Los dos guards de `/admin` pueden divergir               | Hay uno en el middleware (edge, solo firma) y otro en el layout (autoritativo). Nada impide que una ruta nueva quede cubierta por uno y no por el otro      | [#70](https://github.com/KthArg/uno-cms/issues/70)   |
+| La pantalla de una colección                             | El dashboard **ya enlaza** a `/admin/collections/[key]` y las actions existen desde M3. Encontrado auditando lo aplazado: ningún issue la construía         | [#111](https://github.com/KthArg/uno-cms/issues/111) |
+| El token de invitación no se puede canjear               | `inviteUser` crea cuentas a las que nadie puede entrar todavía                                                                                              | [#106](https://github.com/KthArg/uno-cms/issues/106) |
+| `changePassword` no tiene pantalla                       | La action existe desde M3 y no estaba en ningún issue de M4. Hueco del plan, no de un PR                                                                    | [#106](https://github.com/KthArg/uno-cms/issues/106) |
+| Nada impide llamar a código de cliente desde el servidor | Ha pasado dos veces en M4, y las dos con `typecheck`, `lint` y `build` en verde. Hace falta la frontera al revés que `server-only`                          | [#125](https://github.com/KthArg/uno-cms/issues/125) |
+| Las rutas de `/api` no tienen inventario de acceso       | Los guards de #70 cubren `/admin`; una ruta bajo `/api` se protege sola y nada dice cuáles deben ser públicas. Se cierra con la primera ruta de API privada | [#104](https://github.com/KthArg/uno-cms/issues/104) |
 
 ### En M5
 
