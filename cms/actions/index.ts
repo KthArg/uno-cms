@@ -27,4 +27,13 @@ export {
   type Role,
 } from './pipeline';
 
-export { publish, publishAll, restoreRevision, revertDraft, saveDraft } from './content.actions';
+export {
+  createItem,
+  deleteItem,
+  publish,
+  publishAll,
+  reorderItems,
+  restoreRevision,
+  revertDraft,
+  saveDraft,
+} from './content.actions';

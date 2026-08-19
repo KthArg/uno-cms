@@ -613,3 +613,199 @@ export const restoreRevision = defineAction({
     });
   },
 });
+
+// ── Colecciones ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * El identificador de un elemento de colección.
+ *
+ * `SPEC.md` §5.3 escribe `key = collection + '.' + nanoid`. Se usa `crypto.randomUUID()` en
+ * su lugar (ADR-408): la propiedad que hace falta —un identificador imposible de adivinar y
+ * sin colisiones— la da igual, y viene en la plataforma. Añadir una dependencia para acortar
+ * una cadena que nadie lee sería pagar una superficie de suministro por estética.
+ */
+function newItemKey(collection: string): string {
+  return `${collection}.${crypto.randomUUID()}`;
+}
+
+/** La definición de una colección declarada en `cms.config.ts`, o `null` si no existe. */
+function collectionDefinition(name: string): { schema: ObjectSchema } | null {
+  const declared = (appConfig.collections as Record<string, { schema: ObjectSchema } | undefined>)[
+    name
+  ];
+  return declared ?? null;
+}
+
+const collectionInput = z.object({ collection: z.string().min(1).max(100) });
+
+export const createItem = defineAction({
+  name: 'content.createItem',
+  role: 'editor',
+  bucket: 'saveDraft',
+  input: collectionInput,
+  targetType: 'content',
+  handler: async (input, session) => {
+    const definition = collectionDefinition(input.collection);
+    // La colección tiene que estar declarada en la config. Sin esta comprobación, se podrían
+    // crear filas de un `type` que ningún formulario sabe editar ni ninguna vista mostrar:
+    // basura invisible que solo se ve mirando la tabla.
+    if (definition === null) return fail('NOT_FOUND');
+
+    const db = getDb();
+
+    return db.transaction(async (tx) => {
+      // El siguiente hueco al final. Se calcula dentro de la transacción porque dos
+      // creaciones simultáneas leerían el mismo máximo y acabarían empatadas — y el orden de
+      // una colección empatada lo decide el desempate por clave, que es aleatorio.
+      const [ultimo] = await tx
+        .select({ max: sql<number | null>`max(${contentEntries.sortOrder})` })
+        .from(contentEntries)
+        .where(eq(contentEntries.type, input.collection));
+
+      // El borrador inicial es el resultado de aplicar los `default` sobre un objeto vacío,
+      // con el esquema laxo, que es el que admite ausencias. Mismo criterio que el seed de
+      // singletons (SPEC §5.1).
+      const inicial = buildObjectSchema(definition.schema, 'draft').safeParse({});
+      if (!inicial.success) {
+        // Solo se llega aquí si un `default` de `cms.config.ts` no pasa su propio esquema. Es
+        // un fallo del desarrollador y tiene que verse, no enterrarse en un borrador vacío.
+        throw new Error(
+          `Los valores por defecto de '${input.collection}' no pasan su propio esquema laxo. ` +
+            `Revisa cms.config.ts. Detalle: ${inicial.error.message}`
+        );
+      }
+
+      const key = newItemKey(input.collection);
+
+      const [creada] = await tx
+        .insert(contentEntries)
+        .values({
+          key,
+          type: input.collection,
+          draft: inicial.data as Record<string, unknown>,
+          published: null,
+          status: 'draft',
+          sortOrder: (ultimo?.max ?? -1) + 1,
+          version: 0,
+          updatedBy: session.userId,
+        })
+        .returning({ key: contentEntries.key, sortOrder: contentEntries.sortOrder });
+
+      return ok({ key: creada!.key, sortOrder: creada!.sortOrder });
+    });
+  },
+  auditMeta: (output) => ({ key: output.key }),
+});
+
+export const deleteItem = defineAction({
+  name: 'content.deleteItem',
+  role: 'editor',
+  bucket: 'admin',
+  input: z.object({ key: z.string().min(1).max(200) }),
+  targetType: 'content',
+  targetId: (input) => input.key,
+  handler: async (input) => {
+    const db = getDb();
+
+    const result = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ type: contentEntries.type })
+        .from(contentEntries)
+        .where(eq(contentEntries.key, input.key))
+        .limit(1)
+        .for('update');
+
+      if (row === undefined) return fail('NOT_FOUND');
+
+      // **Solo elementos de colección.** Un singleton no se borra: es una sección fija de la
+      // landing, y sin su fila la lectura devolvería valores vacíos para siempre sin que
+      // nadie pudiera recrearla desde el panel.
+      if (collectionDefinition(row.type) === null) {
+        return fail(
+          'CONFLICT',
+          'Esta sección es fija y no se puede eliminar. Puedes vaciar su contenido.'
+        );
+      }
+
+      // Las revisiones se borran **en la misma transacción**. `revisions.entryKey` es texto
+      // sin clave foránea, así que nadie las arrastra solas: quedarían apuntando a una
+      // entrada que ya no existe, invisibles desde el panel —que las lista por entrada— y
+      // sin forma de volver a verlas ni de borrarlas. Contenido fantasma creciendo en la
+      // base de datos.
+      await tx.delete(revisions).where(eq(revisions.entryKey, input.key));
+      await tx.delete(contentEntries).where(eq(contentEntries.key, input.key));
+
+      return ok({ key: input.key, collection: row.type });
+    });
+
+    // Fuera de la transacción y solo si se borró: el elemento podía estar publicado, así que
+    // la landing tiene que dejar de mostrarlo. Invalidar antes del commit repoblaría el caché
+    // con el elemento todavía presente.
+    if (result.ok) revalidateTag(contentTag(result.data.collection));
+
+    return result;
+  },
+});
+
+export const reorderItems = defineAction({
+  name: 'content.reorderItems',
+  role: 'editor',
+  bucket: 'saveDraft',
+  input: z.object({
+    collection: z.string().min(1).max(100),
+    orderedKeys: z.array(z.string().min(1).max(200)).max(500),
+  }),
+  targetType: 'content',
+  targetId: (input) => input.collection,
+  handler: async (input) => {
+    if (collectionDefinition(input.collection) === null) return fail('NOT_FOUND');
+
+    // Claves repetidas dejarían elementos sin posición asignada y otros con dos. Se rechaza
+    // antes de tocar nada.
+    if (new Set(input.orderedKeys).size !== input.orderedKeys.length) {
+      return fail('CONFLICT', 'La lista trae elementos repetidos. Vuelve a cargar la página.');
+    }
+
+    const db = getDb();
+
+    const result = await db.transaction(async (tx) => {
+      const actuales = await tx
+        .select({ key: contentEntries.key })
+        .from(contentEntries)
+        .where(eq(contentEntries.type, input.collection))
+        .for('update');
+
+      const existentes = new Set(actuales.map((row) => row.key));
+
+      // Una clave que no es de esta colección: se rechaza entero y no se toca nada. Aceptar
+      // las buenas e ignorar las malas dejaría el orden a medias sin decirlo.
+      if (input.orderedKeys.some((key) => !existentes.has(key))) return fail('NOT_FOUND');
+
+      // Y la lista tiene que estar **completa**. Si falta alguna —porque otra persona creó un
+      // elemento mientras esta arrastraba— reasignar solo las enviadas dejaría a la nueva
+      // empatada con otra, y el orden de un empate lo decide el desempate por clave, que es
+      // aleatorio para el editor.
+      if (input.orderedKeys.length !== actuales.length) {
+        return fail(
+          'CONFLICT',
+          'La lista ha cambiado mientras la reordenabas. Vuelve a cargar la página.'
+        );
+      }
+
+      for (const [posicion, key] of input.orderedKeys.entries()) {
+        await tx
+          .update(contentEntries)
+          .set({ sortOrder: posicion })
+          .where(eq(contentEntries.key, key));
+      }
+
+      return ok({ collection: input.collection, count: input.orderedKeys.length });
+    });
+
+    // SPEC §5.3: "revalida el tag de la colección". Fuera de la transacción y solo si salió
+    // bien, como en `publish`.
+    if (result.ok) revalidateTag(contentTag(input.collection));
+
+    return result;
+  },
+});
