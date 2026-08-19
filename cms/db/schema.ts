@@ -1,6 +1,7 @@
 import 'server-only';
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   index,
   integer,
@@ -67,6 +68,15 @@ export const users = pgTable(
      * entrado— no expulsa a nadie hasta que la sesión caduque sola, siete días después.
      */
     passwordVersion: integer('password_version').notNull().default(0),
+    /**
+     * Si la cuenta puede usarse (issue #94, ADR-409).
+     *
+     * Tampoco está en SPEC §4, y hace falta por el mismo motivo que `password_version`: §5.3
+     * pide `deactivateUser` y la tabla no tiene dónde apoyarlo. Reutilizar `locked_until`
+     * confundiría dos cosas que hay que distinguir —el bloqueo por intentos fallidos se
+     * levanta solo y una desactivación no— y borrar la fila destruiría el rastro.
+     */
+    active: boolean('active').notNull().default(true),
     failedLogins: integer('failed_logins').notNull().default(0),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

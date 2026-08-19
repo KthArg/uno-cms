@@ -37,3 +37,5 @@ export {
   revertDraft,
   saveDraft,
 } from './content.actions';
+
+export { changePassword, deactivateUser, inviteUser, updateUserRole } from './user.actions';

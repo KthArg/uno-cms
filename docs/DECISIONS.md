@@ -632,3 +632,23 @@ Añadir una dependencia de tiempo de ejecución tiene coste permanente: entra en
 
 - Las claves quedan como `testimonials.3f2a…-…`, de 49 caracteres. La columna es `text`, así que no hay límite que apretar.
 - Si algún día una clave de colección acabara en una URL pública, conviene revisar esta decisión — no por seguridad, sino por lo fea que quedaría.
+
+---
+
+## ADR-409 — La columna `active` de `users` (resuelve #94)
+
+**Contexto.** `SPEC.md` §5.3 lista `deactivateUser` entre las server actions, con `LAST_ADMIN` como error asociado. La tabla `users` de §4 no tiene ninguna columna donde apoyarlo.
+
+**Decisión.** Se añade `active boolean not null default true`, con el mismo criterio que ADR-301 usó para `password_version`: §4 describe el modelo, no lo cierra, y una acción que la propia spec exige necesita dónde apoyarse.
+
+Las alternativas se descartan por lo que cuestan:
+
+- **Borrar la fila** destruye el rastro y confunde dos operaciones que en cualquier panel son distintas. Quien pulsa "desactivar" no espera "eliminar".
+- **Reutilizar `locked_until` con una fecha lejana** mezcla el bloqueo por intentos fallidos (§7.1), que se levanta solo, con una desactivación, que no. Mirando la fila nadie sabría cuál de las dos es.
+
+**Consecuencias, y son la parte que importa** — sin ellas la desactivación es un cartel en la puerta en vez de una cerradura:
+
+- `authenticate` rechaza a un usuario inactivo **verificando igualmente contra el señuelo**. Responder antes sin gastar el tiempo de Argon2 haría que un intento contra una cuenta desactivada respondiera mucho más rápido, y eso convierte "¿existe y está activa esta cuenta?" en algo que se mide con un cronómetro.
+- `deactivateUser` incrementa `password_version`, que expulsa las sesiones abiertas (ADR-301). Sin eso, la persona a la que acabas de desactivar sigue trabajando siete días.
+- `isSessionStillValid` comprueba `active` además de la versión. Es redundante con lo anterior y está a propósito: la primera cerradura vive en otra action y podría dejar de estar.
+- La cuenta de administradores para `LAST_ADMIN` mira solo los **activos**. Contar a un administrador que no puede entrar sería contar a alguien que no administra nada, y dejaría degradar al único que sí puede.
