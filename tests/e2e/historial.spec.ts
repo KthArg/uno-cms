@@ -91,14 +91,25 @@ test('T-E-2: restaurar una versión anterior NO publica', async ({ page }) => {
 });
 
 test('T-E-1: el historial no mezcla versiones de otras secciones', async ({ page }) => {
+  // La fila intrusa lleva `question`, y eso es lo que hace que el test valga de algo: el
+  // resumen de esta pantalla sale del `titleField` de `faqs`, que es `question`. Con un campo
+  // cualquiera —`heading`, pongamos— la fila colada se pintaría como «Sin contenido» aunque el
+  // filtro estuviera roto, y el test estaría afirmando que no aparece algo que no podía
+  // aparecer.
   ejecutarSql(
-    `insert into revisions (entry_key, data) values ('about', '{"heading":"De otra sección"}'::jsonb)`
+    `insert into revisions (entry_key, data) values ('about', '{"question":"De otra sección"}'::jsonb)`
   );
 
-  await crearYEntrar(page, { email: 'historial-filtro@ejemplo.com', role: 'admin' });
-  await page.goto(`/admin/history/${CLAVE}`);
+  try {
+    await crearYEntrar(page, { email: 'historial-filtro@ejemplo.com', role: 'admin' });
+    await page.goto(`/admin/history/${CLAVE}`);
 
-  await expect(page.getByText('De otra sección')).toHaveCount(0);
+    await expect(page.getByText('De otra sección')).toHaveCount(0);
+  } finally {
+    // Y se recoge: un resto en `about` no molesta hoy porque ningún otro spec mira ese
+    // historial, y es la clase de cosa que hace fallar un test dentro de tres semanas.
+    ejecutarSql(`delete from revisions where entry_key = 'about'`);
+  }
 });
 
 test('T-E-3: deshacer cambios pide confirmación diciendo qué se pierde', async ({ page }) => {
