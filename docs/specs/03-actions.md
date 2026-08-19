@@ -197,13 +197,14 @@ pasa igual con la implementación ingenua.
 
 ### 4.3 `saveDraft` (#77)
 
-| ID     | Caso                                                              | Verificación                      |
-| ------ | ----------------------------------------------------------------- | --------------------------------- |
-| T-77-1 | Guarda y devuelve el **nuevo** `version`                          |                                   |
-| T-77-2 | `version` viejo → `VERSION_CONFLICT` **y el contenido no cambia** |                                   |
-| T-77-3 | Dos guardados concurrentes: uno gana, el otro obtiene conflicto   | Dos promesas a la vez             |
-| T-77-4 | El richtext se sanea al guardar                                   | `javascript:` en una marca `link` |
-| T-77-5 | Guardar no publica                                                | `published` intacto               |
+| ID     | Caso                                                              | Verificación                          |
+| ------ | ----------------------------------------------------------------- | ------------------------------------- |
+| T-77-1 | Guarda y devuelve el **nuevo** `version`                          |                                       |
+| T-77-2 | `version` viejo → `VERSION_CONFLICT` **y el contenido no cambia** |                                       |
+| T-77-3 | Dos guardados concurrentes: uno gana, el otro obtiene conflicto   | Dos promesas a la vez                 |
+| T-77-4 | El richtext se sanea al guardar                                   | `javascript:` en una marca `link`     |
+| T-77-5 | Guardar no publica                                                | `published` intacto                   |
+| T-77-6 | **El autosave no se corta**: 100 guardados seguidos pasan         | Es el caso real de §8, no uno teórico |
 
 ### 4.4 Publicación (#78)
 
@@ -236,15 +237,16 @@ pasa igual con la implementación ingenua.
 
 ### 4.7 Usuarios (#81)
 
-| ID     | Caso                                                                                                         | Verificación |
-| ------ | ------------------------------------------------------------------------------------------------------------ | ------------ |
-| T-81-1 | Solo `admin` puede invitar, cambiar rol y desactivar                                                         |              |
-| T-81-2 | **`LAST_ADMIN`**: degradar al último admin falla                                                             |              |
-| T-81-3 | **`LAST_ADMIN`**: desactivar al último admin falla                                                           |              |
-| T-81-4 | Con dos admins, degradar a uno funciona                                                                      |              |
-| T-81-5 | `changePassword` verifica la actual y aplica la política                                                     |              |
-| T-81-6 | `changePassword` **invalida las sesiones** (`pwdV`)                                                          | ADR-301      |
-| T-81-7 | `inviteUser` no devuelve la contraseña generada en claro… salvo el token de un solo uso, que es su propósito |              |
+| ID      | Caso                                                                                                         | Verificación                                                                     |
+| ------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| T-81-1  | Solo `admin` puede invitar, cambiar rol y desactivar                                                         |                                                                                  |
+| T-81-2  | **`LAST_ADMIN`**: degradar al último admin falla                                                             |                                                                                  |
+| T-81-3  | **`LAST_ADMIN`**: desactivar al último admin falla                                                           |                                                                                  |
+| T-81-4  | Con dos admins, degradar a uno funciona                                                                      |                                                                                  |
+| T-81-4b | **Dos degradaciones concurrentes con dos admins: una gana, la otra falla**                                   | Las dos promesas a la vez; un test secuencial pasa con la implementación ingenua |
+| T-81-5  | `changePassword` verifica la actual y aplica la política                                                     |                                                                                  |
+| T-81-6  | `changePassword` **invalida las sesiones** (`pwdV`)                                                          | ADR-301                                                                          |
+| T-81-7  | `inviteUser` no devuelve la contraseña generada en claro… salvo el token de un solo uso, que es su propósito |                                                                                  |
 
 ### 4.8 Ajustes y token de preview (#82)
 
