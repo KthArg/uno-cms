@@ -433,3 +433,183 @@ export const publishAll = defineAction({
     remaining: output.remaining,
   }),
 });
+
+/**
+ * Se queda solo con los campos que **hoy** encajan con el esquema, descartando el resto.
+ *
+ * Es la aplicación de ADR-404 a la operación inversa: allí, un contenido que dejó de encajar
+ * con `cms.config.ts` no puede romper la lectura; aquí, no puede colarse de vuelta al
+ * borrador.
+ *
+ * El caso: alguien quita o renombra un campo en la config y después el editor restaura una
+ * revisión anterior al cambio. Sin este filtro, el borrador queda con campos que el
+ * formulario —generado desde la config— **no pinta**, y al publicar el esquema estricto los
+ * rechaza por desconocidos. El editor se queda encerrado: no puede publicar y no puede
+ * arreglar lo que se lo impide, porque no lo ve.
+ *
+ * Descartar tiene coste —pierde un valor viejo— pero es un valor que de todas formas ya no
+ * podía editar. Queda en el log del servidor, porque hacerlo en silencio deja un contenido
+ * incompleto sin explicación.
+ */
+function pickValidFields(
+  schema: ObjectSchema,
+  data: unknown,
+  contexto: string
+): Record<string, unknown> {
+  const source: Record<string, unknown> =
+    typeof data === 'object' && data !== null && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : {};
+
+  const salida: Record<string, unknown> = {};
+  const descartados: string[] = [];
+
+  for (const [name, field] of Object.entries(schema.fields) as [string, AnyField][]) {
+    const valor = source[name];
+    if (valor === undefined) continue;
+
+    // Campo a campo y con el esquema laxo: comprueba el tipo, no la presencia. Validar el
+    // objeto entero descartaría todo por un solo campo estropeado.
+    const parsed = buildObjectSchema(
+      { kind: 'object', fields: { [name]: field } },
+      'draft'
+    ).safeParse({ [name]: valor });
+
+    if (parsed.success) {
+      salida[name] = (parsed.data as Record<string, unknown>)[name];
+    } else {
+      descartados.push(name);
+    }
+  }
+
+  // Las claves que ya no están en la config ni se miran, y también cuentan como descartadas.
+  const desconocidas = Object.keys(source).filter((name) => !(name in schema.fields));
+
+  if (descartados.length > 0 || desconocidas.length > 0) {
+    console.error(
+      `[content:${contexto}] al restaurar se descartan campos que ya no encajan con cms.config.ts:`,
+      [...descartados, ...desconocidas]
+    );
+  }
+
+  return salida;
+}
+
+// ── Deshacer ─────────────────────────────────────────────────────────────────────────────
+
+export const revertDraft = defineAction({
+  name: 'content.revertDraft',
+  role: 'editor',
+  bucket: 'saveDraft',
+  input: z.object({ key: z.string().min(1).max(200) }),
+  targetType: 'content',
+  targetId: (input) => input.key,
+  handler: async (input, session) => {
+    const db = getDb();
+
+    return db.transaction(async (tx) => {
+      // `FOR UPDATE` por el mismo motivo que en `publish`: entre leer lo publicado y
+      // escribirlo en el borrador cabe otra publicación, y el editor se quedaría con un
+      // borrador que no es ninguno de los dos estados.
+      const [row] = await tx
+        .select()
+        .from(contentEntries)
+        .where(eq(contentEntries.key, input.key))
+        .limit(1)
+        .for('update');
+
+      if (row === undefined) return fail('NOT_FOUND');
+
+      // Descartar los cambios exige tener algo a lo que volver. Sin publicar, no lo hay, y
+      // vaciar el borrador sería destruir lo único que existe.
+      if (row.published === null) return fail('NEVER_PUBLISHED');
+
+      const [actualizada] = await tx
+        .update(contentEntries)
+        .set({
+          // ADR-404 aplicado a la escritura: lo publicado puede ser anterior a un cambio de
+          // `cms.config.ts`, y devolverlo tal cual al borrador dejaría al editor con campos
+          // que su formulario no pinta y que el publicado rechaza.
+          draft: pickValidFields(
+            schemaFor(row.type) ?? { kind: 'object', fields: {} },
+            row.published,
+            input.key
+          ),
+          // Borrador y publicado vuelven a coincidir, que es la definición de `published`
+          // en SPEC §4.
+          status: 'published',
+          // La versión sube igual: para el bloqueo optimista esto **es** una escritura, y no
+          // subirla dejaría que un guardado en curso con la versión vieja pisara el
+          // descarte sin detectar el conflicto.
+          version: sql`${contentEntries.version} + 1`,
+          draftUpdatedAt: new Date(),
+          updatedBy: session.userId,
+        })
+        .where(eq(contentEntries.key, input.key))
+        .returning({ version: contentEntries.version });
+
+      return ok({ version: actualizada!.version });
+    });
+  },
+});
+
+export const restoreRevision = defineAction({
+  name: 'content.restoreRevision',
+  role: 'editor',
+  bucket: 'saveDraft',
+  input: z.object({
+    key: z.string().min(1).max(200),
+    revisionId: z.string().uuid(),
+  }),
+  targetType: 'content',
+  targetId: (input) => input.key,
+  handler: async (input, session) => {
+    const db = getDb();
+
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(contentEntries)
+        .where(eq(contentEntries.key, input.key))
+        .limit(1)
+        .for('update');
+
+      if (row === undefined) return fail('NOT_FOUND');
+
+      // **La revisión se busca por id Y por clave.** Buscarla solo por id dejaría restaurar
+      // el contenido de una sección dentro de otra: los identificadores son adivinables por
+      // fuerza bruta y el editor tiene permiso para tocar todo el contenido, así que el
+      // resultado no sería un escalado de privilegios, pero sí un destrozo silencioso —el
+      // texto del hero apareciendo dentro de un testimonio— que nadie sabría explicar.
+      const [revision] = await tx
+        .select({ data: revisions.data })
+        .from(revisions)
+        .where(and(eq(revisions.id, input.revisionId), eq(revisions.entryKey, input.key)))
+        .limit(1);
+
+      if (revision === undefined) return fail('NOT_FOUND');
+
+      const [actualizada] = await tx
+        .update(contentEntries)
+        .set({
+          // **Al borrador, no a lo publicado** (SPEC §9: "historial con Restaurar que lleva
+          // a borrador, nunca publica directo"). Volver atrás sigue siendo una acción
+          // deliberada de dos pasos: restaurar y luego publicar. Publicar directamente
+          // convertiría un clic exploratorio en el historial en un cambio del sitio público.
+          draft: pickValidFields(
+            schemaFor(row.type) ?? { kind: 'object', fields: {} },
+            revision.data,
+            input.key
+          ),
+          status: 'changed',
+          version: sql`${contentEntries.version} + 1`,
+          draftUpdatedAt: new Date(),
+          updatedBy: session.userId,
+        })
+        .where(eq(contentEntries.key, input.key))
+        .returning({ version: contentEntries.version });
+
+      return ok({ version: actualizada!.version });
+    });
+  },
+});
