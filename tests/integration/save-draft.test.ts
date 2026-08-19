@@ -91,8 +91,11 @@ describeIntegration('saveDraft', () => {
   it('T-77-3: dos guardados concurrentes, uno gana y el otro obtiene conflicto', async () => {
     await crearHero();
 
-    // Las dos promesas a la vez, sin `await` entre medias: un test secuencial pasaría igual
-    // con una implementación que lee la versión, decide y luego escribe.
+    // Las dos promesas a la vez. **No garantiza entrelazado real** —el primero reutiliza la
+    // conexión libre del pool y el segundo tiene que abrir una nueva, así que suelen
+    // resolverse en secuencia— y por eso no es el aserto que sostiene el bloqueo optimista.
+    // Lo que sostiene la protección es la condición en el `WHERE`: verificado por mutación
+    // que al quitarla este test cae, entrelazado o no.
     const [a, b] = await Promise.all([
       saveDraft({ key: 'hero', data: { title: 'A' }, version: 0 }),
       saveDraft({ key: 'hero', data: { title: 'B' }, version: 0 }),

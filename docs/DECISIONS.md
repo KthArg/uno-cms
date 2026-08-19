@@ -615,3 +615,20 @@ Ese detalle sobrevivió a la primera tanda de mutación porque el caso de prueba
 
 - La comparación vive en `publish` y no en `saveDraft`, aunque el `status` inexacto nazca allí. `publish` ya necesita comparar para decidir la revisión, así que se escribe una vez; y equivocarse tiene coste asimétrico: marcar como "sin cambios" algo que sí cambió pierde trabajo del editor, mientras que marcar de más solo publica un no-op.
 - `publish` devuelve `changed: false` en ese caso, para que el panel pueda decir "no había nada que publicar" en vez de fingir una publicación.
+
+---
+
+## ADR-408 — `crypto.randomUUID()` en vez de nanoid para las claves de colección
+
+**Contexto.** `SPEC.md` §5.3 escribe la clave de un elemento de colección como `key = collection + '.' + nanoid`. `nanoid` no está entre las dependencias del proyecto, así que seguir la letra exige añadir una.
+
+**Decisión.** Se usa `crypto.randomUUID()`, que viene en la plataforma.
+
+Lo que la clave necesita es ser imposible de adivinar y no colisionar; las dos propiedades las da igual. Lo que aporta nanoid es una cadena más corta —21 caracteres frente a 36—, y esa cadena no la lee nadie: no aparece en ninguna URL pública ni en la interfaz del editor, solo en la columna `key`.
+
+Añadir una dependencia de tiempo de ejecución tiene coste permanente: entra en `pnpm audit` (§7.1 pide cero _findings_ high o critical), hay que actualizarla, y amplía la superficie de suministro. Pagarlo para acortar una cadena que nadie ve no sale a cuenta.
+
+**Consecuencias.**
+
+- Las claves quedan como `testimonials.3f2a…-…`, de 49 caracteres. La columna es `text`, así que no hay límite que apretar.
+- Si algún día una clave de colección acabara en una URL pública, conviene revisar esta decisión — no por seguridad, sino por lo fea que quedaría.
