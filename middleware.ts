@@ -145,6 +145,10 @@ export default auth((request) => {
   // los componentes de servidor.
   const headers = new Headers(request.headers);
   headers.set('x-nonce', nonce);
+  // La ruta, por el mismo camino. Un layout de servidor no tiene `usePathname`, y volver
+  // cliente el armazón del panel solo para marcar la entrada activa del menú sería descargar
+  // ese código en el navegador de quien visita la landing (SPEC §8).
+  headers.set('x-pathname', request.nextUrl.pathname);
 
   const response = NextResponse.next({ request: { headers } });
   applySecurityHeaders(response, request, nonce);
