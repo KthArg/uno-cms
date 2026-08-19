@@ -182,12 +182,15 @@ jobs:
           # La clave cuelga de la versión de Playwright, no del lockfile: el lockfile
           # cambiará en casi todos los PR de M1 a M5 y la caché no acertaría nunca.
           key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+      # Un solo paso, sin condicional. La versión anterior separaba el caso "caché acertada"
+      # para ejecutar solo `install-deps`, y ese camino **se colgaba**: media hora sin
+      # terminar. Nunca se había ejecutado, porque hasta hoy la caché nunca había acertado —
+      # es exactamente el riesgo que el PR #23 anotó como no verificado.
+      #
+      # `install --with-deps` con el navegador ya en caché se salta la descarga igualmente,
+      # así que el condicional no ahorraba nada y sí añadía un camino sin probar.
       - name: instalar chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
-      - name: dependencias de sistema de chromium (con caché de navegador)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps chromium
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v7
         if: failure()
