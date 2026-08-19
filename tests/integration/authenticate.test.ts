@@ -28,6 +28,8 @@ vi.mock('@/cms/auth/passwords', async (importOriginal) => {
 
 const PASSWORD = 'una-contrasena-larga-y-poco-comun';
 const EMAIL = 'ana@ejemplo.com';
+/** El correo que no existe en ningún test. Con nombre porque el limitador lleva su cuenta. */
+const EMAIL_FANTASMA = 'nadie@ejemplo.com';
 
 /**
  * El hash se calcula una vez y se reutiliza: Argon2 cuesta decenas de milisegundos y aquí
@@ -63,6 +65,11 @@ describeIntegration('autenticación', () => {
     // un test agotarían la cuota del siguiente y el fallo dependería del orden.
     getLoginRateLimiter().reset(`login:1.2.3.4:${EMAIL}`);
     getLoginRateLimiter().reset(`login:desconocida:${EMAIL}`);
+    // El correo fantasma también, y hace falta: tres tests lo usan y el límite son cinco
+    // intentos. Cuando la cuota se agota, `authenticate` devuelve **antes** de llegar al
+    // señuelo, así que un test diría "no se llamó al señuelo" cuando lo que pasó es que cortó
+    // el limitador.
+    getLoginRateLimiter().reset(`login:desconocida:${EMAIL_FANTASMA}`);
     vi.mocked(verifyDecoy).mockClear();
   });
 
@@ -83,7 +90,7 @@ describeIntegration('autenticación', () => {
     await crearUsuario();
 
     const malaPassword = await authenticate({ email: EMAIL, password: 'otra-cosa-larga-aqui' });
-    const noExiste = await authenticate({ email: 'nadie@ejemplo.com', password: PASSWORD });
+    const noExiste = await authenticate({ email: EMAIL_FANTASMA, password: PASSWORD });
 
     // Mismo objeto, sin motivo ni código: cualquier diferencia convierte el formulario en
     // un comprobador de cuentas ajenas (SPEC §7.1, "Enumeración").
@@ -95,7 +102,7 @@ describeIntegration('autenticación', () => {
   it('T-59-4: el correo inexistente también paga el coste de verificar', async () => {
     await crearUsuario();
 
-    await authenticate({ email: 'nadie@ejemplo.com', password: 'incorrecta-pero-larga' });
+    await authenticate({ email: EMAIL_FANTASMA, password: 'incorrecta-pero-larga' });
 
     // La afirmación que discrimina, y no depende de ningún reloj: el camino del correo
     // inexistente **verifica el señuelo**. Quitar esa línea de `authenticate` pone esto en
@@ -124,7 +131,7 @@ describeIntegration('autenticación', () => {
     const argon2 = Math.min(...muestras);
 
     const inicio = performance.now();
-    await authenticate({ email: 'nadie@ejemplo.com', password: 'incorrecta-pero-larga' });
+    await authenticate({ email: EMAIL_FANTASMA, password: 'incorrecta-pero-larga' });
     const fantasma = performance.now() - inicio;
 
     // Antes esto comparaba dos llamadas a `authenticate` entre sí, y por eso fallaba en CI
@@ -156,7 +163,9 @@ describeIntegration('autenticación', () => {
     // cuenta?" se contestaría con un cronómetro (SPEC §7.1, enumeración).
     expect(vi.mocked(verifyDecoy)).toHaveBeenCalledTimes(1);
 
-    const filas = await getDb().select().from(auditLog);
+    // Filtrado por `actorId`: leer la tabla entera afirmaría "existe una fila así", no "este
+    // intento la escribió", y son dos cosas distintas en cuanto otro test escriba lo mismo.
+    const filas = await getDb().select().from(auditLog).where(eq(auditLog.actorId, user.id));
     expect(filas.map((fila) => fila.meta)).toContainEqual({ motivo: 'cuenta-desactivada' });
 
     // El contador de fallos no se toca: la cuenta ya está cerrada y sumar intentos ahí solo
