@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import appConfig from '@/cms.config';
 import { getDb, settings } from '@/cms/db';
+import { isSafeLink } from './links';
 
 /**
  * Ajustes del sitio (SPEC §4, tabla `settings`).
@@ -38,10 +39,17 @@ export const SETTINGS_SCHEMAS = {
     .object({
       defaultTitle: z.string().trim().max(60).optional(),
       defaultDescription: z.string().trim().max(160).optional(),
-      // Sin `url()`: aquí caben rutas internas (`/og.png`) además de absolutas, y el criterio
-      // de qué destino es aceptable ya está en `isSafeLink`. Dos validaciones del mismo
-      // concepto acabarían discrepando.
-      ogImageUrl: z.string().trim().max(2048).optional(),
+      // Sin `url()` **y con `isSafeLink`**: aquí caben rutas internas (`/og.png`) además de
+      // absolutas, y el criterio de qué destino es aceptable ya está escrito en un sitio.
+      // Reutilizarlo evita que dos validaciones del mismo concepto acaben discrepando; no
+      // ponerlo dejaría entrar cualquier cadena, `javascript:` incluido, en una URL que sale
+      // en el HTML de todas las páginas.
+      ogImageUrl: z
+        .string()
+        .trim()
+        .max(2048)
+        .refine(isSafeLink, 'Usa una ruta interna o una dirección http(s).')
+        .optional(),
     })
     .strict(),
 } as const;

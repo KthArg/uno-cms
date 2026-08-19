@@ -2,10 +2,11 @@
 
 import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
+import appConfig from '@/cms.config';
 import { SETTINGS_SCHEMAS, SETTINGS_TAG } from '@/cms/core/settings';
 import { getDb, settings } from '@/cms/db';
 import { signToken } from '@/cms/security/tokens';
-import { defineAction, failFields, fieldsFromZod, ok } from './pipeline';
+import { defineAction, fail, failFields, fieldsFromZod, ok } from './pipeline';
 
 /**
  * Ajustes del sitio y token de vista previa (SPEC §5.3).
@@ -57,6 +58,18 @@ export const createPreviewToken = defineAction({
   targetType: 'content',
   targetId: (input) => input.key,
   handler: async (input) => {
+    // La clave tiene que existir en `cms.config.ts`. Un token firmado es una afirmación, y sin
+    // esto diría "esta clave es previsualizable" sin haberlo comprobado — dejando el problema
+    // a la ruta de vista previa de M5, que se encontraría tokens nuestros con claves
+    // arbitrarias dentro. Aquí es una comprobación; allí sería acordarse.
+    const existe =
+      Object.hasOwn(appConfig.singletons, input.key) ||
+      Object.hasOwn(appConfig.collections, input.key) ||
+      // Los elementos de colección son `coleccion.id`: se valida la parte de la colección.
+      Object.hasOwn(appConfig.collections, input.key.split('.')[0] ?? '');
+
+    if (!existe) return fail('NOT_FOUND');
+
     // La clave va **dentro** del token firmado, no como parámetro aparte de la URL. Un token
     // sin clave dentro serviría para cualquier entrada, y el enlace compartible de §6.1 se
     // convertiría en una llave maestra de la vista previa.

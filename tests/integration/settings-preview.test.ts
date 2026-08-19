@@ -141,6 +141,62 @@ describeIntegration('ajustes y vista previa', () => {
     expect(verifyToken('password-reset', result.data.token).ok).toBe(false);
   });
 
+  it('un ogImageUrl con destino no permitido se rechaza', async () => {
+    await crearUsuario('admin');
+
+    // El criterio de qué destino es aceptable está en `isSafeLink` y se reutiliza aquí. Sin
+    // esto entraría cualquier cadena en una URL que sale en el HTML de todas las páginas.
+    const result = await updateSettings({
+      key: 'seo',
+      value: { ogImageUrl: 'javascript:alert(1)' },
+    });
+
+    expect(result).toMatchObject({ ok: false, code: 'VALIDATION_FAILED' });
+    expect(await getDb().select().from(settings)).toHaveLength(0);
+  });
+
+  it('un ogImageUrl con ruta interna o https sí se acepta', async () => {
+    await crearUsuario('admin');
+
+    expect((await updateSettings({ key: 'seo', value: { ogImageUrl: '/og.png' } })).ok).toBe(true);
+    expect(
+      (await updateSettings({ key: 'seo', value: { ogImageUrl: 'https://ejemplo.com/og.png' } })).ok
+    ).toBe(true);
+  });
+
+  it('createPreviewToken no firma tokens para claves que no existen', async () => {
+    await crearUsuario('editor');
+
+    // Un token firmado es una afirmación. Sin esta comprobación diría "esta clave es
+    // previsualizable" sin haberlo comprobado, y el problema aparecería en M5.
+    expect(await createPreviewToken({ key: 'inventada' })).toMatchObject({
+      ok: false,
+      code: 'NOT_FOUND',
+    });
+  });
+
+  it('createPreviewToken sí firma para un elemento de colección', async () => {
+    await crearUsuario('editor');
+
+    // Las claves de elemento son `coleccion.id`: lo que se valida es la colección.
+    const result = await createPreviewToken({ key: 'testimonials.abc-123' });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('no se puede tocar setup_completed a través de los ajustes', async () => {
+    await crearUsuario('admin');
+
+    // Es la fila que decide si `/setup` está abierto (SPEC §7.3). La entrada es un `enum`, así
+    // que queda fuera de alcance.
+    const result = await updateSettings({
+      key: 'setup_completed' as 'site',
+      value: { completedAt: null },
+    });
+
+    expect(result).toMatchObject({ ok: false, code: 'VALIDATION_FAILED' });
+  });
+
   it('el token no queda registrado en la auditoría', async () => {
     await crearUsuario('editor');
 
