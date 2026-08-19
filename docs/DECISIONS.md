@@ -537,3 +537,44 @@ Para que "después del límite" sea cierto también en el rechazo por rol, **un 
 - El número de filas de auditoría que puede provocar un editor llamando en bucle a una action que no le corresponde queda acotado por su propia cuota: 20 en cinco minutos, no una por petición.
 - Un rechazo por rol gasta cuota de un bucket que ese usuario no puede usar. Es intencionado y no afecta a nadie que trabaje normalmente.
 - Un pico de `RATE_LIMITED` no deja rastro en `audit_log`. Si algún día hace falta verlo, el sitio es una métrica o un log, no la tabla de auditoría.
+
+---
+
+## ADR-404 — La lectura pública nunca lanza (resuelve #86)
+
+**Contexto.** `SPEC.md` §5.2 escribe la lectura como `strictSchema(key).parse(row?.published ?? defaults(key))`. El esquema estricto es la puerta de publicación: por ADR-202, un campo `required` no admite ausencia ni valor vacío. `hero.title` es `required` y no tiene `default`, así que ese `.parse()` **lanza** cuando no hay nada publicado — y una landing recién desplegada devuelve 500 hasta que alguien publica. §5.1, en cambio, habla de crear los singletons "con valores **vacíos**/default", y el criterio T-76-2 del issue #76 pide explícitamente "sin publicar → valores por defecto, no error".
+
+Hay un segundo caso que llega más tarde y hace más daño: **añadir un campo `required` a `cms.config.ts` con contenido ya publicado**. Lo publicado deja de pasar el esquema estricto y, con `.parse()`, la landing entera cae por una edición de configuración. Para un CMS auto-hospedable eso es una operación de día 2 normal.
+
+**Decisión.** La lectura pública **no aplica el esquema estricto como puerta y no lanza nunca**. `getContent` y `getCollection` resuelven campo a campo:
+
+1. El valor publicado, si pasa el esquema de **tipo** de su campo.
+2. Si no, el `default` de la config.
+3. Si tampoco lo hay y el campo es `required`, el **vacío de su tipo** (`''`, `0`, `false`, documento de texto rico vacío, imagen sin `url`).
+4. Si es opcional, se omite.
+
+Resolver campo a campo y no bloque a bloque es lo que evita el daño colateral: si la config gana un campo requerido, la sección sigue mostrando todo lo que sí estaba publicado, en vez de quedarse en blanco entera.
+
+Que la palabra "vacíos" salga de la propia §5.1 es lo que convierte esto en una lectura de la spec y no en una desviación de ella.
+
+**Consecuencias.**
+
+- El tipo `Content<K>` sigue siendo cierto: un campo requerido siempre trae un valor del tipo prometido. Puede ser el vacío, y eso es visible al renderizar.
+- Una imagen requerida sin publicar llega como `{ mediaId: '', url: '', alt: '' }`. **Los componentes deben tratar `url === ''` como "no hay imagen"**, porque un `<img src="">` provoca una segunda petición a la propia página. Queda anotado para los componentes de M5.
+- Cuando lo publicado no pasa el esquema de su campo, se registra en el log del servidor. Sustituir en silencio dejaría una landing mostrando defaults sin que nadie supiera por qué.
+- El esquema estricto sigue siendo la puerta de `publish` (§5.3), que es donde tiene sentido: ahí el editor puede arreglar lo que falta. En la lectura no hay nadie a quien pedírselo.
+
+---
+
+## ADR-405 — El caché se prueba donde existe, no donde se define
+
+**Contexto.** `unstable_cache` necesita el `incrementalCache` de Next, que solo existe dentro de una petición. Llamarlo desde Vitest lanza `Invariant: incrementalCache missing`. Eso deja los casos T-76-1 a T-76-3 sin sitio: no se pueden probar contra la función que usará la landing.
+
+**Decisión.** El módulo se parte en dos: `readContent`/`readCollection`, que hacen la consulta y la resolución por campo y no saben nada de caché, y `getContent`/`getCollection`, envoltorios finos de `unstable_cache` con el tag `content:<key>`. La lógica se prueba contra los primeros, en integración y con Postgres real.
+
+Que el envoltorio sea el correcto se comprueba con la propia limitación, que resulta ser un aserto útil: **`getContent` lanza el invariante fuera de una petición y `getDraft` no**. Eso demuestra a la vez que uno está cacheado y que el otro no — que es justo el criterio de #76 ("`getDraft` no se cachea").
+
+**Consecuencias.**
+
+- La invalidación real (publicar y ver la landing cambiar) se verifica en e2e, en M5, donde hay un servidor de verdad. Hasta entonces, lo que hay es que `publish` llama a `revalidateTag` con el tag correcto, y eso sí se prueba en #78.
+- El aserto del invariante depende de un mensaje interno de Next. Si una versión lo cambia, el test falla y hay que actualizarlo; es un fallo ruidoso y no silencioso, que es la propiedad que importa.
