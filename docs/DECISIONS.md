@@ -679,3 +679,23 @@ Los esquemas, declarados en `cms/actions/settings.actions.ts` y `strict()`:
 - `readSettings` cae a los valores por defecto si lo guardado ya no encaja con su esquema, con el mismo criterio que ADR-404: un ajuste que dejó de encajar no puede tumbar el sitio entero.
 - `site.siteName` toma su valor por defecto de `cms.config.ts`, así que un despliegue recién hecho renderiza sin que nadie haya guardado nada.
 - `ogImageUrl` no se valida con `z.url()`: ahí caben rutas internas además de absolutas, y el criterio de qué destino es aceptable ya está en `isSafeLink`. Dos validaciones del mismo concepto acabarían discrepando.
+
+---
+
+## ADR-411 — La lista de protocolos de enlace se copia al cliente, con un test que la amarra
+
+**Contexto.** `cms/core/links.ts` es la única autoridad sobre qué destino de enlace es aceptable, y es `server-only` por decisión de M1, que además dejó escrito: "si M4 quiere aviso en vivo, que lo decida entonces y con su ADR". Este es ese momento.
+
+El editor de texto rico necesita saber qué protocolos admite **mientras el editor escribe**. Sin eso, Tiptap usa su propia lista —más larga que la nuestra— y el saneador del servidor borra el enlace al guardar: el editor ve "Guardado ✓" y su enlace ha desaparecido sin que nadie le diga nada.
+
+Exponer `links.ts` al cliente exigiría la exención `// isomorphic:`, y el test del issue #46 solo la concede a módulos que **no emiten ni una línea de JavaScript**. `links.ts` emite bastante, así que esa puerta está cerrada — y está bien que lo esté.
+
+**Decisión.** Se copia **solo el dato** —los cuatro protocolos— a `cms/ui/fields/link-protocols.ts`, y **un test compara las dos listas y falla si divergen**.
+
+La lógica no se duplica: los caracteres de control, el `//host` disfrazado de ruta y el resto de comprobaciones siguen viviendo únicamente en el servidor, que es quien decide lo que se guarda. Lo del cliente es un aviso, no una validación.
+
+**Consecuencias.**
+
+- Duplicar sin el test sería dejar dos verdades sueltas esperando a separarse. Con él, separarse rompe CI, que es la única forma de duplicación que me parece aceptable.
+- El test tiene un segundo caso que no depende del primero: que ninguna de las dos listas contenga `javascript`, `data`, `blob`, `vbscript` ni `file`. Si alguien "arregla" una divergencia ampliando las dos a la vez, ese sigue en pie.
+- La frontera `server-only` de SPEC §7.1 queda intacta y la exención de #46 sigue siendo la de un único módulo que no emite JavaScript.
