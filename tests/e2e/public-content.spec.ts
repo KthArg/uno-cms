@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { dejarSinPublicar } from './support/db';
 
 /**
  * T-82-3 y T-82-4: `GET /api/content/:key` (SPEC §5.3).
@@ -31,15 +32,19 @@ test('T-82-3: una colección devuelve su lista', async ({ request }) => {
 });
 
 test('T-82-4: la ruta no expone borradores', async ({ request }) => {
-  // Es pública y sin sesión: filtrar un borrador aquí es publicar sin querer, y sin que nadie
-  // pulse nada. La entrada `hero` que siembra el arranque tiene borrador y no tiene
-  // publicado, así que lo que vuelva no puede traer nada de él.
-  const response = await request.get('/api/content/hero');
+  // **El estado lo pone el propio test**, justo antes de mirarlo. La primera versión daba por
+  // hecho que `hero` estaría sin publicar, y empezó a fallar en cuanto los tests del editor
+  // publicaron algo: no porque expusiera un borrador, sino porque el mundo había cambiado.
+  // Ordenar los tests con cuidado aguanta hasta el siguiente que se añade.
+  dejarSinPublicar('seo', { title: 'BORRADOR-QUE-NO-DEBE-SALIR' });
+
+  const response = await request.get('/api/content/seo');
   const body = (await response.json()) as { data: Record<string, unknown> };
 
-  // Sin publicar, el contrato de ADR-404 es "vacíos y por defecto", nunca el borrador.
-  expect(JSON.stringify(body)).not.toContain('draft');
-  expect(body.data['title']).toBe('');
+  // Es pública y sin sesión: filtrar un borrador aquí es publicar sin querer, sin que nadie
+  // pulse nada. Sin publicar, el contrato de ADR-404 es "vacíos y por defecto".
+  expect(JSON.stringify(body)).not.toContain('BORRADOR-QUE-NO-DEBE-SALIR');
+  expect(body.data['title']).toBeUndefined();
 });
 
 test('T-82-4: una clave que no está en cms.config.ts da 404', async ({ request }) => {

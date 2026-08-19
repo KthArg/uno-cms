@@ -83,3 +83,49 @@ export async function seedSingletons(): Promise<SeedResult> {
     untouched: keys.filter((key) => !createdSet.has(key)),
   };
 }
+
+/**
+ * Crea la fila de un singleton si no la tiene, y devuelve si la ha creado.
+ *
+ * ## El fallo que esto arregla, y por qué no se arregló al arrancar
+ *
+ * `SPEC.md` §5.1 dice que los singletons se crean "al arrancar", y `seedSingletons` hace
+ * exactamente eso… pero **no lo llamaba nadie**. En un despliegue recién hecho el panel
+ * listaba las secciones —eso funciona, porque la lectura resuelve valores vacíos (ADR-404)— y
+ * al pulsar cualquiera daba 404. El CMS se instalaba y no se podía editar nada.
+ *
+ * No lo encontró una revisión: lo encontró el primer e2e que abrió el editor contra una base
+ * de datos limpia. Una función probada y no llamada pasa todos los tests que tiene.
+ *
+ * El sitio natural parecía `instrumentation.ts`, el único gancho de arranque de Next. No vale:
+ * Next lo compila **también para el runtime de edge** —hay middleware— y el compilador sigue
+ * los imports aunque dentro haya un guard que impida ejecutarlos. El driver de Postgres usa
+ * `path`, `fs` y `stream`, que en edge no existen, y la compilación falla entera. Probado con
+ * el guard, con el fichero separado que documenta Next y con `serverExternalPackages`.
+ *
+ * Así que la fila se crea **cuando hace falta**, que además cubre un caso que el arranque no
+ * cubriría: añadir un singleton a `cms.config.ts` en un despliegue que ya está en marcha, que
+ * es una operación normal y no un caso raro.
+ *
+ * Sí, es una escritura durante una lectura. Es idempotente —`on conflict do nothing`—, ocurre
+ * en el panel y no en la landing, y la alternativa es un CMS que se instala y no se puede
+ * usar.
+ */
+export async function ensureSingletonRow(key: string): Promise<boolean> {
+  if (!Object.hasOwn(appConfig.singletons, key)) return false;
+
+  const creadas = await getDb()
+    .insert(contentEntries)
+    .values({
+      key,
+      type: key,
+      draft: initialDraft(key as SingletonKey),
+      published: null,
+      status: 'draft' as const,
+      version: 0,
+    })
+    .onConflictDoNothing({ target: contentEntries.key })
+    .returning({ key: contentEntries.key });
+
+  return creadas.length > 0;
+}

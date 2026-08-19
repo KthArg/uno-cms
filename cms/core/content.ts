@@ -6,6 +6,7 @@ import appConfig from '@/cms.config';
 import { contentEntries, getDb } from '@/cms/db';
 import type { AnyField, ObjectSchema } from './config';
 import { buildObjectSchema } from './schema-gen';
+import { ensureSingletonRow } from './seed';
 import type { CollectionItem, CollectionKey, Content, Draft, SingletonKey } from './types';
 
 /**
@@ -296,4 +297,70 @@ export async function listSections(): Promise<SectionSummary[]> {
   }
 
   return resumen;
+}
+
+/**
+ * Lo que necesita la pantalla del editor: el borrador, su versión y su estado.
+ *
+ * Una sola consulta y no tres llamadas sueltas, porque **el `version` tiene que venir del
+ * mismo instante que el borrador**. Leerlos por separado abre una ventana en la que otra
+ * persona guarda entre las dos consultas: el editor abriría la pantalla con el texto de antes
+ * y la versión de después, y su primer guardado pisaría el trabajo ajeno **sin detectar el
+ * conflicto** — que es exactamente lo que el bloqueo optimista existe para impedir.
+ */
+export interface EntryForEditor {
+  readonly key: string;
+  readonly type: string;
+  readonly draft: Record<string, unknown>;
+  readonly version: number;
+  readonly estado: SectionState;
+}
+
+export async function readEntryForEditor(key: string): Promise<EntryForEditor | null> {
+  // Un singleton declarado en la configuración **existe** aunque no tenga fila: la fila es un
+  // detalle de implementación que se crea la primera vez que hace falta. Ver
+  // `ensureSingletonRow`, y el fallo que documenta.
+  await ensureSingletonRow(key);
+
+  const [row] = await getDb()
+    .select({
+      key: contentEntries.key,
+      type: contentEntries.type,
+      draft: contentEntries.draft,
+      published: contentEntries.published,
+      status: contentEntries.status,
+      version: contentEntries.version,
+    })
+    .from(contentEntries)
+    .where(eq(contentEntries.key, key))
+    .limit(1);
+
+  if (row === undefined) return null;
+
+  const schema = schemaForType(row.type);
+  if (schema === null) return null;
+
+  const parsed = buildObjectSchema(schema, 'draft').safeParse(row.draft ?? {});
+
+  return {
+    key: row.key,
+    type: row.type,
+    // Mismo criterio que `getDraft`: un borrador que no pasa ni el esquema laxo no puede
+    // tumbar el panel. Se abre vacío, que es recuperable, en vez de con una pantalla de error,
+    // que no lo es.
+    draft: parsed.success ? (parsed.data as Record<string, unknown>) : {},
+    version: row.version,
+    estado: estadoDeFila(row),
+  };
+}
+
+/** El esquema de un `type`, sea singleton o colección. */
+export function schemaForType(type: string): ObjectSchema | null {
+  const singleton = (appConfig.singletons as Record<string, ObjectSchema | undefined>)[type];
+  if (singleton !== undefined) return singleton;
+
+  const coleccion = (appConfig.collections as Record<string, { schema: ObjectSchema } | undefined>)[
+    type
+  ];
+  return coleccion?.schema ?? null;
 }
