@@ -154,6 +154,17 @@ Un singleton sin fila o sin publicar devuelve los **valores por defecto** de la 
 un error: una landing recién desplegada tiene que renderizar aunque nadie haya publicado
 nada.
 
+Eso choca con la línea de §5.2 que aplica `strictSchema(...).parse(...)` sobre esos mismos
+valores: el esquema estricto rechaza los campos requeridos vacíos, así que la landing caería
+con 500 hasta la primera publicación. Se abrió el issue #86 y lo resuelve **ADR-404**: la
+lectura pública no lanza nunca y resuelve **campo a campo** —valor publicado si es válido,
+si no el `default`, si no el vacío de su tipo—. El esquema estricto se queda donde sirve,
+que es la puerta de `publish`.
+
+El caché se prueba aparte (**ADR-405**): `unstable_cache` exige el contexto de petición de
+Next, así que la lógica vive en `readContent`/`readCollection`, sin caché y probables contra
+Postgres, y `getContent`/`getCollection` son envoltorios finos.
+
 ### 3.7 `LAST_ADMIN` (§5.3)
 
 No se puede dejar el sistema sin ningún administrador. Si ocurriera, el resultado es un
@@ -173,7 +184,7 @@ Aplica a `updateUserRole` (degradar al último admin) y a `deactivateUser` (desa
 El caso se prueba con **dos operaciones concurrentes**, no secuenciales: un test secuencial
 pasa igual con la implementación ingenua.
 
-### 3.5 Qué rechazos se auditan
+### 3.8 Qué rechazos se auditan
 
 `SPEC.md` §5.3 pone `audit()` después de la lógica y no dice qué pasa cuando la operación no
 llega a hacerse. Contrato (ADR-403): **se audita todo lo que ocurre después de que el límite
@@ -203,12 +214,14 @@ decisión de rol se sigue tomando antes que la del límite, como fija el orden d
 
 ### 4.2 Lectura (#76)
 
-| ID     | Caso                                                           | Verificación |
-| ------ | -------------------------------------------------------------- | ------------ |
-| T-76-1 | `getContent` devuelve lo **publicado**, no el borrador         |              |
-| T-76-2 | Sin publicar → valores por defecto, no error                   |              |
-| T-76-3 | `getCollection` ordena por `sortOrder` y omite lo no publicado |              |
-| T-76-4 | Publicar invalida el tag                                       |              |
+| ID     | Caso                                                           | Verificación                                                           |
+| ------ | -------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| T-76-1 | `getContent` devuelve lo **publicado**, no el borrador         |                                                                        |
+| T-76-2 | Sin publicar → valores por defecto, no error                   |                                                                        |
+| T-76-3 | `getCollection` ordena por `sortOrder` y omite lo no publicado |                                                                        |
+| T-76-4 | Publicar invalida el tag                                       | La llamada a `revalidateTag`, en #78; el efecto real, en e2e (ADR-405) |
+| T-76-5 | Lo publicado que ya no pasa su esquema **no tumba la lectura** | Se sustituye solo ese campo, y queda en el log del servidor            |
+| T-76-6 | `getContent` está cacheado y `getDraft` no                     | Fuera de una petición, uno lanza el invariante de Next y el otro no    |
 
 ### 4.3 `saveDraft` (#77)
 
