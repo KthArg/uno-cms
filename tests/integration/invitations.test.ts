@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { beforeEach, expect, it } from 'vitest';
+import { afterAll, beforeEach, expect, it, vi } from 'vitest';
 import { authenticate } from '@/cms/auth/authenticate';
 import {
   checkInvitation,
@@ -45,9 +45,18 @@ function enlacePara(userId: string, passwordVersion: number): string {
 
 describeIntegration('canje de la invitación', () => {
   beforeEach(() => {
+    // `signToken` y `verifyToken` **lanzan** sin `APP_SECRET`, y eso es un contrato deliberado
+    // de M2: una configuración rota no puede disfrazarse de enlace inválido. El job de
+    // integración no define el secreto, así que lo pone el test — igual que `users.test.ts`.
+    vi.stubEnv('APP_SECRET', 'secreto-de-pruebas-con-mas-de-treinta-y-dos-caracteres');
+
     // El limitador es estado de módulo y sobrevive entre tests.
     resetInvitationLimiterForTests(IP);
     resetInvitationLimiterForTests('desconocida');
+  });
+
+  afterAll(() => {
+    vi.unstubAllEnvs();
   });
 
   it('T-E-5: la contraseña queda puesta y la cuenta entra', async () => {
