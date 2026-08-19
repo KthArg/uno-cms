@@ -48,8 +48,19 @@ function sanitizeRichTextFields(
 
   for (const [name, field] of Object.entries(schema.fields) as [string, AnyField][]) {
     if (field.kind !== 'richtext') continue;
-    if (salida[name] === undefined) continue;
-    salida[name] = sanitizeRichText(salida[name]);
+
+    const valor = salida[name];
+    // **Solo se sanea lo que ya es un objeto.** `sanitizeRichText` devuelve un documento
+    // vacío ante cualquier otra cosa, que es lo correcto para ella, pero encadenado con la
+    // validación abre una vía de borrado silencioso: un `body: null` o un `body: "texto"`
+    // —un estado sin inicializar en el editor, una respuesta a medias— se convertiría en un
+    // documento vacío, pasaría el esquema laxo y **se guardaría encima del contenido que
+    // había**, cada dos segundos, hasta no dejar nada que recuperar.
+    //
+    // Dejándolo pasar, lo rechaza la validación, que es donde tiene que morir.
+    if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) continue;
+
+    salida[name] = sanitizeRichText(valor);
   }
 
   return salida;

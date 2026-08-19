@@ -161,6 +161,48 @@ describeIntegration('saveDraft', () => {
     expect(guardado).not.toContain('javascript:');
   });
 
+  it.each([
+    { nombre: 'null', valor: null },
+    { nombre: 'una cadena', valor: 'texto plano' },
+    { nombre: 'un número', valor: 42 },
+    { nombre: 'un array', valor: [] },
+  ])(
+    'un richtext que no es un documento se rechaza, no borra lo que había: $nombre',
+    async ({ valor }) => {
+      await getDb()
+        .insert(contentEntries)
+        .values({ key: 'about', type: 'about', draft: {}, status: 'draft', version: 0 });
+
+      const bueno = {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'lo que ya estaba' }] }],
+      };
+      const guardado = await saveDraft({
+        key: 'about',
+        data: { heading: 'Sobre', body: bueno },
+        version: 0,
+      });
+      expect(guardado.ok).toBe(true);
+
+      // El saneador devuelve un documento vacío ante cualquier cosa que no sea un documento.
+      // Si se aplicara aquí, esto pasaría la validación y **borraría el texto de arriba** —cada
+      // dos segundos, mientras el editor escribe sin enterarse.
+      const result = await saveDraft({
+        key: 'about',
+        data: { heading: 'Sobre', body: valor },
+        version: 1,
+      });
+
+      expect(result).toMatchObject({ ok: false, code: 'VALIDATION_FAILED' });
+
+      const [about] = await getDb()
+        .select()
+        .from(contentEntries)
+        .where(eq(contentEntries.key, 'about'));
+      expect(JSON.stringify(about!.draft)).toContain('lo que ya estaba');
+    }
+  );
+
   it('T-77-5: guardar no publica', async () => {
     await crearHero();
 
