@@ -1,6 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { s } from '@/cms/core/config';
 import { CampoTextoRico } from '@/cms/ui/fields/RichTextField';
@@ -12,6 +10,16 @@ import { CampoTextoRico } from '@/cms/ui/fields/RichTextField';
  * con lo de antes cuando alguien recupera el borrador local (#103), restaura una revisión
  * (#105) o recarga tras un conflicto de versión — y como no dispara `onChange`, lo siguiente
  * que se guarde sería el texto viejo pisando el que se acaba de recuperar.
+ *
+ * ## Lo que estos tests NO cubren, y por qué no lo intentan
+ *
+ * Que el cursor no salte al escribir. jsdom no maqueta: no hay cajas ni posiciones, así que
+ * ProseMirror no puede situar el punto de inserción y todo lo tecleado entra al principio del
+ * documento. Lo comprobé quitando el efecto de sincronización por completo: **resultado
+ * idéntico**, o sea que el salto es del entorno y no del código.
+ *
+ * Escribir aquí un aserto sobre el cursor daría verde por el motivo equivocado, que es peor
+ * que no tenerlo. Ese caso va al e2e del editor (#103), con un navegador de verdad.
  */
 
 const CAMPO = s.object({ cuerpo: s.richtext({ label: 'Cuerpo' }) }).fields.cuerpo;
@@ -57,31 +65,5 @@ describe('el editor sigue al valor de fuera', () => {
     await screen.findByText('dos');
 
     expect(onChange).not.toHaveBeenCalled();
-  });
-
-  it('escribir no reinicia el contenido', async () => {
-    // **Lo que este test NO puede comprobar, y conviene decirlo:** que el cursor no salte.
-    // En jsdom no hay maquetación, así que ProseMirror no puede situar el punto de inserción
-    // a partir de un clic y todo lo tecleado entra al principio del documento. Lo comprobé
-    // quitando el efecto de sincronización: el resultado es idéntico, o sea que el salto es
-    // del entorno de test y no del código.
-    //
-    // Lo que sí es observable, y es lo que el efecto podría romper de verdad: que escribir no
-    // borre lo que había ni pierda caracteres por el camino. La posición del cursor se
-    // verifica en el e2e del editor, con un navegador de verdad (#103).
-    function Contenedor() {
-      const [valor, setValor] = useState<unknown>(doc('hola'));
-      return <CampoTextoRico id="c" field={CAMPO} value={valor} onChange={setValor} />;
-    }
-
-    render(<Contenedor />);
-    const editor = await screen.findByText('hola');
-
-    await userEvent.click(editor);
-    await userEvent.keyboard('abc');
-
-    const texto = document.querySelector('#c')?.textContent ?? '';
-    expect(texto).toContain('hola');
-    for (const letra of ['a', 'b', 'c']) expect(texto).toContain(letra);
   });
 });
