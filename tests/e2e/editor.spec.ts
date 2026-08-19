@@ -66,6 +66,17 @@ test('publicar tras vaciar un campo obligatorio dice cuál y dónde', async ({ p
 
   await page.goto('/admin/content/about');
   await page.getByLabel(/Encabezado/).fill('');
+
+  // **Se espera a que el guardado asiente antes de pulsar**, y es lo que faltaba (#134). Este
+  // era el único test del fichero que pulsaba nada más escribir, y fallaba una de cada once:
+  // la captura del fallo enseña «Guardado ✓» y ninguna respuesta al publicar, o sea que el
+  // clic cayó encima del guardado en vuelo.
+  //
+  // Que la aplicación aguante ese solape es otra cuestión, y tiene su propio caso —publicar
+  // justo después de escribir, sin conflicto espurio, se arregló en #124—. Lo que este test
+  // mide es el mensaje de campo obligatorio, y para medirlo tiene que llegar a pulsarlo.
+  await expect(page.getByText('Guardado ✓')).toBeVisible({ timeout: 10_000 });
+
   await page.getByRole('button', { name: 'Publicar cambios' }).click();
 
   // SPEC §9: "Falta el Título principal en Portada". Nombre del campo y de la sección, nunca
