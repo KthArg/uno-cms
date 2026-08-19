@@ -41,6 +41,18 @@ async function countActiveAdmins(tx: {
   return rows.map((row) => row.id);
 }
 
+/**
+ * Si un error de Postgres es una violación de unicidad (`23505`).
+ *
+ * Se mira el código y no el mensaje: el mensaje cambia con la versión y con el idioma del
+ * servidor, y encadenar la respuesta a un texto es encadenarla a algo que no controlamos.
+ */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && (error as { code?: unknown }).code === '23505'
+  );
+}
+
 const emailSchema = z
   .string()
   .trim()
@@ -82,23 +94,43 @@ export const inviteUser = defineAction({
     // token, que caduca.
     const passwordHash = await hashPassword(crypto.randomUUID() + crypto.randomUUID());
 
-    const [creado] = await db
-      .insert(users)
-      .values({
-        email: input.email,
-        name: input.name,
-        passwordHash,
-        role: input.role,
-        active: true,
-      })
-      .returning({ id: users.id, email: users.email });
+    let creado: { id: string; email: string; passwordVersion: number } | undefined;
+    try {
+      [creado] = await db
+        .insert(users)
+        .values({
+          email: input.email,
+          name: input.name,
+          passwordHash,
+          role: input.role,
+          active: true,
+        })
+        .returning({
+          id: users.id,
+          email: users.email,
+          passwordVersion: users.passwordVersion,
+        });
+    } catch (error) {
+      // La comprobación de arriba y esta inserción no son atómicas: dos invitaciones
+      // simultáneas del mismo correo pasan las dos y la segunda choca con el índice único de
+      // ADR-201. Los datos están a salvo —el índice es la garantía de verdad— pero quien
+      // invita merece el mismo mensaje que en el camino normal y no un error genérico.
+      if (isUniqueViolation(error)) {
+        return fail('CONFLICT', 'Ya hay una cuenta con ese correo.');
+      }
+      throw error;
+    }
 
     // Token de un solo uso de 24 h (SPEC §10.2: sin correo en el MVP, el administrador lo
     // comparte a mano). Es de un solo uso porque establecer la contraseña incrementa
-    // `password_version`, que va dentro del payload firmado.
+    // `password_version`, y la versión va dentro del payload firmado.
+    //
+    // El valor sale de la fila recién insertada y no escrito a mano: hoy es 0 siempre, y
+    // fijarlo aquí sería un acoplamiento que se rompería en silencio el día que la invitación
+    // tocara esa columna, con el fallo apareciendo al canjear el token, lejos de aquí.
     const token = signToken('password-reset', {
       userId: creado!.id,
-      pwdV: '0',
+      pwdV: String(creado!.passwordVersion),
     });
 
     return ok({ userId: creado!.id, email: creado!.email, token });
@@ -139,7 +171,20 @@ export const updateUserRole = defineAction({
 
       await tx
         .update(users)
-        .set({ role: input.role, updatedAt: new Date() })
+        .set({
+          role: input.role,
+          // **Y se le cierra la sesión.** El rol viaja dentro del JWT y el callback de
+          // Auth.js solo lo escribe al iniciar sesión: en las peticiones siguientes
+          // comprueba que la sesión siga viva, no qué rol tiene ahora. Sin esto, alguien a
+          // quien acabas de degradar conserva `role: 'admin'` en su cookie y sigue pudiendo
+          // invitar, cambiar roles y desactivar cuentas durante los siete días que dura la
+          // sesión — y degradar es justo lo que se hace cuando alguien deja de ser de
+          // confianza.
+          //
+          // Es el mismo agujero que ADR-301 cerró para las contraseñas, aplicado al rol.
+          passwordVersion: sql`${users.passwordVersion} + 1`,
+          updatedAt: new Date(),
+        })
         .where(eq(users.id, input.userId));
 
       return ok({ userId: input.userId, role: input.role });

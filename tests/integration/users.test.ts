@@ -270,6 +270,58 @@ describeIntegration('usuarios', () => {
     expect(verifyToken('preview', result.data.token).ok).toBe(false);
   });
 
+  it('degradar a un administrador le cierra la sesión en el acto', async () => {
+    // El rol viaja dentro del JWT y Auth.js solo lo escribe al iniciar sesión: en las
+    // peticiones siguientes comprueba que la sesión siga viva, no qué rol tiene ahora. Sin
+    // invalidarla, la persona degradada conserva `role: 'admin'` en su cookie y sigue
+    // pudiendo invitar, cambiar roles y desactivar cuentas durante siete días — y degradar es
+    // justo lo que se hace cuando alguien deja de ser de confianza.
+    const primera = await crearUsuario({ email: 'a@ejemplo.com', role: 'admin' });
+    const segunda = await crearUsuario({ email: 'b@ejemplo.com', role: 'admin' });
+    sesionDe(primera);
+
+    expect(await isSessionStillValid(segunda.id, 0)).toBe(true);
+
+    const result = await updateUserRole({ userId: segunda.id, role: 'editor' });
+    expect(result.ok).toBe(true);
+
+    expect(await isSessionStillValid(segunda.id, 0)).toBe(false);
+  });
+
+  it('promover a alguien también le cierra la sesión', async () => {
+    // Por el mismo motivo, y aquí además le hace falta: sin volver a entrar, su cookie sigue
+    // diciendo `editor` y el panel de administración le seguiría cerrado.
+    const admin = await crearUsuario({ email: 'a@ejemplo.com', role: 'admin' });
+    const editora = await crearUsuario({ email: 'b@ejemplo.com', role: 'editor' });
+    sesionDe(admin);
+
+    await updateUserRole({ userId: editora.id, role: 'admin' });
+
+    expect(await isSessionStillValid(editora.id, 0)).toBe(false);
+  });
+
+  it('el token de invitación lleva la versión de contraseña de la fila creada', async () => {
+    const admin = await crearUsuario({ email: 'admin@ejemplo.com', role: 'admin' });
+    sesionDe(admin);
+
+    const result = await inviteUser({ email: 'n@ejemplo.com', name: 'N', role: 'editor' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const verificado = verifyToken('password-reset', result.data.token);
+    expect(verificado.ok).toBe(true);
+    if (!verificado.ok) return;
+
+    const [creado] = await getDb()
+      .select()
+      .from(users)
+      .where(eq(users.id, verificado.data['userId']!));
+
+    // Escrito a mano, esto valdría hasta el día que la invitación tocara esa columna, y el
+    // fallo aparecería al canjear el token, lejos de donde se creó.
+    expect(verificado.data['pwdV']).toBe(String(creado!.passwordVersion));
+  });
+
   it('inviteUser normaliza el correo y rechaza duplicados sin distinguir mayúsculas', async () => {
     const admin = await crearUsuario({ email: 'admin@ejemplo.com', role: 'admin' });
     sesionDe(admin);
