@@ -654,9 +654,21 @@ export const createItem = defineAction({
     const db = getDb();
 
     return db.transaction(async (tx) => {
-      // El siguiente hueco al final. Se calcula dentro de la transacción porque dos
-      // creaciones simultáneas leerían el mismo máximo y acabarían empatadas — y el orden de
-      // una colección empatada lo decide el desempate por clave, que es aleatorio.
+      // El siguiente hueco al final.
+      //
+      // **Dos creaciones simultáneas pueden empatar en la misma posición.** Lo digo en vez de
+      // insinuar que está cubierto: estar dentro de una transacción no impide que dos
+      // lecturas vean el mismo máximo, y un `SELECT ... FOR UPDATE` sobre la última fila
+      // tampoco lo arregla —bloquea filas existentes, no protege de una fila que otra
+      // transacción **inserta**, que es justo el caso—. Lo comprobé escribiendo el bloqueo y
+      // viendo que el test seguía dando lo mismo.
+      //
+      // Cubrirlo de verdad exige un bloqueo consultivo por colección o el nivel
+      // `SERIALIZABLE`. No sale a cuenta: el daño de un empate es que dos elementos creados
+      // en el mismo milisegundo salgan en el orden que decida el desempate por clave en vez
+      // de por creación. El orden sigue siendo **determinista** —hay un test que lo fija— y
+      // el editor los arrastra. Poner maquinaria de concurrencia para eso sería pagar
+      // complejidad permanente por un detalle cosmético.
       const [ultimo] = await tx
         .select({ max: sql<number | null>`max(${contentEntries.sortOrder})` })
         .from(contentEntries)

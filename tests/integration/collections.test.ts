@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createItem, deleteItem, reorderItems } from '@/cms/actions';
 import { resetBucketsForTests, setSessionProviderForTests } from '@/cms/actions/pipeline';
+import { readCollection } from '@/cms/core/content';
 import { contentEntries, getDb, revisions, users } from '@/cms/db';
 import { describeIntegration } from './env';
 
@@ -71,6 +72,37 @@ describeIntegration('colecciones', () => {
       if (result.ok) claves.add(result.data.key);
     }
     expect(claves.size).toBe(20);
+  });
+
+  it('dos elementos empatados en sortOrder salen siempre en el mismo orden', async () => {
+    // Dos creaciones simultáneas **pueden** empatar: ni la transacción ni un `FOR UPDATE`
+    // sobre la última fila lo impiden, porque el problema es una fila que otra transacción
+    // inserta, no una que modifica. Lo que sí está garantizado, y es lo que el editor nota,
+    // es que el orden resultante sea estable en vez de barajarse entre peticiones.
+    await getDb()
+      .insert(contentEntries)
+      .values([
+        {
+          key: 'testimonials.bbb',
+          type: 'testimonials',
+          draft: {},
+          published: { author: 'B' },
+          sortOrder: 1,
+        },
+        {
+          key: 'testimonials.aaa',
+          type: 'testimonials',
+          draft: {},
+          published: { author: 'A' },
+          sortOrder: 1,
+        },
+      ]);
+
+    const primera = await readCollection('testimonials');
+    const segunda = await readCollection('testimonials');
+
+    expect(primera.map((item) => item.author)).toEqual(['A', 'B']);
+    expect(segunda).toEqual(primera);
   });
 
   it('T-80-1: el borrador inicial trae los valores por defecto de la config', async () => {
