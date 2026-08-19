@@ -60,6 +60,25 @@ Cada paso está antes que el siguiente por un motivo:
 - **`revalidateTag` al final.** Invalidar el caché antes de que el dato esté escrito sirve
   una versión vieja como si fuera nueva.
 
+#### Cuotas por bucket
+
+`SPEC.md` escribe el paso como `rateLimit(bucket, actorId)`: la cuota va **por usuario
+autenticado**, no por IP. Aquí quien llama ya ha pasado sesión y rol, así que esto no
+defiende de un atacante — defiende de un editor legítimo que dispara demasiadas
+operaciones, y de que un error en el panel entre en bucle.
+
+Las cuotas no las da la spec y hay que fijarlas, porque **la de login es inservible aquí**:
+
+| Bucket                           | Cuota       | Por qué                                                                                                                                                                                                                                                                        |
+| -------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `saveDraft`                      | 240 / 5 min | El autosave de §8 guarda cada 2 s tras el último tecleo. Un editor escribiendo un párrafo largo genera decenas de guardados por minuto; con la cuota del login (5 por 15 min) el CMS dejaría de guardar a los diez segundos, y el editor lo viviría como pérdida de su trabajo |
+| `publish`, `publishAll`          | 30 / 5 min  | Publicar es deliberado y poco frecuente                                                                                                                                                                                                                                        |
+| Escrituras de usuarios y ajustes | 20 / 5 min  | Operaciones de administración, aún menos frecuentes                                                                                                                                                                                                                            |
+| `createPreviewToken`             | 60 / 5 min  | Uno por apertura de editor, más reintentos                                                                                                                                                                                                                                     |
+
+El caso peligroso no es el ataque: es poner una cuota estricta a `saveDraft` "por
+seguridad" y convertir una protección en un fallo de producto.
+
 ### 3.2 El contrato de errores
 
 Todas las actions devuelven `{ ok: true, data }` o `{ ok: false, code, message }`. **Nunca
@@ -137,12 +156,22 @@ nada.
 
 ### 3.7 `LAST_ADMIN` (§5.3)
 
-No se puede dejar el sistema sin ningún administrador. La comprobación es **dentro de la
-transacción** que hace el cambio, no antes: entre una comprobación previa y el `UPDATE`
-cabe otra operación que degrade al otro administrador, y el resultado sería un sitio sin
-nadie que pueda administrarlo — sin forma de arreglarlo desde la interfaz.
+No se puede dejar el sistema sin ningún administrador. Si ocurriera, el resultado es un
+sitio sin nadie que pueda administrarlo y **sin forma de arreglarlo desde la interfaz**.
+
+La comprobación va dentro de la transacción que hace el cambio, pero **eso solo no basta, y
+conviene decirlo porque suena suficiente**: con el nivel de aislamiento por defecto de
+Postgres (`READ COMMITTED`), dos transacciones concurrentes pueden contar dos
+administradores cada una y degradar cada una al suyo. Ninguna vería a la otra, y el sistema
+acabaría sin administradores habiendo pasado las dos comprobaciones.
+
+Contrato, por tanto: **la cuenta de administradores se hace con `SELECT ... FOR UPDATE`
+sobre las filas de rol `admin`**, dentro de la misma transacción que el cambio. El bloqueo
+serializa las dos operaciones y la segunda ve el resultado de la primera.
 
 Aplica a `updateUserRole` (degradar al último admin) y a `deactivateUser` (desactivarlo).
+El caso se prueba con **dos operaciones concurrentes**, no secuenciales: un test secuencial
+pasa igual con la implementación ingenua.
 
 ## 4. Casos de prueba — la definición de "hecho"
 
