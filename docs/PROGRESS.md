@@ -326,9 +326,89 @@ lectura pública aplicando el esquema estricto a valores vacíos, los singletons
 para un mensaje que exige nombrarlos, y `deactivateUser` sin columna donde apoyarse. Ninguna se
 resolvió en silencio.
 
-## M4 — Panel de administración ⏳
+## M4 — Panel de administración ✅
 
-Pendiente.
+Cerrado. El CMS ya se puede usar: se entra, se escribe, se publica y se puede volver atrás,
+todo desde el navegador y sin tocar la base de datos.
+
+### Qué funciona
+
+- **El armazón y el panel de inicio**, con el estado de cada sección —publicado, con cambios,
+  sin publicar— y «Publicar todo», que dice qué se quedó fuera en vez de callarse.
+- **El formulario se genera desde `cms.config.ts`**, no se escribe a mano. Añadir un campo a la
+  configuración lo hace aparecer en el panel sin tocar ningún componente, que es la promesa de
+  §5.1 y lo que hace que este CMS sea adaptable a otro proyecto.
+- **Autosave** con la versión que devuelve el servidor, sin reintentos ante un conflicto, y un
+  borrador local que se **ofrece** al volver en vez de aplicarse solo.
+- **Imágenes**: subida directa al almacenamiento con token emitido por el servidor (ADR-005),
+  allowlist de tipos, tamaño máximo, nombre generado y `alt` obligatorio.
+- **Colecciones**: listar, crear, ordenar con botones —no arrastrando, porque arrastrar no
+  funciona con teclado— y eliminar con confirmación que dice qué se pierde.
+- **Historial** con un fragmento del contenido de cada versión, y «volver a esta versión» que
+  deja el texto en el borrador sin publicar nada.
+- **Personas, ajustes y tu cuenta**, y la ruta pública que **canjea la invitación** (ADR-412),
+  que es lo que hacía falta para que `inviteUser` sirviera de algo: hasta este hito creaba
+  cuentas a las que no podía entrar nadie.
+
+### La tabla de amenazas de §7.1, actualizada
+
+| Amenaza                     | Estado                                                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Abuso de uploads**        | ✅ **Cerrada.** Allowlist de tipos, tamaño máximo, nombre generado y **SVG rechazado**, todo decidido en el servidor al emitir el token     |
+| **Enumeración**             | ✅ Ampliada con el canje de la invitación: enlace inválido, caducado, ya usado o de cuenta desactivada dan el mismo 404                     |
+| **Escalada de privilegios** | ✅ Ampliada: además del rol en cada action, el rol se comprueba **en cada página** de administración, con un test que enumera las pantallas |
+
+**Sin ADR sobre el SVG**, y merece explicación porque la definición de hecho de la fase lo pedía:
+`SPEC.md` §5.3 ya lo decide con todas las letras —"SVG se rechaza en MVP (vector XSS)"—, así que
+un ADR solo repetiría la spec y se leería como si hubiera habido algo que decidir. La línea de la
+spec de fase que lo pedía está corregida.
+
+Lo que cierra la fila de uploads no es la lista de tipos: es **dónde se aplica**. El `accept` del
+formulario viaja en el cliente y es comodidad para quien sube, no una defensa. La decisión se toma
+en el servidor al emitir el token, y hay test de que un tipo fuera de la lista se rechaza aunque
+el formulario lo hubiera aceptado.
+
+### Qué es frágil
+
+- **Los tests de tiempo.** `T-59-4` medía con cronómetro algo estructural y falló en CI en un PR
+  que no tocaba autenticación (#131). El instrumento era el equivocado, no el umbral. Quedan dos
+  comprobaciones por tiempo en la suite, las dos con umbrales que no dependen del disco.
+- **El estado compartido en los e2e.** Un CMS acoplado 1:1 a una landing es **un solo sitio**: no
+  hay forma de darle a cada test su propio `hero`. La regla que funciona es crear el estado que se
+  necesita, y cuando no se puede aislar, crear uno propio. Ha hecho falta tres veces (#105, #134).
+- **La suite e2e corre en paralelo en local y con un solo worker en CI.** La ejecución local es la
+  exigente. Si falla en local y pasa en CI, el sospechoso es el estado compartido.
+- **El tamaño de las imágenes se guarda como 0**: el callback de subida completada no lo trae.
+- **La condición de concurrencia del canje** no tiene test que la ejercite a solas; sí lo tiene el
+  contrato que promete hacia fuera.
+
+### Qué probaría a mano
+
+1. **Invitar a alguien y canjear el enlace desde otro navegador.** Es el recorrido con más piezas
+   ajenas: token firmado, cuenta sin contraseña utilizable, sesión nueva. El e2e lo cubre, pero
+   quiero ver el texto que lee una persona que no ha visto nunca este panel.
+2. **Escribir con el editor de texto enriquecido durante un rato largo**, con negritas, enlaces y
+   listas. jsdom no maqueta, así que los tests de componentes no pueden comprobar dónde queda el
+   cursor; el e2e cubre un caso y no la experiencia de escribir diez minutos.
+3. **Subir una imagen de verdad a Vercel Blob.** En CI no hay token, así que el camino que se
+   ejercita es el de la validación, no el de la subida completa.
+4. **Cambiar la contraseña con dos pestañas abiertas.** Que la otra pestaña se caiga es lo
+   correcto (ADR-301) y quiero ver qué se encuentra quien la tenía delante.
+
+### Lo que enseñó este hito
+
+- **Un comentario que promete lo que el código no hace es peor que no tener comentario.** Pasó
+  cuatro veces: una transacción que no envolvía nada, un enlace que no se validaba, un `switch`
+  que creía ser exhaustivo y una fila con identificador inventado que decía no ofrecer acciones.
+  Las cuatro con `typecheck`, `lint` y `build` en verde. La única defensa que ha funcionado es
+  leer el código de al lado **antes** de escribir la frase.
+- **Un test que no puede fallar es peor que no tener test.** También cuatro veces: un `if` que
+  envolvía la aserción, un umbral tan laxo que sobrevivía a la mutación, una comprobación de que
+  no aparece un texto que nunca podría aparecer, y un caso que solo pasaba con la base recién
+  creada. La mutación los encuentra todos y cuesta minutos.
+- **Y una explicación plausible no es una explicación.** El flake de #134 tenía un culpable que
+  encajaba con todo lo que sabía; escribí el arreglo y **el fallo siguió**. La captura del fallo
+  decía otra cosa. Mirar la evidencia antes que la hipótesis habría ahorrado el rodeo entero.
 
 ## M5 — Landing de ejemplo y vista previa en vivo ⏳
 

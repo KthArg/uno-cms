@@ -203,7 +203,10 @@ Lo mínimo verificable, y solo lo que se puede afirmar con un test:
 ## 5. Definition of Done de M4
 
 1. El e2e del recorrido completo, en verde contra un servidor real.
-2. La fila **abuso de uploads** de §7.1 cerrada, con su ADR sobre el SVG.
+2. La fila **abuso de uploads** de §7.1 cerrada. **Sin ADR sobre el SVG**: §3.4 de este
+   mismo documento explica por qué no lo lleva —`SPEC.md` §5.3 ya lo decide con todas las
+   letras— y esta línea decía lo contrario. Un ADR que repite la spec es ruido que se lee
+   como si hubiera habido una decisión que tomar.
 3. Ninguna palabra de jerga en el panel, comprobado automáticamente.
 4. Los dos guards de `/admin` con el test que impide que diverjan (#70).
 5. `docs/PROGRESS.md` cierra M4.
