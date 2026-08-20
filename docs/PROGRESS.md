@@ -410,9 +410,72 @@ el formulario lo hubiera aceptado.
   encajaba con todo lo que sabía; escribí el arreglo y **el fallo siguió**. La captura del fallo
   decía otra cosa. Mirar la evidencia antes que la hipótesis habría ahorrado el rodeo entero.
 
-## M5 — Landing de ejemplo y vista previa en vivo ⏳
+## M5 — Landing de ejemplo y vista previa en vivo ✅
 
-Pendiente. Aquí se verifica ADR-107 y se cierra el issue #19.
+Cerrado. **Este es el hito que justifica el proyecto**: lo construido hasta M4 se parecía, visto
+desde fuera, a cualquier otro CMS. Escribir y ver la web cambiar al lado, no.
+
+### Qué funciona
+
+- **La landing de ejemplo**, con `useContent` y `useCollection` leyendo del contexto. La promesa
+  de §6.3 —adaptar el CMS es escribir `cms.config.ts`, las secciones y componer `page.tsx`— se
+  cumple: escribir la landing entera **no exigió tocar nada de `cms/`**.
+- **`<RichText>`**, que emite elementos de React y nunca una cadena de HTML. Con él queda
+  verificado ADR-107, que llevaba desde M0 escrito y sin ejercitar.
+- **`/preview`** con token firmado, que carga el borrador de la clave autorizada y lo publicado
+  del resto (ADR-501).
+- **La vista previa en vivo**: escribir en el formulario cambia el iframe sin recargar, sin
+  publicar y sin que haya llegado a guardarse.
+
+### La tabla de amenazas de §7.1, actualizada
+
+| Amenaza               | Estado                                                                                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **XSS vía contenido** | ✅ **Cerrada del todo.** El render no sanea una cadena: no hay cadena. Y los enlaces se validan también al pintarlos, con la misma función que al guardar (ADR-500) |
+| **Clickjacking**      | ✅ Ampliada: `frame-ancestors 'self'` cubre también el iframe de la vista previa, con test sobre la cabecera servida                                                |
+| **Enumeración**       | ✅ Ampliada: un enlace de vista previa inválido, caducado o de otro propósito da el mismo 404                                                                       |
+
+Y una fila nueva que no estaba en §7.1 porque la spec no la previó: **el canal entre ventanas**.
+Cada mensaje pasa tres comprobaciones —quién habla, si lo que dice tiene sentido, y si habla de
+lo que ese iframe puede enseñar— y lo que no pasa se ignora en silencio.
+
+### Qué es frágil
+
+- **Los tests de un canal asíncrono son fáciles de escribir mal.** Los quince que cubren los
+  mensajes hostiles pasaban con las cuatro defensas quitadas: `waitFor` acierta en su primera
+  comprobación, antes de que React repinte. Se arreglaron con `act`, y la lección se generaliza:
+  **un test que afirma que algo NO pasó tiene que forzar antes el momento en que habría pasado.**
+- **El «schema laxo» de §6.1 no está replicado en el navegador**, y está razonado: llevarlo allí
+  movería la frontera de `server-only` entera. Lo que se pierde es cazar nuestros propios
+  errores —un campo mal escrito llega y se ignora en silencio—, no una vía de ataque.
+- **La landing es dinámica y §8 pide ISR** (ADR-502). Se midió: 6,8 ms contra 3,6 ms de mediana,
+  sobre un presupuesto de LCP de 2500 ms. Lo que compra la versión estática es que `pnpm build`
+  exija una base de datos accesible, y §0 exige auto-hospedable.
+- **La condición de concurrencia del canje de invitación** sigue sin test propio (viene de M4).
+
+### Qué probaría a mano
+
+1. **Escribir un rato largo con la vista previa abierta**, en una landing de verdad. El e2e
+   comprueba que un cambio llega; no comprueba que la experiencia de escribir con un iframe
+   repintándose al lado sea agradable.
+2. **Abrir la vista previa en un móvil.** El iframe tiene una altura fija y la vista partida se
+   esconde por debajo de `lg`. Funciona, pero no lo he mirado con las manos.
+3. **Un documento de texto enriquecido largo**, con enlaces, listas anidadas y citas, para ver
+   si el renderizador se deja algo que el editor sí muestra.
+
+### Lo que enseñó este hito
+
+- **Espiar una llamada no es comprobar un efecto.** Desde M3 estaba «comprobado» que `publish`
+  llama a `revalidateTag` con el tag correcto. Al mirar por primera vez **la landing servida**
+  apareció que publicar el cambio de un elemento de colección invalidaba `content:coleccion.id`
+  mientras la landing leía `content:coleccion`: **la web no cambiaba y no había ningún error**.
+  Dos hitos con ese fallo dentro y el test en verde.
+- **Una explicación que encaja no es una explicación.** Ya pasó con el flake de #134; volvió a
+  pasar al medir el build sin base de datos, que «pasó» por una caché de `.next` de la ejecución
+  anterior. Borrar y repetir cambió la conclusión entera.
+- **El instrumento tiene que poder equivocarse.** Las mutaciones han encontrado en este hito
+  cuatro tests que no probaban nada, un fallo de invalidación de dos hitos de antigüedad y un
+  efecto duplicado que la lectura no vio.
 
 ## M6 — Endurecimiento, rendimiento y release ⏳
 

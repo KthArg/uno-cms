@@ -216,7 +216,17 @@ function stableStringify(value: unknown): string {
 }
 
 type PublishOutcome =
-  | { readonly ok: true; readonly cambio: boolean }
+  | {
+      readonly ok: true;
+      readonly cambio: boolean;
+      /**
+       * El `type` de la fila, que se devuelve **para poder invalidar la colección**.
+       *
+       * Sin él, quien llama tendría que volver a consultar la base solo para saber si esa clave
+       * es un elemento de colección. Ver `invalidarEntrada`.
+       */
+      readonly type: string;
+    }
   | {
       readonly ok: false;
       readonly code: 'NOT_FOUND' | 'VERSION_CONFLICT' | 'VALIDATION_FAILED' | 'INTERNAL';
@@ -281,7 +291,7 @@ async function publishEntry(
           .set({ status: 'published' })
           .where(eq(contentEntries.key, key));
       }
-      return { ok: true, cambio: false };
+      return { ok: true, cambio: false, type: row.type };
     }
 
     if (row.published !== null) {
@@ -324,8 +334,32 @@ async function publishEntry(
       })
       .where(eq(contentEntries.key, key));
 
-    return { ok: true, cambio: true };
+    return { ok: true, cambio: true, type: row.type };
   });
+}
+
+/**
+ * Invalida el caché de una entrada **y el de su colección** (issue #116).
+ *
+ * ## El fallo que esto arregla, que nadie había visto
+ *
+ * Un elemento de colección se guarda con la clave `coleccion.id` y la landing lee la lista
+ * entera con `getCollection('coleccion')`, cacheada bajo `content:coleccion`. Invalidando solo
+ * `content:coleccion.id` **la lista no se entera**: quien publicaba el cambio de un testimonio
+ * veía "Publicado ✓" y su web seguía enseñando el texto viejo, sin ningún error por medio.
+ *
+ * Y el test de M3 pasaba: comprobaba que `publish` llama a `revalidateTag` con el tag de la
+ * entrada, que es correcto **para un singleton**. Espiar una llamada no dice si el tag sirve
+ * para algo. Lo encontró el e2e de T-K-2 al mirar la landing servida, que es exactamente lo que
+ * ADR-405 dejó dicho que faltaba por comprobar.
+ *
+ * Se distingue por el `type` de la fila: en un singleton coincide con la clave; en un elemento
+ * de colección es el nombre de la colección.
+ */
+function invalidarEntrada(key: string, type: string): void {
+  revalidateTag(contentTag(key));
+
+  if (type !== key) revalidateTag(contentTag(type));
 }
 
 export const publish = defineAction({
@@ -346,7 +380,7 @@ export const publish = defineAction({
     // **Fuera de la transacción y después de escribir** (SPEC §5.3). Invalidar antes de que el
     // dato esté confirmado repuebla el caché con el estado viejo, y el editor ve que su
     // publicación no aparece sin ningún error que lo explique.
-    revalidateTag(contentTag(input.key));
+    invalidarEntrada(input.key, result.type);
 
     return ok({ key: input.key, changed: result.cambio });
   },
@@ -413,7 +447,7 @@ export const publishAll = defineAction({
 
       if (result.ok) {
         publicadas.push(key);
-        revalidateTag(contentTag(key));
+        invalidarEntrada(key, result.type);
       } else {
         fallidas.push({
           key,

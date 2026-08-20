@@ -1,8 +1,9 @@
 import 'server-only';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import appConfig from '@/cms.config';
-import { getDb, settings } from '@/cms/db';
+import { unstable_cache } from 'next/cache';
+import { getDb, settings, users } from '@/cms/db';
 import { isSafeLink } from '@/cms/links';
 
 /**
@@ -89,3 +90,43 @@ export async function readSettings(key: SettingsKey): Promise<Record<string, unk
 
   return { ...defaultSettings(key), ...(parsed.data as Record<string, unknown>) };
 }
+
+/**
+ * Si el sitio ya está configurado, **cacheado con el tag de los ajustes** (ADR-502).
+ *
+ * `isSetupCompleted()` de `cms/auth/setup.ts` consulta la base de datos, y eso vuelve dinámica
+ * cualquier ruta que lo llame. Para la landing eso es inaceptable: §8 la quiere estática con
+ * ISR, y una ruta dinámica no se cachea.
+ *
+ * Aquí la misma pregunta pasa por `unstable_cache` con el tag `settings`, así que:
+ *
+ * - La landing **puede ser estática**: la respuesta vive en el caché como cualquier otro
+ *   contenido.
+ * - Y **deja de estarlo en el momento justo**: completar el bootstrap invalida ese tag, igual
+ *   que hace `updateSettings`.
+ *
+ * `setup_completed` es una fila de `settings` (SPEC §4), así que compartir su tag no es un
+ * apaño: es la misma tabla y el mismo motivo para invalidar.
+ */
+export const isSiteConfigured = unstable_cache(
+  async (): Promise<boolean> => {
+    const rows = await getDb()
+      .select({ key: settings.key })
+      .from(settings)
+      .where(eq(settings.key, 'setup_completed'))
+      .limit(1);
+
+    if (rows.length > 0) return true;
+
+    // Con usuarios pero sin la marca, el bootstrap está de hecho hecho. Se comprueba por lo
+    // mismo que en `cms/auth/setup.ts`: una restauración parcial no puede dejar el sitio
+    // ofreciéndose para que lo reclame otro.
+    const [{ total } = { total: 0 }] = await getDb()
+      .select({ total: sql<number>`count(*)::int` })
+      .from(users);
+
+    return total > 0;
+  },
+  ['setup-completed'],
+  { tags: [SETTINGS_TAG] }
+);

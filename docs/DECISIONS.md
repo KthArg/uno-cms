@@ -778,3 +778,40 @@ Así la vista previa sigue siendo la landing entera —que es lo que hace falta 
 - Quien edita **ve su sección con el resto del sitio como está publicado**, que además es más fiel a lo que verá el visitante cuando publique solo eso.
 - Un token con una clave que ya no existe en `cms.config.ts` —porque la configuración cambió después de emitirlo— no es un error: se sirve la landing publicada, sin borrador. Responder 404 castigaría a quien no ha hecho nada raro.
 - La ruta **no escribe nada**. La vista previa no llama a ninguna action, y hay un test que lo afirma sobre la base de datos.
+
+---
+
+## ADR-502 — La landing se sirve dinámica, con la medida delante (resuelve #71)
+
+**Contexto.** `SPEC.md` §7.3 exige que, sin usuarios en la base de datos, cualquier ruta lleve a `/setup`. Hasta M5 eso era un `redirect` en el layout de `(site)`, con `force-dynamic` obligatorio: sin él, Next prerenderiza la landing durante el build y el guard consulta la base ahí mismo.
+
+`SPEC.md` §8 exige lo contrario para esa misma ruta: "server components + **ISR por tags**", y una ruta dinámica no se cachea.
+
+El issue #71 pedía explícitamente **medir antes de decidir**, y no antes de que existiera contenido real. Ese momento es ahora.
+
+**Lo medido.** Las dos versiones construidas y servidas con `next start`, veinte peticiones cada una:
+
+| Versión                    | mínimo | mediana    | p90    |
+| -------------------------- | ------ | ---------- | ------ |
+| Estática (prerenderizada)  | 3,1 ms | **3,6 ms** | 5,3 ms |
+| Dinámica (`force-dynamic`) | 5,7 ms | **6,8 ms** | 7,7 ms |
+
+Poco más de 3 ms de diferencia, sobre un presupuesto de LCP de **2500 ms** en 4G. La red domina por tres órdenes de magnitud.
+
+**Lo que cuesta la versión estática.** Prerenderizar la landing la consulta en tiempo de construcción, así que **`pnpm build` pasa a exigir una base de datos accesible**. Lo comprobé: un build limpio sin `DATABASE_URL` falla con `Error occurred prerendering page "/"`.
+
+En Vercel eso no molesta —la integración inyecta la variable y la base está viva—. Pero `SPEC.md` §0 exige **auto-hospedable**, y ahí lo normal es construir una imagen sin la base delante y arrancarla después. Esa construcción dejaría de funcionar.
+
+**Decisión.** La landing sigue con `force-dynamic`. Es una desviación de la letra de §8 y va escrita aquí.
+
+**Por qué esto no incumple lo que §8 promete.** La frase que §8 usa para explicarse es: "el visitante nunca toca la BD en el hot path si el caché está caliente". **Eso se cumple**: las lecturas pasan por `unstable_cache` con los tags que invalida `publish`, y una petición con el caché caliente no consulta nada. Lo que se paga son los 3 ms de render, no la consulta.
+
+**Y lo que sí cambia.** El `redirect` del layout se va. En su lugar, la página comprueba si el sitio está configurado a través de `isSiteConfigured()` —cacheada con el tag `settings`, que es la tabla donde vive `setup_completed`— y enseña un aviso con el camino a `/setup`. §7.3 se sigue cumpliendo: se llega igual. Y quien acaba de desplegar se encuentra una explicación en vez de un salto.
+
+`completeSetup` invalida ese tag, así que el aviso desaparece en cuanto hay dueño.
+
+**Consecuencias.**
+
+- **Volver a la versión estática es quitar una línea** —`export const dynamic = 'force-dynamic'`—, y está dicho en el propio fichero. El día que el despliegue garantice la base en tiempo de construcción, la decisión se revierte sin rediseñar nada.
+- **El build sigue sin necesitar base de datos**, que es lo que permite que el job de `build` en CI sea rápido y no arrastre un contenedor de Postgres.
+- Las medidas son **locales, con Postgres en la misma máquina y una landing pequeña**. No las extrapolo: si algún día el contenido crece mucho, hay que volver a medir antes de dar por buena esta decisión. Es exactamente lo que pedía #71.
