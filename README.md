@@ -8,13 +8,22 @@ solo el panel de administración, la validación, el versionado y la vista previ
 usuario final edita textos e imágenes, ve la página real actualizándose mientras escribe, y
 publica con un botón.
 
+## Desplegar tu copia
+
+[![Desplegar con Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FKthArg%2Funo-cms&project-name=mi-web&repository-name=mi-web&env=AUTH_SECRET%2CAPP_SECRET%2CSETUP_TOKEN&envDescription=Tres%20contrase%C3%B1as%20largas%20y%20distintas%20entre%20s%C3%AD&envLink=https%3A%2F%2Fgithub.com%2FKthArg%2Funo-cms%2Fblob%2Fmain%2Fdocs%2FSETUP.md%232-los-tres-c%C3%B3digos-secretos)
+
+La guía paso a paso, pensada para alguien que no programa, está en
+[`docs/SETUP.md`](docs/SETUP.md). **No hay usuario ni contraseña por defecto**: la primera
+cuenta se crea con un código de un solo uso que defines tú al desplegar.
+
 ## Estado
 
-**En construcción.** M0, M1 y M2 (fundaciones, datos y seguridad) cerrados; M3 en curso. Todavía no
-hay panel ni base de datos: el proyecto arranca con una página provisional.
+**MVP completo.** Los seis hitos cerrados: fundaciones, datos, seguridad, actions, panel,
+landing con vista previa en vivo, y endurecimiento.
 
-El detalle honesto de qué funciona, qué es frágil y qué habría que probar a mano está en
-[`docs/PROGRESS.md`](docs/PROGRESS.md).
+Lo que funciona, lo que es frágil y lo que habría que probar a mano —incluido **lo que no está
+verificado**— está en [`docs/PROGRESS.md`](docs/PROGRESS.md). Lo aplazado, con su motivo, en
+[`docs/PENDIENTES.md`](docs/PENDIENTES.md).
 
 ## Documentación
 
