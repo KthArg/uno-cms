@@ -1,6 +1,8 @@
+import { revalidateTag } from 'next/cache';
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { completeSetup, isSetupCompleted } from '@/cms/auth/setup';
+import { SETTINGS_TAG } from '@/cms/core/settings';
 
 /**
  * Configuración inicial (SPEC §7.3).
@@ -36,7 +38,13 @@ export default async function SetupPage({
       ...(forwarded === null ? {} : { ip: forwarded.split(',')[0]?.trim() }),
     });
 
-    if (result.ok) redirect('/admin/login');
+    if (result.ok) {
+      // La landing pregunta si el sitio está configurado a través del caché con este tag
+      // (ADR-502). Sin invalidarlo aquí, seguiría enseñando el aviso de "todavía no está listo"
+      // después de haberlo estado — que es el precio de haberla vuelto estática, y se paga aquí.
+      revalidateTag(SETTINGS_TAG);
+      redirect('/admin/login');
+    }
     redirect(`/setup?error=${result.reason}`);
   }
 

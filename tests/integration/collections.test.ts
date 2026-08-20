@@ -175,6 +175,63 @@ describeIntegration('colecciones', () => {
     expect(revalidateTag).toHaveBeenCalledWith('content:testimonials');
   });
 
+  it('publicar un elemento revalida TAMBIÉN el tag de la colección', async () => {
+    const [key] = await crearTres();
+    const { publish, saveDraft } = await import('@/cms/actions');
+
+    // Un elemento recién creado nace vacío y no pasa la validación de publicar: los campos
+    // obligatorios se rellenan antes, porque lo que este test mide es la invalidación.
+    const guardado = await saveDraft({
+      key: key!,
+      data: { author: 'Ana', quote: 'Muy bien' },
+      version: 0,
+    });
+    expect(guardado.ok).toBe(true);
+
+    vi.mocked(revalidateTag).mockClear();
+    const resultado = await publish({
+      key: key!,
+      version: guardado.ok ? guardado.data.version : 0,
+    });
+    expect(resultado.ok).toBe(true);
+
+    // **El fallo que este test existe para impedir** (#116): la landing lee la lista entera con
+    // `getCollection('testimonials')`, cacheada bajo `content:testimonials`. Invalidando solo el
+    // tag del elemento, la lista no se entera — y quien publicaba el cambio de un testimonio
+    // veía "Publicado ✓" con su web enseñando el texto viejo, sin ningún error por medio.
+    //
+    // Estuvo así desde M3, y el test de entonces pasaba: comprobaba el tag de la **entrada**,
+    // que es correcto para un singleton. Lo encontró el e2e mirando la landing servida.
+    expect(revalidateTag).toHaveBeenCalledWith(`content:${key!}`);
+    expect(revalidateTag).toHaveBeenCalledWith('content:testimonials');
+  });
+
+  it('publicar un singleton revalida su tag y ninguno más', async () => {
+    const { publish, saveDraft } = await import('@/cms/actions');
+
+    // El singleton se crea aquí: la base se limpia antes de cada test, y este fichero es el de
+    // colecciones — no lo trae nadie.
+    await getDb()
+      .insert(contentEntries)
+      .values({ key: 'hero', type: 'hero', draft: {}, status: 'draft' });
+
+    const guardado = await saveDraft({ key: 'hero', data: { title: 'Un titular' }, version: 0 });
+    expect(guardado.ok).toBe(true);
+
+    vi.mocked(revalidateTag).mockClear();
+    const resultado = await publish({
+      key: 'hero',
+      version: guardado.ok ? guardado.data.version : 0,
+    });
+    expect(resultado.ok).toBe(true);
+
+    // En un singleton el `type` **es** la clave, así que no hay colección que invalidar.
+    // Invalidar dos veces el mismo tag no rompe nada, pero delataría que la distinción no se
+    // está haciendo.
+    const tags = vi.mocked(revalidateTag).mock.calls.map(([tag]) => tag);
+    expect(tags).toEqual(['content:hero']);
+  });
+
   it('un singleton no se puede borrar', async () => {
     // Sin su fila, la lectura devolvería valores vacíos para siempre y nadie podría recrear
     // la sección desde el panel.

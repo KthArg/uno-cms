@@ -1,8 +1,9 @@
 import 'server-only';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import appConfig from '@/cms.config';
-import { getDb, settings } from '@/cms/db';
+import { unstable_cache } from 'next/cache';
+import { getDb, settings, users } from '@/cms/db';
 import { isSafeLink } from '@/cms/links';
 
 /**
@@ -89,3 +90,43 @@ export async function readSettings(key: SettingsKey): Promise<Record<string, unk
 
   return { ...defaultSettings(key), ...(parsed.data as Record<string, unknown>) };
 }
+
+/**
+ * Si el sitio ya está configurado. **La lectura de verdad, sin caché** — es la que se prueba.
+ *
+ * Misma separación que `readContent`/`getContent` (ADR-405), y por el mismo motivo práctico:
+ * `unstable_cache` necesita el contexto de una petición de Next y fuera de él lanza. Una función
+ * que solo se puede ejecutar dentro de un servidor acaba sin tests.
+ */
+export async function readSiteConfigured(): Promise<boolean> {
+  const rows = await getDb()
+    .select({ key: settings.key })
+    .from(settings)
+    .where(eq(settings.key, 'setup_completed'))
+    .limit(1);
+
+  if (rows.length > 0) return true;
+
+  // Con usuarios pero sin la marca, el bootstrap está de hecho hecho. Se comprueba por lo mismo
+  // que en `cms/auth/setup.ts`: una restauración parcial no puede dejar el sitio ofreciéndose
+  // para que lo reclame otro.
+  const [{ total } = { total: 0 }] = await getDb()
+    .select({ total: sql<number>`count(*)::int` })
+    .from(users);
+
+  return total > 0;
+}
+
+/**
+ * Lo que usa la landing: la misma pregunta, **cacheada con el tag de los ajustes** (ADR-502).
+ *
+ * `isSetupCompleted()` de `cms/auth/setup.ts` consulta la base de datos en cada llamada, y eso
+ * obliga a que la landing la consulte en cada render. Aquí la respuesta vive en el caché y se
+ * invalida sola cuando alguien completa el bootstrap.
+ *
+ * `setup_completed` es una fila de `settings` (SPEC §4), así que compartir su tag no es un
+ * apaño: es la misma tabla y el mismo motivo para invalidar.
+ */
+export const isSiteConfigured = unstable_cache(readSiteConfigured, ['setup-completed'], {
+  tags: [SETTINGS_TAG],
+});
