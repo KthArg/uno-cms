@@ -42,10 +42,14 @@ export interface PublishAllResult {
   readonly error?: string;
 }
 
-export type PublishAllAction = (
-  anterior: PublishAllResult | null,
-  formData: FormData
-) => Promise<PublishAllResult>;
+/**
+ * La action, sin argumentos.
+ *
+ * Tuvo la firma de `useActionState` mientras el botón era un formulario. Ya no: el bucle de
+ * #119 la llama directamente, y arrastrar dos parámetros que hay que rellenar con `null` y un
+ * `FormData` vacío sería una firma que miente sobre cómo se usa.
+ */
+export type PublishAllAction = () => Promise<PublishAllResult>;
 
 export function PublishAllButton({ action }: { action: PublishAllAction }) {
   const [resultado, setResultado] = useState<PublishAllResult | null>(null);
@@ -59,7 +63,7 @@ export function PublishAllButton({ action }: { action: PublishAllAction }) {
     const fallidas: PublishAllResult['fallidas'] = [];
 
     for (;;) {
-      const vuelta = await action(null, new FormData());
+      const vuelta = await action();
 
       if (vuelta.error !== undefined) {
         setResultado({ publicadas, fallidas, restantes: 0, error: vuelta.error });
