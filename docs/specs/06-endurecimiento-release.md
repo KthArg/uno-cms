@@ -127,9 +127,18 @@ siendo **todo-o-nada por entrada** (ADR-401) y sigue diciendo qué se quedó fue
 | ----- | -------------------------------------------------------------- | ------------ |
 | T-N-1 | Las cabeceras de §7.2 sobre **todas** las clases de ruta       | e2e          |
 | T-N-2 | Ninguna exención `// isomorphic:` emite JavaScript             | ya existe    |
-| T-N-3 | Las copias amarradas por test siguen amarradas                 | ya existe    |
+| T-N-3 | Ninguna lista que deba ser única ha vuelto a duplicarse        | estructural  |
 | T-N-4 | `pnpm audit --audit-level=high` limpio                         | CI           |
 | T-N-5 | Cada fila de §7.1 apunta a un test que existe **y se ejecuta** | estructural  |
+
+**T-N-3 no es lo que pedía el issue #120, y conviene decirlo.** Aquel pedía repasar "las copias
+amarradas por test (ADR-411, protocolos de enlace)". Esa copia **ya no existe**: ADR-500 la
+eliminó al sacar `isSafeLink` de la frontera, y una implementación no puede divergir de sí
+misma. El issue se escribió antes.
+
+Lo que queda por vigilar es lo contrario: que no **reaparezca** una copia sin amarrar. Hoy hay
+dos listas que tienen que ser únicas —las rutas públicas del panel (#106) y las no indexables
+(#146)— y las dos se comparten en vez de copiarse. El caso comprueba eso.
 
 **T-N-5 merece explicación**, porque es el caso que sostiene el resto: la tabla de amenazas vive
 en un documento, y un documento no se ejecuta. El test lee la tabla, extrae los identificadores
