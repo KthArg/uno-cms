@@ -6,6 +6,7 @@ import type { ActionFieldError } from '@/cms/actions/pipeline';
 import type { ObjectSchema } from '@/cms/core/config';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
 import { ConfirmarAccion } from './ConfirmarAccion';
+import { PreviewFrame } from './PreviewFrame';
 import { EntryForm, type ValoresDeEntrada } from './EntryForm';
 import { EstadoGuardado } from './EstadoGuardado';
 import { MediaPicker } from './MediaPicker';
@@ -14,15 +15,14 @@ import { useAutosave, type ResultadoGuardado } from './useAutosave';
 /**
  * La pantalla de edición de una entrada (SPEC §6.1, §8, §9).
  *
- * ## El hueco de la vista previa está vacío a propósito
+ * ## La vista partida de §6.1
  *
- * §6.1 describe una vista partida: formulario a la izquierda, la landing real en un iframe a
- * la derecha. Ese iframe es M5 entero —token, `postMessage`, proveedor reactivo— y **aquí solo
- * está el hueco, dicho como tal**.
+ * Formulario a la izquierda, la landing real en un iframe a la derecha, que cambia mientras se
+ * escribe. Hasta #115 aquí había un hueco que decía explícitamente que no estaba construido, en
+ * vez de un rectángulo con "Vista previa" dentro — eso no habría sido un marcador de posición
+ * sino una promesa falsa.
  *
- * La alternativa habría sido pintar un rectángulo con "Vista previa" dentro. Eso no es un
- * marcador de posición: es una promesa falsa, y quien abra el panel creerá que la vista previa
- * está rota en vez de sin construir.
+ * Si no llega `urlDeVistaPrevia` el hueco vuelve, y con el mismo criterio: se dice qué falta.
  */
 
 export interface EntryEditorProps {
@@ -41,6 +41,13 @@ export interface EntryEditorProps {
   readonly entryKey: string;
   /** Si hay algo publicado a lo que volver. Sin ello, deshacer no tiene sentido. */
   readonly sePuedeDeshacer: boolean;
+  /**
+   * La dirección del iframe de vista previa, con su token dentro (SPEC §6.1 paso 1).
+   *
+   * Opcional: si no se pudo crear el enlace, la pantalla sigue sirviendo para escribir y
+   * publicar. La vista previa es lo que distingue a este CMS, no lo que lo sostiene.
+   */
+  readonly urlDeVistaPrevia?: string;
   /** La biblioteca, para el selector de imágenes. */
   readonly imagenes?: readonly ImagenDeBiblioteca[];
   readonly tiposAceptados?: readonly string[];
@@ -59,6 +66,7 @@ export function EntryEditor({
   deshacer,
   entryKey,
   sePuedeDeshacer,
+  urlDeVistaPrevia,
   imagenes = [],
   tiposAceptados = [],
   tamanoMaximoBytes = 0,
@@ -211,7 +219,13 @@ export function EntryEditor({
           />
         </form>
 
-        <HuecoDeVistaPrevia />
+        {urlDeVistaPrevia === undefined ? (
+          <HuecoDeVistaPrevia />
+        ) : (
+          <div className="hidden lg:block">
+            <PreviewFrame src={urlDeVistaPrevia} entryKey={entryKey} valores={valores} />
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-4">
@@ -306,12 +320,20 @@ function AvisoDeConflicto() {
   );
 }
 
+/**
+ * Cuando no hay vista previa que enseñar.
+ *
+ * Pasa si el enlace no se pudo crear —el limitador de `createPreviewToken`, un fallo puntual—.
+ * Se dice qué falta en vez de dejar un rectángulo vacío, por el mismo motivo que antes de que
+ * la vista previa existiera: un hueco mudo se lee como "esto está roto".
+ */
 function HuecoDeVistaPrevia() {
   return (
     <div className="hidden rounded-md border border-dashed border-slate-300 bg-slate-50 p-6 lg:block">
-      <p className="text-sm font-medium text-slate-700">Aquí irá la vista previa</p>
+      <p className="text-sm font-medium text-slate-700">La vista previa no está disponible ahora</p>
       <p className="mt-1 text-sm text-slate-500">
-        Todavía no está construida. Cuando lo esté, verás tu web cambiar mientras escribes.
+        Puedes seguir escribiendo y publicando con normalidad. Vuelve a cargar la página para
+        intentarlo otra vez.
       </p>
     </div>
   );

@@ -250,6 +250,26 @@ export async function readCollectionForPreview<K extends CollectionKey>(
     .filter((item): item is NonNullable<typeof item> => item !== null) as CollectionItem<K>[];
 }
 
+/**
+ * Las claves de una colección, en el mismo orden en que las devuelve la lectura.
+ *
+ * Existe para que la vista previa pueda decir "el elemento que se está editando es el tercero"
+ * sin mandarle al navegador las claves de todos (#115). El orden **tiene que ser el mismo** que
+ * el de `readCollectionForPreview`, y por eso comparte su `orderBy` en vez de repetirlo de
+ * memoria.
+ */
+export async function collectionKeysInOrder(key: CollectionKey): Promise<string[]> {
+  const rows = await getDb()
+    .select({ key: contentEntries.key, published: contentEntries.published })
+    .from(contentEntries)
+    .where(eq(contentEntries.type, key))
+    .orderBy(asc(contentEntries.sortOrder), asc(contentEntries.key));
+
+  // Se descartan los mismos que descarta la lectura: un elemento sin publicar no está en la
+  // lista, salvo que sea el autorizado — y ese caso lo resuelve quien llama comparando claves.
+  return rows.map((row) => row.key);
+}
+
 /** Ídem que `getContent`: caché entre peticiones y deduplicación dentro de una. */
 export const getCollection = cache(
   <K extends CollectionKey>(key: K): Promise<CollectionItem<K>[]> =>

@@ -1,6 +1,12 @@
 import 'server-only';
 import appConfig from '@/cms.config';
-import { getDraft, readCollection, readCollectionForPreview, readContent } from './content';
+import {
+  collectionKeysInOrder,
+  getDraft,
+  readCollection,
+  readCollectionForPreview,
+  readContent,
+} from './content';
 import type { CollectionKey, SingletonKey } from './types';
 
 /**
@@ -51,6 +57,30 @@ function alcanceEnColeccion(key: string, coleccion: string): 'toda' | string | n
   return prefijo === coleccion && key.length > coleccion.length ? key : null;
 }
 
+/**
+ * A dónde van los cambios que llegan por `postMessage` (#115).
+ *
+ * El panel manda `{ key, data }` con la clave de la entrada que se está editando. Para un
+ * singleton eso es una entrada del contexto; para un elemento de colección hay que sustituirlo
+ * **dentro de su lista**, y la lista que ve la landing no lleva claves —lo publicado es solo el
+ * contenido—, así que la posición la calcula el servidor aquí y viaja con el resto.
+ *
+ * Calcularla en el cliente exigiría mandarle las claves de todos los elementos, que es contarle
+ * al navegador cosas de la base de datos para resolver algo que el servidor ya sabe.
+ */
+export interface ObjetivoDeLaVistaPrevia {
+  /** La clave que autoriza el token. Solo se aceptan mensajes para esta. */
+  readonly key: string;
+  /** Si es un elemento de colección: en qué lista y en qué posición. */
+  readonly coleccion?: string;
+  readonly indice?: number;
+}
+
+export interface ContenidoDeVistaPrevia {
+  readonly contenido: Record<string, unknown>;
+  readonly objetivo: ObjetivoDeLaVistaPrevia;
+}
+
 export async function previewContent(key: string): Promise<Record<string, unknown>> {
   const singletons = Object.keys(appConfig.singletons) as SingletonKey[];
   const collections = Object.keys(appConfig.collections) as CollectionKey[];
@@ -72,4 +102,32 @@ export async function previewContent(key: string): Promise<Record<string, unknow
   ]);
 
   return Object.fromEntries(entradas);
+}
+
+/**
+ * Lo que necesita la ruta: el contenido y a dónde aplicar los cambios en vivo.
+ *
+ * Se calcula aquí, con la misma lectura, en vez de en la página: la posición del elemento
+ * depende del orden con el que se compuso la lista, y separarlas dejaría dos sitios que tienen
+ * que estar de acuerdo sobre ese orden.
+ */
+export async function previewContentConObjetivo(key: string): Promise<ContenidoDeVistaPrevia> {
+  const contenido = await previewContent(key);
+
+  const collections = Object.keys(appConfig.collections);
+  const coleccion = collections.find((nombre) => alcanceEnColeccion(key, nombre) === key);
+
+  if (coleccion === undefined) return { contenido, objetivo: { key } };
+
+  // La posición se busca por la clave del elemento, que `readCollectionForPreview` conserva en
+  // el orden de la lista: es el mismo índice que verá el componente.
+  const claves = await collectionKeysInOrder(coleccion as CollectionKey);
+  const indice = claves.indexOf(key);
+
+  // Si no está —lo borraron entre emitir el token y abrir la vista previa— no hay dónde aplicar
+  // nada. Se sirve el contenido y los mensajes de esa clave no encontrarán destino, que es
+  // mejor que inventarse una posición.
+  if (indice === -1) return { contenido, objetivo: { key } };
+
+  return { contenido, objetivo: { key, coleccion, indice } };
 }

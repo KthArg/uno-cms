@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { previewContent } from '@/cms/core/preview-content';
+import { previewContentConObjetivo } from '@/cms/core/preview-content';
 import { PreviewProvider } from '@/cms/preview/PreviewProvider';
 import { verifyToken } from '@/cms/security/tokens';
 import { About } from '@/components/site/About';
@@ -52,10 +52,14 @@ export default async function VistaPrevia({
 
   // Lo publicado de todo, y el borrador de lo que autoriza el token (ADR-501). Esta ruta **no
   // escribe nada**: la vista previa no llama a ninguna action.
-  const contenido = await previewContent(key);
+  //
+  // El objetivo dice a dónde aplicar los cambios que lleguen por `postMessage`. Lo calcula el
+  // servidor porque, para un elemento de colección, hace falta su posición en la lista — y la
+  // lista que ve la landing no lleva claves.
+  const { contenido, objetivo } = await previewContentConObjetivo(key);
 
   return (
-    <PreviewProvider initial={contenido}>
+    <PreviewProvider initial={contenido} objetivo={objetivo}>
       <main>
         <Hero />
         <About />
