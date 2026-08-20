@@ -5,7 +5,7 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { useEffect, useRef } from 'react';
 import type { RichTextField as RichTextFieldDef } from '@/cms/core/config';
-import { PROTOCOLOS_DE_ENLACE } from './link-protocols';
+import { allowedLinkProtocols } from '@/cms/links';
 
 /**
  * El campo de texto rico (SPEC §6.3).
@@ -72,14 +72,16 @@ export function CampoTextoRico({ id, field, value, onChange, error }: RichTextFi
       }),
       Link.configure({
         openOnClick: false,
-        // La lista de `cms/ui/fields/link-protocols.ts`, que un test amarra a la del servidor
-        // (ADR-411). Sin pasarla, Tiptap usa la suya —más larga— y el saneador borraría el
-        // enlace al guardar sin decir nada.
+        // La lista de `cms/links.ts`, que desde ADR-500 es **la misma** que usa el servidor:
+        // ya no hay copia que pueda divergir. Sin pasarla, Tiptap usa la suya —más larga— y el
+        // saneador borraría el enlace al guardar sin decir nada.
+        //
+        // Tiptap los quiere sin los dos puntos; el módulo los guarda con ellos porque compara
+        // contra `URL.protocol`. La diferencia es de formato, no de contenido.
         //
         // Esto **no** es la validación: es el aviso en vivo. Quien decide lo que se guarda es
-        // `isSafeLink` en el servidor, que además mira caracteres de control y rutas
-        // disfrazadas.
-        protocols: [...PROTOCOLOS_DE_ENLACE],
+        // `isSafeLink`, que además mira caracteres de control y rutas disfrazadas.
+        protocols: allowedLinkProtocols.map((protocolo) => protocolo.replace(':', '')),
       }),
     ],
     content: (value ?? { type: 'doc', content: [] }) as Record<string, unknown>,

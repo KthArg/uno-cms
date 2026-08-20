@@ -1,6 +1,6 @@
 import 'server-only';
 import { z } from 'zod';
-import { isSafeLink } from './links';
+import { isSafeLink } from '@/cms/links';
 
 /**
  * Allowlist de richtext (SPEC §6.3): "p, strong, em, a[href http/https/mailto], ul, ol, li,

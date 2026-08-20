@@ -1,19 +1,28 @@
-import 'server-only';
-
 /**
  * Validación de destinos de enlace (SPEC §7.1, "XSS vía contenido … `link` valida protocolo
  * y bloquea `javascript:`").
  *
- * Vive en su propio módulo, y no dentro de `schema-gen`, porque es la **única** autoridad
- * sobre qué es un enlace aceptable: la usan el esquema al guardar y el filtrado de marcas
- * `link` del richtext. Dos copias de esta lógica serían dos oportunidades de que una se
- * quedara atrás.
+ * La **única** autoridad sobre qué es un enlace aceptable. La usan el esquema al guardar, el
+ * filtrado de marcas del richtext, los ajustes del sitio, el aviso en vivo del editor y el
+ * renderizador de la landing. Cinco sitios, una implementación.
  *
- * Es `server-only` a propósito. Sería cómodo compartirla con el panel para avisar al editor
- * mientras teclea, pero eso exigiría marcarla como isomorfa, y una exención sobre un
- * fichero que **sí** emite JavaScript es exactamente el agujero que documenta el issue #46.
- * Si M4 quiere aviso en vivo, que lo decida entonces y con su ADR: hoy la validación al
- * guardar es suficiente y la frontera queda intacta.
+ * ## Por qué vive fuera de `cms/core/` (ADR-500)
+ *
+ * Estuvo en `cms/core/links.ts` con `server-only` hasta M5, y su propio comentario anticipaba
+ * este momento: "si M4 quiere aviso en vivo, que lo decida entonces y con su ADR".
+ *
+ * M5 lo pide de verdad: `<RichText>` decide **al renderizar** si un `href` se convierte en
+ * enlace, y eso ocurre en el navegador, tanto en la landing como en la vista previa. Las dos
+ * salidas que quedaban eran duplicar la lógica —dos implementaciones que pueden separarse en
+ * comportamiento, no solo en datos— o sacarla de la frontera.
+ *
+ * Se saca, porque lo que esa frontera protege son **credenciales, consultas y sesiones**
+ * (SPEC §7.1, "Secretos en cliente"), y esto es un predicado puro sobre cadenas: no lee el
+ * entorno, no toca la base de datos y no importa nada. Mandarlo al navegador no revela nada que
+ * el navegador no pueda deducir probando enlaces.
+ *
+ * Y a cambio desaparece la copia de ADR-411, que existía solo porque este módulo no se podía
+ * importar desde el cliente. Una implementación no puede divergir de sí misma.
  */
 
 /** Protocolos permitidos. Deliberadamente corta: `data:` y `blob:` NO están. */

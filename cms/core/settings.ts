@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import appConfig from '@/cms.config';
 import { getDb, settings } from '@/cms/db';
-import { isSafeLink } from './links';
+import { isSafeLink } from '@/cms/links';
 
 /**
  * Ajustes del sitio (SPEC §4, tabla `settings`).

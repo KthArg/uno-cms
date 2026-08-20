@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSafeLink } from '@/cms/core/links';
+import { allowedLinkProtocols, isSafeLink } from '@/cms/links';
 
 /**
  * T-39-6 y T-39-7: la mitigación de XSS por URL de SPEC §7.1.
@@ -98,5 +98,23 @@ describe('casos límite que no son obvios', () => {
     expect(isSafeLink(null)).toBe(false);
     expect(isSafeLink(42)).toBe(false);
     expect(isSafeLink({ toString: () => 'https://ejemplo.com' })).toBe(false);
+  });
+});
+
+describe('ADR-500 — una sola lista de protocolos', () => {
+  it('no admite protocolos peligrosos', () => {
+    // Venía del test de divergencia que ADR-411 exigía entre las dos listas. Esa copia ya no
+    // existe —una implementación no puede divergir de sí misma— pero **esta** comprobación
+    // sigue haciendo falta: protege de que alguien amplíe la lista, que es lo que el test de
+    // divergencia no habría impedido si se ampliaban las dos a la vez.
+    for (const prohibido of ['javascript:', 'data:', 'blob:', 'vbscript:', 'file:']) {
+      expect([...allowedLinkProtocols]).not.toContain(prohibido);
+    }
+  });
+
+  it('la lista está congelada', () => {
+    // Se exporta a componentes de cliente desde ADR-500. Una lista mutable compartida es una
+    // lista que alguien amplía en tiempo de ejecución sin que ningún test se entere.
+    expect(Object.isFrozen(allowedLinkProtocols)).toBe(true);
   });
 });

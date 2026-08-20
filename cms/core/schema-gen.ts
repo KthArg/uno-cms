@@ -1,7 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
 import type { AnyField, ObjectSchema } from './config';
-import { isSafeLink, allowedLinkProtocols } from './links';
+import { isSafeLink, allowedLinkProtocols } from '@/cms/links';
 import { richTextDocSchema, richTextHasContent } from './richtext';
 
 /**
