@@ -22,7 +22,8 @@ cuenta se crea con un código de un solo uso que defines tú al desplegar.
 landing con vista previa en vivo, y endurecimiento.
 
 Lo que funciona, lo que es frágil y lo que habría que probar a mano —incluido **lo que no está
-verificado**— está en [`docs/PROGRESS.md`](docs/PROGRESS.md). Lo aplazado, con su motivo, en
+verificado** y los tres fallos que apareció una pasada de repaso **después** de cerrar el último
+hito— está en [`docs/PROGRESS.md`](docs/PROGRESS.md). Lo aplazado, con su motivo, en
 [`docs/PENDIENTES.md`](docs/PENDIENTES.md).
 
 ## Documentación
