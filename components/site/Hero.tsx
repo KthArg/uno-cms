@@ -32,7 +32,13 @@ export function Hero() {
       {hero.subtitle && <p className="text-lg text-slate-600">{hero.subtitle}</p>}
 
       {/* El botón necesita las dos cosas. Un texto sin destino es un botón que no lleva a
-          ninguna parte, y un destino sin texto no se puede pulsar. */}
+          ninguna parte, y un destino sin texto no se puede pulsar.
+
+          PENDIENTE(#143): el destino no se comprueba aquí, solo al guardar. Hoy lo tapan React
+          —que bloquea las URL `javascript:`, comprobado— y el navegador, que no navega a
+          `data:` desde un enlace. Ninguna de las dos protecciones es nuestra ni tiene test
+          nuestro. Se cierra con #113, que necesita la misma comprobación para los enlaces del
+          richtext. */}
       {hero.ctaLabel && hero.ctaHref && (
         <a
           href={hero.ctaHref}
