@@ -3,6 +3,7 @@
 import { upload } from '@vercel/blob/client';
 import { useState } from 'react';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
+import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
  * El selector de imágenes: subir una nueva o elegir de las que ya hay.
@@ -76,8 +77,7 @@ export function MediaPicker({
       setRecienSubidas((previas) => [subida, ...previas]);
       onElegir(subida);
     } catch (fallo) {
-      // El mensaje que llega es el que devuelve nuestra ruta, ya en español llano.
-      setError(fallo instanceof Error ? fallo.message : 'No se ha podido subir la imagen.');
+      setError(mensajeDeSubida(fallo));
     } finally {
       setSubiendo(false);
     }
@@ -162,4 +162,34 @@ export function MediaPicker({
       </div>
     </div>
   );
+}
+
+/**
+ * Qué se enseña cuando una subida falla.
+ *
+ * ## El problema, que es de vocabulario y no de funcionamiento
+ *
+ * Cuando quien rechaza es **nuestra ruta** —tipo no permitido, demasiado grande, nombre
+ * inválido— el mensaje llega en español llano y es exactamente lo que hay que enseñar.
+ *
+ * Cuando lo que falla es la **red**, no. Ahí el mensaje lo escribe el navegador, y decía cosas
+ * como "Failed to fetch" a alguien que solo quería subir una foto. `SPEC.md` §9 pide cero jerga
+ * en el panel, y este era el único sitio donde se colaba en inglés — el comentario anterior daba
+ * por hecho que el mensaje siempre venía de nuestra ruta.
+ *
+ * ## Cómo se distinguen, y por qué es "mejor esfuerzo"
+ *
+ * `fetch` rechaza con **`TypeError`** cuando la petición no llega a hacerse: eso está en su
+ * especificación, no es una corazonada sobre la librería. Cualquier otro `Error` se trata como
+ * un rechazo con motivo y se enseña tal cual.
+ *
+ * Es mejor esfuerzo y no una garantía: si la librería envolviera el fallo de red en otro tipo,
+ * volveríamos a enseñar su texto. Se queda porque cubre el caso frecuente sin inventar nada y
+ * sin mover módulos de sitio.
+ */
+export function mensajeDeSubida(fallo: unknown): string {
+  if (fallo instanceof TypeError) return FALLO_DE_RED;
+  if (fallo instanceof Error && fallo.message.trim() !== '') return fallo.message;
+
+  return 'No se ha podido subir la imagen.';
 }
