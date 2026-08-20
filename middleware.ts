@@ -1,6 +1,6 @@
 import NextAuth from 'next-auth';
 import { NextResponse, type NextRequest } from 'next/server';
-import { esRutaPublicaDelPanel } from '@/cms/routes';
+import { esNoIndexable, esRutaPublicaDelPanel } from '@/cms/routes';
 
 /**
  * Cabeceras de seguridad, CSP con nonce y guard de `/admin` (SPEC §7.2, §7.1).
@@ -38,9 +38,6 @@ const { auth } = NextAuth({
     authorized: ({ auth: session }) => session !== null,
   },
 });
-
-/** Rutas que nunca deben indexarse (SPEC §7.2). */
-const NOINDEX_PREFIXES = ['/admin', '/preview', '/api', '/setup'];
 
 /** Métodos que modifican estado y por tanto exigen comprobación de origen (SPEC §7.1). */
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -84,7 +81,7 @@ function applySecurityHeaders(response: NextResponse, request: NextRequest, nonc
   // Solo en las rutas privadas. En la landing sería un error caro: costaría el
   // posicionamiento del sitio entero y nadie lo notaría hasta semanas después.
   const path = request.nextUrl.pathname;
-  if (NOINDEX_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix + '/'))) {
+  if (esNoIndexable(path)) {
     response.headers.set('X-Robots-Tag', 'noindex');
   }
 }
