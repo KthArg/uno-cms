@@ -51,3 +51,28 @@ export const RUTAS_PUBLICAS_DEL_PANEL: readonly {
 export function esRutaPublicaDelPanel(path: string): boolean {
   return RUTAS_PUBLICAS_DEL_PANEL.some((ruta) => ruta.url === path);
 }
+
+/**
+ * Prefijos que **nunca deben indexarse** (SPEC §7.2, §6.2).
+ *
+ * Los usan dos sitios que no pueden discrepar:
+ *
+ * 1. El middleware, que les pone `X-Robots-Tag: noindex`.
+ * 2. El sitemap, que tiene que dejarlos fuera.
+ *
+ * Y la razón de compartirla es más fuerte que la de las rutas públicas del panel: `X-Robots-Tag`
+ * le dice al buscador que no indexe **después de haber ido a mirar**. Un sitemap que anuncia
+ * `/preview` invita a ir, y basta con que un enlace de vista previa siga vivo para que lo que se
+ * sirva ahí sea contenido sin publicar de alguien.
+ *
+ * Con dos copias, añadir un prefijo al middleware y olvidarlo en el sitemap deja exactamente ese
+ * agujero, y en verde.
+ */
+export const PREFIJOS_NO_INDEXABLES: readonly string[] = ['/admin', '/preview', '/api', '/setup'];
+
+/** Si una ruta cae bajo alguno de esos prefijos. */
+export function esNoIndexable(path: string): boolean {
+  return PREFIJOS_NO_INDEXABLES.some(
+    (prefijo) => path === prefijo || path.startsWith(`${prefijo}/`)
+  );
+}

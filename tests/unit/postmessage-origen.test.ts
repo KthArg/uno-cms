@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { sinComentarios } from '../support/codigo';
 import { listTypeScriptFiles, REPO_ROOT } from '../support/module-boundary';
 
 /**
@@ -20,25 +21,6 @@ const ARBOLES = ['cms', 'app', 'components'];
 
 function ficheros(): string[] {
   return ARBOLES.flatMap((arbol) => listTypeScriptFiles(join(REPO_ROOT, arbol)));
-}
-
-/**
- * Quita los comentarios antes de buscar.
- *
- * Hace falta, y lo descubrí de la peor manera: la primera versión marcaba `PreviewFrame.tsx`
- * porque su comentario **explica por qué no se debe usar `'*'`**. Un test que castiga a quien
- * documenta el motivo es un test que enseña a no documentarlo.
- *
- * Los comentarios se sustituyen por espacios en vez de borrarse, para no juntar dos trozos de
- * código que estaban separados por uno.
- */
-function sinComentarios(codigo: string): string {
-  const bloques = /\/\*[\s\S]*?\*\//g;
-  const lineas = /\/\/.*/g;
-
-  return codigo
-    .replace(bloques, (texto) => ' '.repeat(texto.length))
-    .replace(lineas, (texto) => ' '.repeat(texto.length));
 }
 
 /** `postMessage(loQueSea, '*')`, con cualquiera de las dos comillas. */

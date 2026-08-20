@@ -58,3 +58,22 @@ test('la landing se sirve sin errores de cliente', async ({ page }) => {
   expect(errores).toEqual([]);
   await expect(page.locator('main')).toBeVisible();
 });
+
+test('T-L-1: el sitemap anuncia la landing y nada más', async ({ page }) => {
+  const respuesta = await page.goto('/sitemap.xml');
+
+  expect(respuesta?.status()).toBe(200);
+
+  const xml = (await respuesta?.text()) ?? '';
+
+  // La landing sí. Un sitemap que no la anuncia no sirve para nada.
+  expect(xml).toContain('<loc>');
+
+  // Y ninguna de las rutas que el middleware marca como no indexables. `X-Robots-Tag` le dice al
+  // buscador que no indexe **después de haber ido a mirar**; anunciarlas aquí es invitarle a ir,
+  // y basta con que un enlace de vista previa siga vivo para que lo que se sirva sea contenido
+  // sin publicar de alguien.
+  for (const prefijo of ['/admin', '/preview', '/api', '/setup']) {
+    expect(xml, `el sitemap anuncia ${prefijo}`).not.toContain(prefijo);
+  }
+});
