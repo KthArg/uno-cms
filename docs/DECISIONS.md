@@ -815,3 +815,32 @@ En Vercel eso no molesta —la integración inyecta la variable y la base está 
 - **Volver a la versión estática es quitar una línea** —`export const dynamic = 'force-dynamic'`—, y está dicho en el propio fichero. El día que el despliegue garantice la base en tiempo de construcción, la decisión se revierte sin rediseñar nada.
 - **El build sigue sin necesitar base de datos**, que es lo que permite que el job de `build` en CI sea rápido y no arrastre un contenedor de Postgres.
 - Las medidas son **locales, con Postgres en la misma máquina y una landing pequeña**. No las extrapolo: si algún día el contenido crece mucho, hay que volver a medir antes de dar por buena esta decisión. Es exactamente lo que pedía #71.
+
+---
+
+## ADR-600 — El tope de `publishAll` se queda, y el bucle que lo encadena vive en el cliente (resuelve #119)
+
+**Contexto.** `publishAll` publica como mucho cien entradas por llamada. El tope existe porque el bucle corre dentro de una Server Action, en secuencia, y en un despliegue serverless la función tiene un límite de duración. Al agotarse **no se pierde lo publicado** —cada entrada va en su propia transacción— pero sí el informe: la petición muere y el editor no sabe qué pasó con su sitio.
+
+Con tres singletons no se nota. Con una colección de doscientos elementos modificados, sí.
+
+**Las salidas evaluadas.**
+
+| Salida                              | Por qué no                                                                                                                                                                                                                   |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Subir el tope**                   | Mueve el problema en vez de resolverlo: con mil entradas se choca igual, y el número al que se sube sería tan arbitrario como el actual                                                                                      |
+| **Una operación en segundo plano**  | Exige una cola, que `SPEC.md` §2 no contempla y que un despliegue auto-hospedado tendría que montar aparte. Y cambia la experiencia: el editor pulsa y **deja de ver el resultado**, que es justo lo que §9 pide que no pase |
+| **Publicar en menos transacciones** | Rompe el todo-o-nada **por entrada** de ADR-401: una sección con un campo obligatorio vacío tumbaría el lote entero                                                                                                          |
+
+**Decisión.** El tope se queda en cien, y **el bucle que encadena las llamadas vive en el cliente**, en el botón de "Publicar todo".
+
+Cada llamada publica como mucho cien entradas, así que ninguna se acerca al límite de duración. El botón repite mientras el servidor diga que quedan, **acumulando los informes** para que al final se vea el total y no el del último tramo.
+
+**La condición de parada, que es la parte delicada.** Se para cuando no quedan **o cuando una vuelta no publica ni falla nada**. Lo segundo es lo que impide un bucle infinito: si el servidor dice que quedan y no avanza, insistir sería castigar la base de datos de alguien sin arreglar nada. En ese caso la pantalla lo dice, y **no** invita a volver a pulsar — sería mandar a repetir lo que acaba de no funcionar.
+
+**Consecuencias.**
+
+- Publicar un sitio grande deja de depender de que la petición aguante, que era el criterio de #119.
+- Se conservan las dos propiedades que importaban: **todo-o-nada por entrada** y **el informe de lo que se quedó fuera**.
+- **Sigue dependiendo de que la pestaña esté abierta.** Cerrarla a mitad deja el sitio publicado a medias — sin perder nada, porque cada entrada está confirmada, pero sin terminar. Es aceptable para el caso que este producto describe y hay que decirlo: la alternativa era la cola, y su coste es mayor.
+- El tope sigue siendo un número elegido a ojo. Lo que cambia es que **ya no se nota**.
