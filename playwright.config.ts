@@ -32,7 +32,16 @@ export default defineConfig({
     ? undefined
     : {
         command: `pnpm build && pnpm exec next start --port ${port}`,
-        url: baseURL,
+        // **La sonda de arranque pide `/api/health`, no la landing.** Playwright espera a que
+        // el servidor responda pidiendo esta dirección, y esa petición ocurre **antes** de
+        // `globalSetup` — que es quien deja la base en el estado de un sitio ya configurado.
+        //
+        // Con `baseURL` a secas, esa primera petición renderizaba la landing con el sitio aún
+        // sin dueño y **cacheaba esa respuesta** (ADR-502). Los tests que visitaban `/` veían
+        // el aviso de "todavía no está listo" en vez del contenido, y solo en una base recién
+        // creada: en local pasaba desapercibido porque la base arrastra usuarios de la
+        // ejecución anterior. Falló en CI, que nace limpia.
+        url: `${baseURL}/api/health`,
         // Nunca reutilizar un servidor ajeno: daría verde contra otra aplicación.
         reuseExistingServer: false,
         timeout: 180_000,
