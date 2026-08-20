@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { publish, revertDraft, saveDraft } from '@/cms/actions';
+import { createPreviewToken, publish, revertDraft, saveDraft } from '@/cms/actions';
 import { definicionDeColeccion, tituloDeElemento } from '@/cms/core/collections';
 import { readEntryForEditor, schemaForType } from '@/cms/core/content';
 import { listMedia } from '@/cms/core/media';
@@ -82,6 +82,14 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
     return { ok: false, code: resultado.code, message: resultado.message };
   }
 
+  // El enlace del iframe (SPEC §6.1 paso 1). Si no se pudo crear —el limitador, un fallo
+  // puntual— la pantalla sigue sirviendo para escribir y publicar: la vista previa es lo que
+  // distingue a este CMS, no lo que lo sostiene.
+  const enlaceDeVistaPrevia = await createPreviewToken({ key });
+  const urlDeVistaPrevia = enlaceDeVistaPrevia.ok
+    ? `/preview?token=${encodeURIComponent(enlaceDeVistaPrevia.data.token)}`
+    : undefined;
+
   return (
     <EntryEditor
       nombreSeccion={nombre}
@@ -96,6 +104,7 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
       // `revertDraft` devuelve NEVER_PUBLISHED (#79) y ofrecerlo sería un botón que solo
       // sirve para dar un error.
       sePuedeDeshacer={entrada.estado !== 'sin-publicar'}
+      {...(urlDeVistaPrevia === undefined ? {} : { urlDeVistaPrevia })}
       imagenes={imagenes}
       tiposAceptados={[...TIPOS_PERMITIDOS]}
       tamanoMaximoBytes={TAMANO_MAXIMO_BYTES}
