@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { ActionFieldError } from '@/cms/actions/pipeline';
+import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
  * Los ajustes del sitio (ADR-410, SPEC §5.3).
@@ -122,8 +123,18 @@ function Bloque({
     }
 
     setOcupado(true);
-    const resultado = await onGuardar(clave, valores);
-    setOcupado(false);
+
+    let resultado;
+    try {
+      resultado = await onGuardar(clave, valores);
+    } catch {
+      // Sin esto el botón se queda en "Guardar" deshabilitado y quien mira no sabe si se
+      // guardó. Aquí importa especialmente: estos ajustes tienen efecto inmediato.
+      setAviso(FALLO_DE_RED);
+      return;
+    } finally {
+      setOcupado(false);
+    }
 
     setErrores(resultado.errores ?? []);
     setAviso(

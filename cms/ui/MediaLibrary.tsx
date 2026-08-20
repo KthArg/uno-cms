@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
 import { MediaPicker } from './MediaPicker';
+import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
  * La pantalla de la biblioteca de imágenes.
@@ -35,8 +36,15 @@ export function MediaLibrary({
   const visibles = imagenes.filter((imagen) => !borradas.includes(imagen.id));
 
   const confirmarBorrado = async (imagen: ImagenDeBiblioteca): Promise<void> => {
-    const resultado = await onBorrar(imagen.id);
     setAConfirmar(null);
+
+    let resultado;
+    try {
+      resultado = await onBorrar(imagen.id);
+    } catch {
+      setAviso(FALLO_DE_RED);
+      return;
+    }
 
     if (resultado.ok) {
       setBorradas((previas) => [...previas, imagen.id]);
