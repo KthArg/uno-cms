@@ -21,7 +21,7 @@ export function Faqs() {
           <div key={`${pregunta.question}-${indice}`} className="border-t border-slate-200 pt-4">
             <dt className="font-medium text-slate-900">{pregunta.question}</dt>
             <dd className="mt-1">
-              <RichText value={pregunta.answer} />
+              <RichText value={pregunta.answer} className="space-y-2 text-slate-600" />
             </dd>
           </div>
         ))}

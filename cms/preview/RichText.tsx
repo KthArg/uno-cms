@@ -35,6 +35,14 @@ import { isSafeLink } from '@/cms/links';
 export interface RichTextProps {
   /** El documento de ProseMirror. `unknown` porque en la vista previa llega por `postMessage`. */
   readonly value: unknown;
+  /**
+   * Clases para el contenedor, que las pone **quien usa el componente**.
+   *
+   * Este componente lo aporta el CMS y lo consume la landing de cada proyecto: fijarle aquí un
+   * color o un espaciado sería imponerle una paleta a quien lo adopte, y §6.3 promete lo
+   * contrario — que adaptar el CMS sea escribir la configuración y las secciones.
+   */
+  readonly className?: string;
 }
 
 /** Nodo de ProseMirror ya comprobado por `esNodo`. */
@@ -113,6 +121,10 @@ function enlace(marca: Nodo, contenido: ReactNode): ReactNode {
   if (!isSafeLink(href)) return contenido;
 
   return (
+    // El subrayado se queda, y es la única excepción a "el estilo lo pone quien consume": un
+    // enlace que no se distingue del texto que lo rodea es un fallo de accesibilidad, y este
+    // componente no puede saber si la hoja de estilos de destino lo resuelve. Quitarlo se hace
+    // con una regla de CSS; no ponerlo no se arregla desde fuera.
     <a href={href} rel="noopener noreferrer" className="underline underline-offset-2">
       {contenido}
     </a>
@@ -170,10 +182,10 @@ function RenderNodo({ nodo }: { nodo: unknown }): ReactNode {
   }
 }
 
-export function RichText({ value }: RichTextProps) {
+export function RichText({ value, className }: RichTextProps) {
   // Un valor que no es un documento no rompe nada: se trata como vacío (ADR-404). En la vista
   // previa esto llega por `postMessage` y ahí lo que entra no lo escribe el servidor.
   if (!esNodo(value) || value.type !== 'doc') return null;
 
-  return <div className="space-y-3 text-slate-700">{hijos(value)}</div>;
+  return <div className={className}>{hijos(value)}</div>;
 }

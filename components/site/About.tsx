@@ -20,7 +20,7 @@ export function About() {
     <section data-cms-key="about" className="mx-auto max-w-3xl px-6 py-16">
       <h2 className="text-2xl font-semibold tracking-tight text-slate-900">{about.heading}</h2>
       <div className="mt-4">
-        <RichText value={about.body} />
+        <RichText value={about.body} className="space-y-3 text-slate-700" />
       </div>
     </section>
   );
