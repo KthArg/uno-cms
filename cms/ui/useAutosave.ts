@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ActionFieldError } from '@/cms/actions/pipeline';
+import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
  * El autosave de `SPEC.md` §8: "debounce 2 s tras el último tecleo + guardado al blur del
@@ -181,6 +182,20 @@ export function useAutosave(opciones: OpcionesAutosave): Autosave {
    * *antes* de esa actualización, así que quien la esperaba seguía leyendo la versión de
    * antes — el mismo fallo que se creía arreglado, una capa más adentro.
    */
+  /**
+   * Si el último intento se cayó por red.
+   *
+   * Existe por un fallo que introduje al arreglar el otro: al devolver lo pendiente a la cola,
+   * `enviar` veía que había algo que mandar y **se volvía a llamar inmediatamente**, fallaba
+   * otra vez, devolvía a la cola otra vez… hasta tumbar el proceso. Lo enseñó el test, no la
+   * lectura.
+   *
+   * Con esto, tras un fallo de red **no se reintenta solo**: se reintenta cuando alguien vuelve
+   * a teclear o pulsa publicar. Insistir contra una red caída no la arregla, y encima esconde
+   * el aviso detrás de un bucle.
+   */
+  const falloDeRed = useRef(false);
+
   const ejecutar = useCallback(async (): Promise<number> => {
     const valores = pendiente.current;
     if (valores === null) return versionRef.current;
@@ -188,7 +203,29 @@ export function useAutosave(opciones: OpcionesAutosave): Autosave {
     pendiente.current = null;
     setEstado({ tipo: 'guardando' });
 
-    const resultado = await guardar(valores, versionRef.current);
+    let resultado;
+    try {
+      resultado = await guardar(valores, versionRef.current);
+    } catch {
+      falloDeRed.current = true;
+
+      // La llamada no llegó a responder: red caída, un 500, un despliegue a mitad.
+      //
+      // **Sin esto, el indicador se quedaba en "Guardando…" para siempre**, que es la peor
+      // mentira posible en este componente: existe justo para decir si lo escrito está a salvo.
+      setEstado({ tipo: 'error', mensaje: FALLO_DE_RED });
+
+      // Y lo pendiente vuelve a la cola, para que el siguiente intento —otro tecleo, o pulsar
+      // publicar— lo mande. Solo si no ha llegado nada más nuevo entretanto: pisar lo nuevo con
+      // lo viejo sería cambiar un fallo de red por una pérdida de trabajo.
+      pendiente.current ??= valores;
+
+      // El borrador local **no** se toca. Solo se borra al confirmar un guardado, y esta es
+      // exactamente la situación para la que existe esa red.
+      return versionRef.current;
+    }
+
+    falloDeRed.current = false;
 
     if (resultado.ok && resultado.version !== undefined) {
       versionRef.current = resultado.version;
@@ -232,8 +269,15 @@ export function useAutosave(opciones: OpcionesAutosave): Autosave {
     if (detenido.current) return versionRef.current;
 
     if (operacion.current !== null) {
-      await operacion.current;
-      return pendiente.current === null ? versionRef.current : enviar();
+      try {
+        await operacion.current;
+      } catch {
+        // Se espera a una operación **ajena**: quien la lanzó ya contó el fallo y dejó el
+        // estado como toca. Lo único que hace falta aquí es dejar de esperar en vez de
+        // arrastrar el rechazo hasta quien llamó, que no tiene nada que ver.
+      }
+
+      return pendiente.current === null || falloDeRed.current ? versionRef.current : enviar();
     }
 
     if (pendiente.current === null) return versionRef.current;
@@ -244,7 +288,7 @@ export function useAutosave(opciones: OpcionesAutosave): Autosave {
     try {
       const version = await promesa;
       // Si llegaron más cambios mientras se guardaba, se encadena.
-      return pendiente.current === null ? version : enviar();
+      return pendiente.current === null || falloDeRed.current ? version : enviar();
     } finally {
       operacion.current = null;
     }

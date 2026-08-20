@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { FALLO_DE_RED } from '@/cms/ui/fallo-de-red';
 import { claveLocal, useAutosave, type ResultadoGuardado } from '@/cms/ui/useAutosave';
 
 /**
@@ -389,5 +390,105 @@ describe('autosave', () => {
       expect(guardar).toHaveBeenCalledTimes(2);
     });
     expect(guardar).toHaveBeenLastCalledWith({ title: 'Segundo' }, 1);
+  });
+});
+
+describe('cuando la red se cae', () => {
+  /**
+   * El caso que no cubría nada, y el peor de todos.
+   *
+   * Si `guardar` **lanza** en vez de devolver `{ ok: false }` —red caída, un 500, un despliegue
+   * a mitad— el `await` propagaba y el estado se quedaba en `guardando` **para siempre**.
+   *
+   * Eso es la peor mentira posible en este componente: el indicador existe justo para decir si
+   * lo escrito está a salvo, y decía "Guardando…" sobre algo que nunca se guardó.
+   */
+  const seCae = () => vi.fn().mockRejectedValue(new Error('Failed to fetch'));
+
+  it('lo dice, en vez de quedarse en «Guardando…» para siempre', async () => {
+    const { result } = montar(seCae());
+
+    act(() => {
+      result.current.alCambiar({ title: 'Hola' });
+    });
+
+    await waitFor(() => {
+      expect(result.current.estado.tipo).toBe('error');
+    });
+    expect(result.current.estado.tipo === 'error' && result.current.estado.mensaje).toBe(
+      FALLO_DE_RED
+    );
+  });
+
+  it('conserva el borrador local, que es la red para esto', async () => {
+    const almacenamiento = almacenamientoFalso();
+    const { result } = montar(seCae(), { almacenamiento });
+
+    act(() => {
+      result.current.alCambiar({ title: 'Lo que estaba escribiendo' });
+    });
+
+    await waitFor(() => {
+      expect(result.current.estado.tipo).toBe('error');
+    });
+
+    // El borrador solo se borra al **confirmar** un guardado. Esta es exactamente la situación
+    // para la que existe: perderlo aquí sería quitar el paracaídas al saltar.
+    expect(almacenamiento.getItem(claveLocal('hero'))).toContain('Lo que estaba escribiendo');
+  });
+
+  it('lo pendiente vuelve a la cola y el siguiente intento lo manda', async () => {
+    const guardar = vi
+      .fn<(v: Record<string, unknown>, n: number) => Promise<ResultadoGuardado>>()
+      .mockRejectedValueOnce(new Error('Failed to fetch'))
+      .mockResolvedValue({ ok: true, version: 1 });
+
+    const { result } = montar(guardar);
+
+    act(() => {
+      result.current.alCambiar({ title: 'Hola' });
+    });
+    await waitFor(() => {
+      expect(result.current.estado.tipo).toBe('error');
+    });
+
+    // Al pulsar publicar —o al volver a teclear— se reintenta lo que no llegó a guardarse. Sin
+    // devolverlo a la cola, ese texto se quedaba fuera hasta la siguiente tecla.
+    await act(async () => {
+      await result.current.guardarYa();
+    });
+
+    expect(guardar).toHaveBeenCalledTimes(2);
+    expect(guardar.mock.calls[1]?.[0]).toEqual({ title: 'Hola' });
+    await waitFor(() => {
+      expect(result.current.estado.tipo).toBe('guardado');
+    });
+  });
+
+  it('no pisa lo nuevo con lo viejo', async () => {
+    const guardar = vi
+      .fn<(v: Record<string, unknown>, n: number) => Promise<ResultadoGuardado>>()
+      .mockRejectedValueOnce(new Error('Failed to fetch'))
+      .mockResolvedValue({ ok: true, version: 1 });
+
+    const { result } = montar(guardar);
+
+    act(() => {
+      result.current.alCambiar({ title: 'viejo' });
+    });
+    await waitFor(() => {
+      expect(result.current.estado.tipo).toBe('error');
+    });
+
+    // Mientras tanto se sigue escribiendo. Devolver lo viejo a la cola **por encima** de esto
+    // sería cambiar un fallo de red por una pérdida de trabajo.
+    act(() => {
+      result.current.alCambiar({ title: 'nuevo' });
+    });
+
+    await waitFor(() => {
+      expect(result.current.estado.tipo).toBe('guardado');
+    });
+    expect(guardar.mock.calls[1]?.[0]).toEqual({ title: 'nuevo' });
   });
 });
