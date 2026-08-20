@@ -31,6 +31,8 @@
     "test:ui": "vitest run --project ui",
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test",
+    "presupuesto:js": "node scripts/presupuesto-js.mjs",
+    "seed:demo": "node scripts/seed-demo.mjs",
     "test:coverage": "vitest run --coverage",
     "prepare": "husky",
     "db:migrate": "node --conditions=react-server ./node_modules/drizzle-kit/bin.cjs migrate",
@@ -55,6 +57,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.3.6",
+    "@lhci/cli": "^0.15.1",
     "@playwright/test": "1.62.1",
     "@tailwindcss/postcss": "4.3.3",
     "@testing-library/jest-dom": "^6.9.1",

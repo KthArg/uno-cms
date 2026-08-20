@@ -88,6 +88,11 @@ jobs:
       # `server-only` rompe la compilación en cuanto un módulo que lo importa se vuelve
       # alcanzable desde el grafo de cliente. Ver docs/specs/00-fundaciones.md §3.5.
       - run: pnpm build
+      # El presupuesto de JavaScript de la landing (SPEC §8, ADR-601). Va aquí y no en un job
+      # aparte porque necesita el build que este job acaba de hacer, y repetirlo costaría un
+      # minuto para medir lo mismo.
+      - name: presupuesto de JavaScript de la landing
+        run: pnpm presupuesto:js
 
   # ── En paralelo con la cadena rápida ──────────────────────────────────────────────
 
@@ -242,10 +247,77 @@ jobs:
   # protección obligaría a tocar la configuración del repositorio cada vez que se añade
   # uno, y un job nuevo no exigido pasaría a ser opcional sin que nadie lo note.
 
+  lighthouse:
+    name: lighthouse
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Los presupuestos de SPEC §8, medidos contra la landing servida con contenido de ejemplo.
+    # Necesita base de datos por lo mismo que el e2e: la landing lee contenido publicado, y sin
+    # el sitio marcado como configurado enseñaría el aviso de ADR-502 en vez de la página.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: unocms
+          POSTGRES_PASSWORD: unocms
+          POSTGRES_DB: unocms_lh
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U unocms"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://unocms:unocms@localhost:5432/unocms_lh
+      AUTH_SECRET: lighthouse-solo-para-ci-con-mas-de-treinta-y-dos
+      APP_SECRET: lighthouse-otro-distinto-de-mas-de-treinta-y-dos
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: aplicar migraciones
+        run: pnpm db:migrate
+      # Contenido de ejemplo, publicado y siempre el mismo. Medir contra una landing vacía daría
+      # 100 en todo sin significar nada: no hay nada que pintar ni que descargar.
+      - name: contenido de ejemplo
+        run: pnpm seed:demo
+      - run: pnpm build
+      - name: arrancar el servidor
+        run: |
+          pnpm exec next start --port 3210 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3210/api/health > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "::error::El servidor no respondió en 30 s."
+          exit 1
+      # Comprobación previa: si la landing enseñara el aviso de "sin configurar", Lighthouse
+      # mediría esa página y sacaría cien sin que nadie lo notara.
+      - name: comprobar que la landing sirve el contenido
+        run: |
+          if ! curl -sf http://127.0.0.1:3210/ | grep -q "Reformas que se entregan a tiempo"; then
+            echo "::error::La landing no está sirviendo el contenido de ejemplo."
+            curl -s http://127.0.0.1:3210/ | head -c 500
+            exit 1
+          fi
+      - name: presupuestos de SPEC §8
+        run: pnpm exec lhci autorun --config=lighthouserc.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse
+          path: .lighthouseci
+          retention-days: 7
+
   ci:
     name: ci
     if: always()
-    needs: [lint, typecheck, unit, build, integration, e2e, audit]
+    needs: [lint, typecheck, unit, build, integration, e2e, audit, lighthouse]
     runs-on: ubuntu-latest
     steps:
       - name: comprobar que ningún job requerido falló o se saltó
