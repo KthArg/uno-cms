@@ -844,3 +844,37 @@ Cada llamada publica como mucho cien entradas, así que ninguna se acerca al lí
 - Se conservan las dos propiedades que importaban: **todo-o-nada por entrada** y **el informe de lo que se quedó fuera**.
 - **Sigue dependiendo de que la pestaña esté abierta.** Cerrarla a mitad deja el sitio publicado a medias — sin perder nada, porque cada entrada está confirmada, pero sin terminar. Es aceptable para el caso que este producto describe y hay que decirlo: la alternativa era la cola, y su coste es mayor.
 - El tope sigue siendo un número elegido a ojo. Lo que cambia es que **ya no se nota**.
+
+---
+
+## ADR-601 — El presupuesto de JavaScript se mide en dos números, porque el de §8 no lo cumple ningún stack (resuelve #154)
+
+**Contexto.** `SPEC.md` §8 fija "JS de cliente en la landing ≤ 60 KB gz". §2 fija el stack: Next 15 App Router y React 19.
+
+Las dos cosas no caben. Medido comprimiendo los ficheros que el manifiesto asocia a cada ruta, y contrastado con lo que el navegador transfiere de verdad:
+
+| Qué                                                                               | gz           |
+| --------------------------------------------------------------------------------- | ------------ |
+| Armazón: `/_not-found` + el layout raíz — **ni un componente de cliente nuestro** | **101,6 KB** |
+| Landing completa                                                                  | **106,1 KB** |
+| **Lo que aporta nuestro código**                                                  | **5,6 KB**   |
+
+El navegador transfiere 106,9 KB al abrir `/`, lo que confirma la medida.
+
+O sea que **el armazón se pasa del presupuesto por 41,6 KB antes de escribir una línea**, y nuestro código entero cabe siete veces en esa diferencia. La salida que §8 anticipa —hacer server components las secciones textuales— ahorraría como mucho esos 5,6 KB y rompería el contrato de §6.3.
+
+**Decisión.** Dos números, los dos bloqueantes:
+
+1. **Nuestro código: ≤ 12 KB gz.** Lo que las rutas de la landing descargan y una ruta sin componentes de cliente nuestros no.
+2. **Techo del total: ≤ 120 KB gz.** No es un objetivo a bajar: es un detector de que el armazón creció.
+
+**De dónde sale el 12, que es la parte que importa.** No de lo que sonaba bien. Puse 20 KB y lo probé metiendo `zod` en una sección de la landing —el fallo típico, una librería que entra por la puerta de atrás—. Sumó 12,6 KB y **cabía**, con 1,8 de margen. Un presupuesto que deja pasar justo lo que existe para cazar no sirve de nada. Con 12, esa misma librería se pasa por seis, y doblar nuestro código sigue siendo posible: son unas doce secciones más.
+
+**Cómo se separa una cosa de otra, que es lo que hace esto honesto.** El armazón se mide contra una ruta que no contiene ningún componente de cliente nuestro. Así la frontera **se recalibra sola** cuando el framework cambie, en vez de depender de una lista de ficheros escrita a mano que se queda vieja en la primera actualización.
+
+**Consecuencias.**
+
+- **Es una desviación de la letra de §8**, y va aquí con las medidas dentro. Lo que §8 protege de verdad —que la landing no engorde y que el visitante no descargue código del panel— sigue siendo comprobable y bloqueante.
+- **Los otros tres presupuestos de §8 sí se cumplen**, y con holgura: medidos con Lighthouse en perfil móvil contra la landing con contenido de ejemplo, **performance 100, accesibilidad 100 y LCP 1,7 s** sobre un límite de 2,5 s.
+- Si el techo del total salta, **la respuesta no es subirlo**: es mirar qué creció. Está dicho en el script y en el mensaje de error.
+- **Lighthouse no es una dependencia del proyecto.** `@lhci/cli` arrastra tres vulnerabilidades altas por vía transitiva —`tmp` y `extract-zip`, esta última **sin versión corregida**— y §11 exige `pnpm audit` sin findings altos. Se ejecuta con `pnpm dlx` y versión fijada, en un contenedor de usar y tirar. No es esconder el aviso: es que el aviso describa lo que debe describir, que son las dependencias del producto. Lo descubrió CI al poner el job en rojo, no una revisión posterior.
