@@ -204,6 +204,52 @@ export async function readCollection<K extends CollectionKey>(
     .map((row) => resolveObject(schema, row.published, `${key}/${row.id}`)) as CollectionItem<K>[];
 }
 
+/**
+ * La misma lectura, pero para la vista previa: un elemento —o todos— en **borrador**.
+ *
+ * Vive aquí y no en un módulo aparte porque necesita `resolveObject` y la forma de las filas,
+ * que son de este módulo. Sacarla fuera obligaría a exportar las dos cosas solo para eso.
+ *
+ * `itemKey` acota qué se sustituye (ADR-501):
+ *
+ * - Con la clave de un elemento, solo ese sale en borrador y el resto como está publicado.
+ * - Con `null` —un token de la colección entera— salen todos en borrador.
+ *
+ * Un elemento **sin publicar** solo aparece si es el que autoriza el token. Es lo que permite
+ * previsualizar algo recién creado; incluir los demás enseñaría borradores que ese token no
+ * autoriza, que es justo lo que ADR-501 evita.
+ */
+export async function readCollectionForPreview<K extends CollectionKey>(
+  key: K,
+  itemKey: string | null
+): Promise<CollectionItem<K>[]> {
+  const schema: ObjectSchema = appConfig.collections[key].schema;
+
+  const rows = await getDb()
+    .select({
+      id: contentEntries.id,
+      key: contentEntries.key,
+      draft: contentEntries.draft,
+      published: contentEntries.published,
+    })
+    .from(contentEntries)
+    .where(eq(contentEntries.type, key))
+    .orderBy(asc(contentEntries.sortOrder), asc(contentEntries.key));
+
+  return rows
+    .map((row) => {
+      const enBorrador = itemKey === null || row.key === itemKey;
+      const valor = enBorrador ? row.draft : row.published;
+
+      // Lo publicado puede ser `null` —nunca se publicó— y entonces el elemento no sale, salvo
+      // que sea el que se está previsualizando.
+      if (valor === null) return null;
+
+      return resolveObject(schema, valor, `${key}/${row.id}`);
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null) as CollectionItem<K>[];
+}
+
 /** Ídem que `getContent`: caché entre peticiones y deduplicación dentro de una. */
 export const getCollection = cache(
   <K extends CollectionKey>(key: K): Promise<CollectionItem<K>[]> =>

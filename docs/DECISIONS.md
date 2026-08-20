@@ -752,3 +752,29 @@ Las salidas eran dos:
 - **La lista se exporta congelada.** Ahora la reciben componentes de cliente, y una lista mutable compartida es una lista que alguien amplía en tiempo de ejecución sin que ningún test se entere. Con su test.
 - Los tres importadores de `cms/core` (`richtext`, `schema-gen`, `settings`) pasan a `@/cms/links`. Nada más cambia de comportamiento.
 - **Coste:** la landing se lleva unas treinta líneas de JavaScript que antes no descargaba. A cambio, un enlace hostil que hubiera entrado a la base de datos por una restauración o un `psql` no se pinta.
+
+---
+
+## ADR-501 — La vista previa carga el borrador **solo** de la clave del token, y lo publicado del resto
+
+**Contexto.** `SPEC.md` §6.1, paso 2, dice que `/preview` "carga **drafts** de todo el contenido". Y el issue #82 pidió, al crear el token, lo contrario: que la clave viaje **dentro** de la firma porque "un token sin clave dentro serviría para cualquier entrada, y el enlace compartible de §6.1 se convertiría en una llave maestra de la vista previa".
+
+Las dos cosas no encajan. Si la ruta carga todos los borradores, la clave del token no acota nada: cualquier token válido enseña todo lo que hay sin publicar en el sitio, durante las dos horas que vive.
+
+Y eso importa porque **el enlace se comparte sin querer**: vive en la URL de un iframe, pasa por el historial del navegador y por cualquier captura de pantalla del panel.
+
+**Decisión.** La ruta carga:
+
+- El **borrador** de la clave que autoriza el token.
+- Lo **publicado** de todo lo demás.
+
+Así la vista previa sigue siendo la landing entera —que es lo que hace falta para ver una sección en su sitio, y lo que pide §6.1— y un enlace filtrado expone exactamente una sección sin publicar, la que su dueño estaba editando.
+
+**Por qué no la alternativa evidente.** Cargar todos los borradores y confiar en que el token caduque en dos horas traslada la protección al tiempo, y el tiempo no distingue entre quien debe verlo y quien no.
+
+**Consecuencias.**
+
+- **Es una desviación de la letra de §6.1**, y va escrita aquí en vez de resuelta en silencio. Lo que se pierde es previsualizar varias secciones sin publicar a la vez; lo que se gana es que el enlace valga para lo que dice que vale.
+- Quien edita **ve su sección con el resto del sitio como está publicado**, que además es más fiel a lo que verá el visitante cuando publique solo eso.
+- Un token con una clave que ya no existe en `cms.config.ts` —porque la configuración cambió después de emitirlo— no es un error: se sirve la landing publicada, sin borrador. Responder 404 castigaría a quien no ha hecho nada raro.
+- La ruta **no escribe nada**. La vista previa no llama a ninguna action, y hay un test que lo afirma sobre la base de datos.
