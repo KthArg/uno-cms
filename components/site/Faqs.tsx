@@ -1,12 +1,12 @@
 'use client';
 
+import { RichText } from '@/cms/preview/RichText';
 import { useCollection } from '@/cms/preview/useContent';
 
 /**
  * Preguntas frecuentes (SPEC §5.1).
  *
- * La respuesta es `richtext` y se pinta con `<RichText>` en #113. Hasta entonces se enseña la
- * pregunta, que es lo que se puede enseñar sin inventar nada.
+ * La respuesta es `richtext` y la pinta `<RichText>`.
  */
 export function Faqs() {
   const preguntas = useCollection('faqs');
@@ -20,6 +20,9 @@ export function Faqs() {
         {preguntas.map((pregunta, indice) => (
           <div key={`${pregunta.question}-${indice}`} className="border-t border-slate-200 pt-4">
             <dt className="font-medium text-slate-900">{pregunta.question}</dt>
+            <dd className="mt-1">
+              <RichText value={pregunta.answer} />
+            </dd>
           </div>
         ))}
       </dl>

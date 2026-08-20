@@ -723,3 +723,32 @@ El problema es que **quien canjea no tiene sesión**, y `defineAction` empieza p
 - Un enlace inválido, caducado, ya usado, de otro propósito o de una cuenta desactivada dan **404**, todos igual. Distinguirlos confirmaría que ese enlace fue real alguna vez.
 - La lista de rutas públicas es **una sola constante** que consultan el middleware y el test estructural de #70. Con dos copias, abrir una ruta en el middleware sin tocar el test dejaría una página sin guard y el test en verde.
 - El rol se comprueba **en cada página** con `soloAdmin()`, y hay un test que enumera las pantallas del panel y exige que cada una declare qué acceso pide y que las de administración llamen al guard. Esconder la entrada del menú no cierra nada.
+
+---
+
+## ADR-500 — La validación de enlaces sale de `cms/core/` y deja de estar duplicada (deroga la copia de ADR-411)
+
+**Contexto.** `isSafeLink` vivía en `cms/core/links.ts` con `server-only`. Su propio comentario anticipaba este momento:
+
+> Sería cómodo compartirla con el panel para avisar al editor mientras teclea, pero eso exigiría marcarla como isomorfa […] Si M4 quiere aviso en vivo, que lo decida entonces y con su ADR.
+
+M4 lo resolvió sin tocarla: ADR-411 copió **solo el dato** —los cuatro protocolos— a `cms/ui/fields/link-protocols.ts`, con un test que falla si las dos listas divergen. La lógica siguió viviendo en un solo sitio.
+
+M5 rompe ese equilibrio. `<RichText>` decide **al renderizar** si un `href` se convierte en enlace, y eso ocurre en el navegador: en la landing y en la vista previa. Ya no basta con el dato — hace falta la decisión. Y aparece un segundo consumidor con el mismo problema: el enlace del botón de la portada (#143).
+
+Las salidas eran dos:
+
+- **Duplicar la lógica** en un módulo de cliente. Dos implementaciones que pueden separarse **en comportamiento**, no solo en datos: un test que compare listas no detecta que una trate distinto los caracteres de control o el `//host` disfrazado de ruta.
+- **Sacarla de la frontera.**
+
+**Decisión.** `cms/links.ts`, fuera de los árboles protegidos, sin `server-only`, importable desde servidor y cliente. Una sola implementación para cinco consumidores: el esquema al guardar, el filtrado de marcas del richtext, los ajustes del sitio, el aviso en vivo del editor y el renderizador de la landing.
+
+**Por qué esto no abre la frontera de §7.1.** Lo que esa frontera protege son **credenciales, consultas y sesiones** — §7.1 la enuncia bajo "Secretos en cliente". `isSafeLink` es un predicado puro sobre cadenas: no lee el entorno, no toca la base de datos, no importa nada. Mandarlo al navegador no revela nada que el navegador no pueda deducir probando enlaces. Es el mismo criterio con el que `cms/routes.ts` quedó fuera en M4.
+
+**Consecuencias.**
+
+- **Desaparece la copia de ADR-411** y con ella su test de divergencia. No es una pérdida de cobertura: una implementación no puede divergir de sí misma, y eso es más fuerte que un test que vigila dos.
+- **Se conserva la otra mitad de aquel test** —que la lista no admita `javascript:`, `data:`, `blob:`, `vbscript:` ni `file:`— movida a `tests/unit/links.test.ts`. Esa sí seguía haciendo falta: protege de que alguien **amplíe** la lista, que es justo lo que el test de divergencia no habría impedido si se ampliaban las dos a la vez.
+- **La lista se exporta congelada.** Ahora la reciben componentes de cliente, y una lista mutable compartida es una lista que alguien amplía en tiempo de ejecución sin que ningún test se entere. Con su test.
+- Los tres importadores de `cms/core` (`richtext`, `schema-gen`, `settings`) pasan a `@/cms/links`. Nada más cambia de comportamiento.
+- **Coste:** la landing se lleva unas treinta líneas de JavaScript que antes no descargaba. A cambio, un enlace hostil que hubiera entrado a la base de datos por una restauración o un `psql` no se pinta.

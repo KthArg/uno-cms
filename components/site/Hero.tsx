@@ -1,5 +1,6 @@
 'use client';
 
+import { isSafeLink } from '@/cms/links';
 import { useContent } from '@/cms/preview/useContent';
 
 /**
@@ -34,12 +35,11 @@ export function Hero() {
       {/* El botón necesita las dos cosas. Un texto sin destino es un botón que no lleva a
           ninguna parte, y un destino sin texto no se puede pulsar.
 
-          PENDIENTE(#143): el destino no se comprueba aquí, solo al guardar. Hoy lo tapan React
-          —que bloquea las URL `javascript:`, comprobado— y el navegador, que no navega a
-          `data:` desde un enlace. Ninguna de las dos protecciones es nuestra ni tiene test
-          nuestro. Se cierra con #113, que necesita la misma comprobación para los enlaces del
-          richtext. */}
-      {hero.ctaLabel && hero.ctaHref && (
+          Y el destino se comprueba **también al pintarlo** (#143), con la misma función que
+          valida al guardar (ADR-500). Antes dependía de que React bloquease las URL
+          `javascript:` y de que el navegador no navegue a `data:`: las dos son ciertas hoy y
+          ninguna es nuestra, así que el día que cambien no se enteraría nadie. */}
+      {hero.ctaLabel && isSafeLink(hero.ctaHref) && (
         <a
           href={hero.ctaHref}
           className="rounded-md bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
