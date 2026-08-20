@@ -477,7 +477,86 @@ lo que ese iframe puede enseñar— y lo que no pasa se ignora en silencio.
   cuatro tests que no probaban nada, un fallo de invalidación de dos hitos de antigüedad y un
   efecto duplicado que la lectura no vio.
 
-## M6 — Endurecimiento, rendimiento y release ⏳
+## M6 — Endurecimiento, rendimiento y release ✅
 
-Pendiente. Aquí se escribe el modelo de amenazas completo en `docs/SECURITY.md` y se
-verifican los seis criterios de `SPEC.md` §11.
+Cerrado. Es el único hito cuyo trabajo consistió sobre todo en **comprobar lo que ya estaba**, y
+eso tiene un riesgo propio: sin un criterio escrito de antemano, "endurecer" se convierte en
+tocar cosas hasta que parezcan más seguras. Por eso su documento de fase fijó, para cada
+presupuesto, qué herramienta, contra qué contenido y con qué umbral.
+
+### Qué funciona
+
+- **Los presupuestos de §8, medidos y bloqueantes.** Lighthouse en perfil móvil contra la
+  landing con contenido de ejemplo, y el peso del JavaScript comprimido, con dos números.
+- **El modelo de amenazas cerrado**, fila por fila, con el test que sostiene cada una — y un
+  test que comprueba que esas citas existen.
+- **Las cabeceras verificadas sobre todas las clases de ruta**: landing, panel con sesión, vista
+  previa, API pública, subida de imágenes y `/setup`.
+- **`sitemap.ts`** que deja fuera lo que el middleware marca como no indexable, con la misma
+  lista.
+- **Publicar todo encadena sus vueltas** sin depender de que la petición aguante (ADR-600).
+- **La documentación completa**: la guía de despliegue para quien no programa y la del
+  desarrollador con los tres pasos para montar el CMS sobre otra landing.
+
+### Los seis criterios de `SPEC.md` §11
+
+| #   | Criterio                                                       | Estado                                                                                               |
+| --- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 1   | Deploy limpio → landing pública y admin protegido              | ⚠️ **No verificado.** Ver abajo                                                                      |
+| 2   | Un no técnico edita, ve la preview, publica y revierte         | ✅ e2e del recorrido completo (T-F-2) y de la vista previa en vivo (T-J-1)                           |
+| 3   | Toda mutación rechaza sin sesión y con rol insuficiente        | ✅ El envoltorio, con T-75-6 impidiendo que alguna se lo salte, y T-E-4 para las pantallas           |
+| 4   | Suite verde en CI, cobertura ≥ 80 % en `core` y `security`     | ✅ Nueve jobs, todos bloqueantes                                                                     |
+| 5   | Sin findings high/critical; CSP verificada; zod en cada action | ✅ `audit` limpio, T-60-3 y T-N-1 sobre respuestas reales, y los tests de payloads malformados de M3 |
+| 6   | Un dev externo monta el CMS sobre una landing nueva en < 1 h   | ⚠️ **No verificable desde dentro.** Ver abajo                                                        |
+
+**El criterio 1 no está verificado, y no lo doy por bueno.** Exige desplegar de verdad en una
+cuenta de Vercel siguiendo `SETUP.md` sin saltarse pasos, y eso no se puede hacer desde donde se
+escribió la guía. Lo que sí está: la guía cubre el camino entero, el botón de despliegue está
+compuesto con los parámetros que Vercel documenta, y el proyecto arranca contra Postgres y Blob
+en local y en CI. Queda en el issue #157, junto con las capturas.
+
+**El criterio 6 no lo puedo verificar honestamente.** Dice "validado con el proyecto de ejemplo
+incluido", y el proyecto de ejemplo lo escribí yo: conozco cada paso implícito porque los puse.
+Que yo pueda seguir mi propia guía no dice nada sobre la hora de alguien que no la escribió. Lo
+que sí afirmo es que la guía no se salta ningún paso.
+
+Prefiero dos criterios marcados como no verificados que seis marcados como cumplidos por alguien
+que no podía comprobar dos de ellos.
+
+### Qué es frágil
+
+- **El presupuesto de 60 KB de §8 no lo cumple ningún stack**, y está resuelto midiendo lo que
+  sí controlamos (ADR-601). El techo del total —120 KB— es el número peor calibrado del
+  proyecto: detecta un salto grande y no protege de nada concreto.
+- **El LCP real en CI es 1855 ms**, no los 1,7 s medidos en local. El margen contra el
+  presupuesto es de 645 ms: una fuente web o una imagen sin optimizar se lo comen.
+- **Lighthouse no está en el lockfile.** Se ejecuta con `pnpm dlx` y versión fijada, porque
+  `@lhci/cli` arrastra tres vulnerabilidades altas transitivas y §11 exige `audit` limpio. La
+  contrapartida es que sus dependencias no están ancladas.
+- **El límite de intentos sigue siendo por instancia** (#65, cerrado como limitación conocida).
+
+### Qué probaría a mano
+
+1. **Un despliegue limpio siguiendo `SETUP.md`, sin saltarse pasos y cronometrando.** Es el
+   criterio 1, y es lo único que puede decir si la meta de quince minutos de §9 es real.
+2. **Darle la guía a alguien que no programa** y mirar sin ayudar. Cada vez que pregunte algo,
+   eso es un paso implícito que hay que escribir.
+3. **Montar el CMS sobre una landing distinta** siguiendo `DEVELOPER.md`, con un cronómetro y
+   sin mirar el código de `cms/`. Si hace falta abrirlo, el contrato de §6.3 no es cierto.
+
+### Lo que enseñó este hito
+
+- **Un presupuesto hay que calibrarlo contra el fallo que existe para cazar.** Puse 20 KB para
+  el JavaScript propio y metí `zod` en una sección para probarlo: sumó 12,6 y **cabía**. Un
+  umbral que deja pasar justo lo que vigila no es un umbral.
+- **Una afirmación sobre la cobertura es una afirmación como cualquier otra.** El componente del
+  editor decía que `emitUpdate` no estaba verificado; al comprobarlo, sí lo estaba. Esa nota
+  llevaba dos hitos desactivando la curiosidad de quien la leyera.
+- **Los tests que leen código fuente necesitan un analizador, no una expresión regular.** El
+  primer intento se tragaba 1677 caracteres de código real porque la CSP contiene `https://*.…`
+  y ese `/*` abría un comentario falso. Aquí dio un rojo; en el test de al lado habría dado un
+  verde.
+- **Y lo que más se repite en seis hitos:** lo que no se ha visto fallar, no se sabe si funciona.
+  Este hito puso en rojo a propósito el presupuesto de Lighthouse, el de JavaScript, el modelo de
+  amenazas y las cuatro defensas del canal de mensajes — y en dos de esos casos el rojo no llegó
+  a la primera.

@@ -1,9 +1,11 @@
 # Guía del desarrollador
 
-> **Estado: parcial.** La parte de "levantar el proyecto" es real y funciona hoy. La de
-> "montar el CMS sobre una landing nueva" se escribe en **M6**, cuando exista el proyecto
-> de ejemplo que la valida. La meta de `SPEC.md` §11.6 es que un desarrollador externo lo
-> consiga en menos de una hora.
+> **Estado: completo.** Incluye los tres pasos para montar UnoCMS sobre una landing nueva.
+>
+> La meta de `SPEC.md` §11.6 es que un desarrollador externo lo consiga en **menos de una
+> hora**, y ahí hay algo que decir: esa meta **no la puedo verificar yo**. Escribí la guía y
+> escribí el proyecto de ejemplo, así que conozco cada paso implícito porque los puse. Lo que
+> sí afirmo es que la guía no se salta ninguno. Está anotado en `PROGRESS.md`.
 
 ## Levantar el proyecto en local
 
@@ -17,8 +19,15 @@ cp .env.example .env.local   # y rellénalo; ver los comentarios del propio fich
 pnpm dev                     # http://localhost:3000
 ```
 
-Hoy, en M0, el proyecto arranca con una página provisional. No hay panel ni base de datos
-todavía: eso llega en M1 y M2.
+Necesitas además un Postgres. Con Docker:
+
+```sh
+docker run -d --name unocms-db -p 5432:5432   -e POSTGRES_USER=unocms -e POSTGRES_PASSWORD=unocms -e POSTGRES_DB=unocms postgres:16
+pnpm db:migrate
+```
+
+La primera vez, entra en `/setup` con el `SETUP_TOKEN` que hayas puesto en `.env.local` para
+crear tu cuenta. No hay usuario por defecto, nunca (§7.3).
 
 ## Comandos
 
@@ -75,12 +84,142 @@ No son recomendaciones; rompen el build (SPEC §7.1):
   línea. La excepción `// isomorphic: <motivo>` existe, exige motivo escrito, y `cms/preview`
   es el único árbol exento por diseño (ADR-106).
 
-## Índice de lo que falta (M6)
+## Montar UnoCMS sobre una landing nueva
 
-1. **Adaptar UnoCMS a otra landing** — los tres pasos de `SPEC.md` §6.3: escribir
-   `cms.config.ts`, escribir secciones que usen `useContent`, componer `page.tsx`.
-2. Referencia completa de los tipos de campo de `s.*`.
-3. El contrato de `useContent` y `data-cms-key`.
-4. Cómo añadir un tipo de campo nuevo.
-5. Modelo de datos y migraciones.
-6. Despliegue e integraciones.
+Son **tres pasos** y ninguno toca `cms/`. Si en algún momento necesitas modificar algo de ahí
+dentro para que tu landing funcione, eso es un fallo de este contrato — abre un issue.
+
+### 1. Describe tu contenido en `cms.config.ts`
+
+Es el único fichero que se edita para modelar el contenido. De aquí salen **solos** los
+formularios del panel, la validación, los tipos que consumen tus componentes y el estado
+inicial.
+
+```ts
+export default defineConfig({
+  siteName: 'Mi empresa',
+
+  // Secciones fijas: exactamente una de cada.
+  singletons: {
+    hero: s.object(
+      {
+        title: s.text({ label: 'Título principal', max: 120, required: true }),
+        subtitle: s.text({ label: 'Subtítulo', max: 300, multiline: true }),
+        image: s.image({ label: 'Imagen de fondo' }),
+      },
+      // El nombre que ve quien edita. Sin él, los avisos dirían "en hero".
+      { label: 'Portada' }
+    ),
+  },
+
+  // Listas ordenables: N elementos.
+  collections: {
+    testimonials: {
+      label: 'Testimonios',
+      titleField: 'author', // qué se enseña en la lista del panel
+      schema: s.object({
+        author: s.text({ label: 'Nombre', required: true }),
+        quote: s.text({ label: 'Testimonio', required: true, multiline: true }),
+      }),
+    },
+  },
+});
+```
+
+Los tipos de campo son `s.text`, `s.richtext`, `s.number`, `s.boolean`, `s.select`, `s.link`,
+`s.image`, `s.color` y `s.object`.
+
+**Cambiar un campo aquí no exige migración.** El contenido vive como JSONB validado por
+esquema (ADR-003), y lo que se guardó con un esquema anterior se lee tolerando lo que ya no
+encaja en vez de tumbar el sitio (ADR-404).
+
+### 2. Escribe tus secciones con `useContent`
+
+```tsx
+'use client';
+
+import { useContent } from '@/cms/preview/useContent';
+
+export function Hero() {
+  const hero = useContent('hero');
+
+  if (!hero.title) return null; // una instalación recién desplegada no tiene contenido
+
+  return (
+    <section data-cms-key="hero">
+      <h1>{hero.title}</h1>
+      {hero.subtitle && <p>{hero.subtitle}</p>}
+    </section>
+  );
+}
+```
+
+Tres cosas que no son opcionales:
+
+- **`data-cms-key`** con la clave de la sección. Es lo que permite a la vista previa
+  desplazarse a lo que se está editando; sin él, una landing larga se abre siempre por arriba.
+- **`'use client'`** si consumes el contexto. No es porque el componente pida datos —no pide
+  ninguno— sino porque lee de React. El contenido ya viaja dentro del árbol que manda el
+  servidor.
+- **Tolerar el contenido vacío.** El primer día no hay nada publicado, y la página tiene que
+  renderizarse igual.
+
+Para una colección, `useCollection('testimonials')` devuelve la lista en su orden. Para un
+campo `richtext`, `<RichText value={…} className="…" />` — que emite elementos de React y
+**nunca** una cadena de HTML (ADR-107), y al que le pones tú las clases, porque el estilo es de
+tu proyecto.
+
+**El mismo componente sirve en producción y en la vista previa.** No sabe en cuál está, y esa
+es toda la gracia: en producción lee valores serializados por el servidor y en `/preview` lee
+un contexto que se actualiza mientras alguien teclea.
+
+### 3. Compón tu página
+
+```tsx
+import { getCollection, getContent } from '@/cms/core/content';
+import { StaticContentProvider } from '@/cms/preview/ContentContext';
+
+export const dynamic = 'force-dynamic'; // ver ADR-502
+
+export default async function Landing() {
+  const [hero, testimonials] = await Promise.all([
+    getContent('hero'),
+    getCollection('testimonials'),
+  ]);
+
+  return (
+    <StaticContentProvider value={{ hero, testimonials }}>
+      <main>
+        <Hero />
+        <Testimonials />
+      </main>
+    </StaticContentProvider>
+  );
+}
+```
+
+Las lecturas van por `getContent` y `getCollection`, que llevan caché con el tag que invalida
+`publish`. **El visitante no consulta la base de datos** cuando el caché está caliente (§8).
+
+Y si añades secciones, acuérdate de `app/preview/page.tsx`: monta las mismas, con el proveedor
+de vista previa. Es el único sitio donde la lista de secciones aparece dos veces.
+
+### Lo que obtienes sin escribir nada más
+
+Panel con autoguardado, publicación con bloqueo optimista, historial con "volver a una versión
+anterior", biblioteca de imágenes, gestión de personas con invitaciones, ajustes del sitio y la
+vista previa en vivo.
+
+## Añadir un tipo de campo nuevo
+
+Se toca `cms/core/config.ts` (el constructor y su tipo), `cms/core/schema-gen.ts` (cómo se
+valida, laxo y estricto) y `cms/ui/fields/` (cómo se edita). El `switch` del formulario es
+exhaustivo a propósito: si olvidas el componente, **no compila**.
+
+## Modelo de datos
+
+Dos tablas para el contenido: `content_entries` —con `draft` y `published` separados, que es
+lo que permite escribir a medias sin que lo vea nadie— y `revisions`, con un máximo de veinte
+por entrada. Las migraciones se generan con `pnpm db:generate` y se aplican con `pnpm db:migrate`.
+
+Cambiar `cms.config.ts` **no** genera migraciones: el contenido es JSONB.
