@@ -1,17 +1,53 @@
+import { getCollection, getContent } from '@/cms/core/content';
+import { StaticContentProvider } from '@/cms/preview/ContentContext';
+import { About } from '@/components/site/About';
+import { Faqs } from '@/components/site/Faqs';
+import { Hero } from '@/components/site/Hero';
+import { Testimonials } from '@/components/site/Testimonials';
+
 /**
- * Página raíz provisional del scaffold (issue #2).
+ * La landing (SPEC §6.3, §8).
  *
- * En el issue #3 se mueve a `app/(site)/page.tsx` junto con el resto de la
- * estructura de SPEC §3, y en M5 pasa a componer las secciones reales de la
- * landing leyendo contenido publicado.
+ * ## Esto es todo lo que hay que escribir para adaptar el CMS a otro proyecto
+ *
+ * §6.3 lo promete así: **`cms.config.ts` + secciones que usen `useContent` + componer
+ * `page.tsx`**. Esta página es la tercera parte de esa promesa, y por eso conviene mirar lo que
+ * **no** tiene: ni consultas escritas a mano, ni tipos declarados aparte, ni nada que haya que
+ * tocar dentro de `cms/` al añadir una sección. Se lee, se pasa al proveedor y se compone.
+ *
+ * ## Por qué el servidor lee y el cliente solo pinta
+ *
+ * §8 exige que el visitante no toque la base de datos en el camino caliente. Aquí las lecturas
+ * son de servidor y pasan por `getContent`/`getCollection`, que llevan `unstable_cache` con el
+ * tag que invalida `publish`. El navegador recibe el contenido **dentro del árbol que ya se le
+ * manda**: no abre ninguna petición de datos.
+ *
+ * Las secciones son de cliente porque consumen contexto, no porque pidan nada.
+ *
+ * ## Lo que falta y de dónde viene
+ *
+ * Los campos `richtext` —el cuerpo de "Sobre nosotros" y las respuestas— se pintan con
+ * `<RichText>` en #113. Hasta entonces esas secciones enseñan lo que se puede enseñar sin
+ * improvisar una conversión que habría que quitar después.
  */
-export default function Home() {
+export default async function Landing() {
+  // Las cuatro lecturas van en paralelo. Son independientes entre sí y cada una tiene su propia
+  // entrada de caché, así que encadenarlas con `await` sueltos solo añadiría latencia.
+  const [hero, about, testimonials, faqs] = await Promise.all([
+    getContent('hero'),
+    getContent('about'),
+    getCollection('testimonials'),
+    getCollection('faqs'),
+  ]);
+
   return (
-    <main className="mx-auto flex min-h-dvh max-w-2xl flex-col justify-center gap-4 px-6">
-      <h1 className="text-3xl font-semibold tracking-tight">UnoCMS</h1>
-      <p className="text-slate-600">
-        Scaffold en pie. La landing se construye en M5; el panel, en M4.
-      </p>
-    </main>
+    <StaticContentProvider value={{ hero, about, testimonials, faqs }}>
+      <main>
+        <Hero />
+        <About />
+        <Testimonials />
+        <Faqs />
+      </main>
+    </StaticContentProvider>
   );
 }
