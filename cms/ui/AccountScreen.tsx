@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
  * Cambiar la propia contraseña (SPEC §5.3; `changePassword` de #81).
@@ -39,8 +40,16 @@ export function AccountScreen({ correo, onCambiar }: AccountScreenProps) {
     }
 
     setOcupado(true);
-    const resultado = await onCambiar(actual, nueva);
-    setOcupado(false);
+
+    let resultado;
+    try {
+      resultado = await onCambiar(actual, nueva);
+    } catch {
+      setAviso(FALLO_DE_RED);
+      return;
+    } finally {
+      setOcupado(false);
+    }
 
     // Si sale bien no se dice nada: la página se va sola al acceso. Poner "guardado" aquí sería
     // un mensaje que nadie llega a leer.

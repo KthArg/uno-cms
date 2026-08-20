@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { RevisionDelHistorial } from '@/cms/core/history';
 import { ConfirmarAccion } from './ConfirmarAccion';
+import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
  * El historial de una entrada, con "volver a una versión anterior" (SPEC §9).
@@ -43,7 +44,14 @@ export function HistoryScreen({
 
   const restaurar = async (revision: RevisionDelHistorial): Promise<void> => {
     setARestaurar(null);
-    const resultado = await onRestaurar(revision.id);
+
+    let resultado;
+    try {
+      resultado = await onRestaurar(revision.id);
+    } catch {
+      setAviso(FALLO_DE_RED);
+      return;
+    }
 
     if (!resultado.ok) {
       setAviso(resultado.message ?? 'No se ha podido volver a esa versión.');

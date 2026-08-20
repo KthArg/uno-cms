@@ -6,6 +6,7 @@ import { useState } from 'react';
 import type { ElementoDeColeccion } from '@/cms/core/collections';
 import { ConfirmarAccion } from './ConfirmarAccion';
 import { EstadoDeSeccion } from './EstadoDeSeccion';
+import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
  * La pantalla de una colección: listar, crear, ordenar y eliminar (SPEC §5.3, §9).
@@ -51,8 +52,18 @@ export function CollectionScreen({
 
   const crear = async (): Promise<void> => {
     setOcupado(true);
-    const resultado = await onCrear();
-    setOcupado(false);
+
+    // `finally` para bajar la bandera: si la llamada lanza —red caída, 500— sin esto los
+    // botones se quedan deshabilitados para siempre y sin explicación.
+    let resultado;
+    try {
+      resultado = await onCrear();
+    } catch {
+      setAviso(FALLO_DE_RED);
+      return;
+    } finally {
+      setOcupado(false);
+    }
 
     if (!resultado.ok || resultado.key === undefined) {
       setAviso(resultado.message ?? 'No se ha podido crear.');
@@ -78,8 +89,18 @@ export function CollectionScreen({
     setOrden(siguiente);
     setOcupado(true);
 
-    const resultado = await onReordenar(siguiente.map((elemento) => elemento.key));
-    setOcupado(false);
+    let resultado;
+    try {
+      resultado = await onReordenar(siguiente.map((elemento) => elemento.key));
+    } catch {
+      // Se deshace el movimiento por lo mismo que cuando el servidor dice que no: dejar la
+      // pantalla con un orden que la base de datos no tiene es peor que no haber movido nada.
+      setOrden(orden);
+      setAviso(FALLO_DE_RED);
+      return;
+    } finally {
+      setOcupado(false);
+    }
 
     if (!resultado.ok) {
       // Y se deshace si el servidor dice que no. Dejar la pantalla con un orden que la base de
@@ -94,7 +115,14 @@ export function CollectionScreen({
 
   const eliminar = async (elemento: ElementoDeColeccion): Promise<void> => {
     setAEliminar(null);
-    const resultado = await onEliminar(elemento.key);
+
+    let resultado;
+    try {
+      resultado = await onEliminar(elemento.key);
+    } catch {
+      setAviso(FALLO_DE_RED);
+      return;
+    }
 
     if (!resultado.ok) {
       setAviso(resultado.message ?? 'No se ha podido eliminar.');

@@ -6,6 +6,7 @@ import type { ActionFieldError } from '@/cms/actions/pipeline';
 import type { ObjectSchema } from '@/cms/core/config';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
 import { ConfirmarAccion } from './ConfirmarAccion';
+import { FALLO_DE_RED } from './fallo-de-red';
 import { PreviewFrame } from './PreviewFrame';
 import { EntryForm, type ValoresDeEntrada } from './EntryForm';
 import { EstadoGuardado } from './EstadoGuardado';
@@ -102,9 +103,17 @@ export function EntryEditor({
     // estado de React —la de antes del guardado— y el servidor respondía `VERSION_CONFLICT`.
     // El editor leía "otra persona guardó cambios mientras editabas" siendo él mismo medio
     // segundo antes.
-    const version = await autosave.guardarYa();
-
-    const resultado = await publicar(version);
+    // Todo el camino en un `try`: publicar son dos llamadas al servidor —el guardado pendiente
+    // y la publicación— y cualquiera de las dos puede **lanzar** si la red se cae. Sin esto, el
+    // manejador moría ahí y la pantalla se quedaba sin decir nada, con el editor esperando.
+    let resultado;
+    try {
+      const version = await autosave.guardarYa();
+      resultado = await publicar(version);
+    } catch {
+      setAvisoDePublicar(FALLO_DE_RED);
+      return;
+    }
 
     if (resultado.ok) {
       setAvisoDePublicar('Publicado. Ya se ve en tu web.');
@@ -118,7 +127,14 @@ export function EntryEditor({
 
   const alDeshacer = async (): Promise<void> => {
     setConfirmandoDeshacer(false);
-    const resultado = await deshacer();
+
+    let resultado;
+    try {
+      resultado = await deshacer();
+    } catch {
+      setAvisoDePublicar(FALLO_DE_RED);
+      return;
+    }
 
     if (!resultado.ok) {
       setAvisoDePublicar(resultado.message ?? 'No se ha podido deshacer.');

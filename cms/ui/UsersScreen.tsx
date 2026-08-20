@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { PersonaDelPanel } from '@/cms/core/users';
 import { ConfirmarAccion } from './ConfirmarAccion';
+import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
  * La pantalla de personas (SPEC §3, §5.3, §9).
@@ -65,8 +66,18 @@ export function UsersScreen({
 
     setOcupado(true);
     setEnlace(null);
-    const resultado = await onInvitar({ nombre, correo, rol });
-    setOcupado(false);
+
+    // `finally` para bajar la bandera: si la llamada **lanza** —red caída, 500, despliegue a
+    // mitad— sin esto el formulario se queda deshabilitado para siempre y sin un solo mensaje.
+    let resultado;
+    try {
+      resultado = await onInvitar({ nombre, correo, rol });
+    } catch {
+      setAviso(FALLO_DE_RED);
+      return;
+    } finally {
+      setOcupado(false);
+    }
 
     const { enlace: nuevoEnlace, userId } = resultado;
 
@@ -89,8 +100,16 @@ export function UsersScreen({
 
   const cambiarRol = async (persona: PersonaDelPanel, rol: 'admin' | 'editor'): Promise<void> => {
     setOcupado(true);
-    const resultado = await onCambiarRol(persona.id, rol);
-    setOcupado(false);
+
+    let resultado;
+    try {
+      resultado = await onCambiarRol(persona.id, rol);
+    } catch {
+      setAviso(FALLO_DE_RED);
+      return;
+    } finally {
+      setOcupado(false);
+    }
 
     if (!resultado.ok) {
       setAviso(resultado.message ?? 'No se ha podido cambiar.');
@@ -105,7 +124,14 @@ export function UsersScreen({
 
   const desactivar = async (persona: PersonaDelPanel): Promise<void> => {
     setADesactivar(null);
-    const resultado = await onDesactivar(persona.id);
+
+    let resultado;
+    try {
+      resultado = await onDesactivar(persona.id);
+    } catch {
+      setAviso(FALLO_DE_RED);
+      return;
+    }
 
     if (!resultado.ok) {
       setAviso(resultado.message ?? 'No se ha podido desactivar.');

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
  * "Publicar todo" (SPEC §9).
@@ -62,12 +63,31 @@ export function PublishAllButton({ action }: { action: PublishAllAction }) {
     const publicadas: string[] = [];
     const fallidas: PublishAllResult['fallidas'] = [];
 
+    try {
+      await encadenar(publicadas, fallidas);
+    } catch {
+      // La llamada no llegó a responder. Sin esto, el bucle moría aquí y el botón se quedaba
+      // deshabilitado diciendo "Publicando…" para siempre, sin un solo mensaje.
+      //
+      // Lo publicado hasta ahora **está confirmado** —cada entrada va en su transacción— así
+      // que se enseña, no se descarta: decirle a alguien que no se publicó nada cuando se
+      // publicaron cuarenta es peor que el fallo de red.
+      setResultado({ publicadas, fallidas, restantes: 0, error: FALLO_DE_RED });
+    } finally {
+      setPendiente(false);
+    }
+  };
+
+  /** Las vueltas, hasta que no queden o hasta que una no avance. */
+  const encadenar = async (
+    publicadas: string[],
+    fallidas: PublishAllResult['fallidas']
+  ): Promise<void> => {
     for (;;) {
       const vuelta = await action();
 
       if (vuelta.error !== undefined) {
         setResultado({ publicadas, fallidas, restantes: 0, error: vuelta.error });
-        setPendiente(false);
         return;
       }
 
@@ -79,7 +99,6 @@ export function PublishAllButton({ action }: { action: PublishAllAction }) {
       const avanzo = vuelta.publicadas.length > 0 || vuelta.fallidas.length > 0;
       if (vuelta.restantes === 0 || !avanzo) {
         setResultado({ publicadas, fallidas, restantes: vuelta.restantes });
-        setPendiente(false);
         return;
       }
 
@@ -116,15 +135,12 @@ export function PublishAllButton({ action }: { action: PublishAllAction }) {
 }
 
 function Resumen({ resultado, pendiente }: { resultado: PublishAllResult; pendiente: boolean }) {
-  if (resultado.error !== undefined) {
-    return <p className="text-red-700">{resultado.error}</p>;
-  }
-
   // **Y `restantes === 0`**, que faltaba. Sin esa condición, una vuelta que no publica nada
   // mientras el servidor dice que quedan siete acababa enseñando "no había cambios sin
   // publicar": exactamente lo contrario de lo que pasa, y sin ningún síntoma. Lo encontró el
   // test de la vuelta que no avanza.
   const nadaQuePublicar =
+    resultado.error === undefined &&
     resultado.publicadas.length === 0 &&
     resultado.fallidas.length === 0 &&
     resultado.restantes === 0;
@@ -135,6 +151,12 @@ function Resumen({ resultado, pendiente }: { resultado: PublishAllResult; pendie
 
   return (
     <div className="space-y-2">
+      {/* El error va **arriba y junto a lo demás**, no en lugar de lo demás. La primera versión
+          devolvía solo el mensaje, y eso se traga la lista de lo que sí se publicó: decirle a
+          alguien que no se publicó nada cuando se publicaron cuarenta es peor que el fallo que
+          se está contando. Lo publicado está confirmado, cada entrada en su transacción. */}
+      {resultado.error !== undefined && <p className="text-red-700">{resultado.error}</p>}
+
       {resultado.publicadas.length > 0 && (
         <p className="text-emerald-800">
           {resultado.publicadas.length === 1
