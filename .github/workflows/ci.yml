@@ -305,8 +305,19 @@ jobs:
             curl -s http://127.0.0.1:3210/ | head -c 500
             exit 1
           fi
+      # **`pnpm dlx` y no una dependencia del proyecto**, y no es una comodidad.
+      #
+      # `@lhci/cli` arrastra tres vulnerabilidades altas por dependencias transitivas —`tmp` y
+      # `extract-zip`, esta última **sin versión corregida**— y `SPEC.md` §11 exige `pnpm audit`
+      # sin findings altos. Meterla en el lockfile rompería ese criterio del MVP por una
+      # herramienta que solo mide.
+      #
+      # No es esconder el aviso: es que el aviso describa lo que debe describir. Estos paquetes
+      # no son dependencias del producto ni se despliegan; se ejecutan en un contenedor de usar
+      # y tirar para pilotar un navegador. La versión va fijada para que la medida de hoy sea
+      # comparable con la de mañana.
       - name: presupuestos de SPEC §8
-        run: pnpm exec lhci autorun --config=lighthouserc.json
+        run: pnpm dlx @lhci/cli@0.15.1 autorun --config=lighthouserc.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
