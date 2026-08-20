@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { crearYEntrar } from './support/session';
 
 /**
  * T-60-1 a T-60-6: cabeceras de seguridad y guard de `/admin` (SPEC §7.2, §7.1).
@@ -125,4 +126,79 @@ test('T-61-5: /setup devuelve 404 en un sitio ya configurado', async ({ request 
   // integración, donde se puede controlar el estado de la base por test.
   const response = await request.get('/setup', { failOnStatusCode: false });
   expect(response.status()).toBe(404);
+});
+
+/**
+ * T-N-1: las cabeceras de §7.2 sobre **todas** las clases de ruta (issue #120).
+ *
+ * Los tests de arriba cubren la landing, `/api/health`, `/setup` y la redirección de `/admin`.
+ * Faltaban tres clases que existen desde M4 y M5: **el panel con sesión**, **la vista previa** y
+ * **la subida de imágenes**.
+ *
+ * La distinción importa porque el middleware decide por prefijo y por método: una ruta que
+ * responde 200 con sesión recorre un camino distinto del que redirige sin ella, y una ruta de
+ * API que solo acepta POST no se comprueba pidiéndola con GET.
+ */
+
+/**
+ * Las cabeceras que `SPEC.md` §7.2 exige en **todas** las respuestas.
+ *
+ * **No hay `X-Frame-Options`, y no es un olvido.** La escribí en la primera versión de estos
+ * tests por costumbre y los tres fallaron. §7.2 no la lista: el anti-clickjacking lo hace
+ * `frame-ancestors 'self'` en la CSP, que además es lo correcto aquí — un `X-Frame-Options:
+ * DENY` bloquearía el iframe de la vista previa, que es **del mismo origen** y la razón de ser
+ * del producto (§0). Es un caso de cabecera "de seguridad" que habría roto una función.
+ */
+const CABECERAS_DE_TODAS = {
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'strict-origin-when-cross-origin',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=()',
+  'strict-transport-security': 'max-age=63072000; includeSubDomains; preload',
+};
+
+test('T-N-1: el panel CON sesión lleva las cabeceras y noindex', async ({ page }) => {
+  await crearYEntrar(page, { email: 'cabeceras-panel@ejemplo.com', role: 'admin' });
+
+  const respuesta = await page.goto('/admin');
+
+  // Un 200 del panel, no la redirección: son dos caminos distintos del middleware, y hasta
+  // ahora solo se comprobaba el segundo.
+  expect(respuesta?.status()).toBe(200);
+
+  const cabeceras = respuesta?.headers() ?? {};
+  for (const [nombre, valor] of Object.entries(CABECERAS_DE_TODAS)) {
+    expect(cabeceras[nombre], `${nombre} en /admin`).toBe(valor);
+  }
+  expect(cabeceras['x-robots-tag']).toBe('noindex');
+  expect(cabeceras['content-security-policy']).toContain("frame-ancestors 'self'");
+});
+
+test('T-N-1: la vista previa lleva las cabeceras y noindex', async ({ request }) => {
+  // Sin token responde 404, y da igual: un 404 también se puede indexar y también sale por el
+  // middleware. Lo que se comprueba es la respuesta, no que la página exista.
+  const respuesta = await request.get('/preview', { failOnStatusCode: false });
+
+  const cabeceras = respuesta.headers();
+  for (const [nombre, valor] of Object.entries(CABECERAS_DE_TODAS)) {
+    expect(cabeceras[nombre], `${nombre} en /preview`).toBe(valor);
+  }
+  expect(cabeceras['x-robots-tag']).toBe('noindex');
+});
+
+test('T-N-1: la ruta de subida lleva las cabeceras, y rechaza sin sesión', async ({ request }) => {
+  // Se pide con POST porque es lo que acepta: comprobarla con GET mediría otro camino.
+  const respuesta = await request.post('/api/media/upload', {
+    data: {},
+    failOnStatusCode: false,
+  });
+
+  // Sin sesión no se emite token de subida. Que además responda con las cabeceras puestas es
+  // lo que este caso añade.
+  expect(respuesta.status()).toBeGreaterThanOrEqual(400);
+
+  const cabeceras = respuesta.headers();
+  for (const [nombre, valor] of Object.entries(CABECERAS_DE_TODAS)) {
+    expect(cabeceras[nombre], `${nombre} en /api/media/upload`).toBe(valor);
+  }
+  expect(cabeceras['x-robots-tag']).toBe('noindex');
 });
