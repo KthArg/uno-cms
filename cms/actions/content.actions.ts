@@ -156,8 +156,20 @@ const MAX_REVISIONS = 20;
  * chocar no es la publicación —lo escrito está confirmado— sino **el informe**: la petición
  * muere y el editor no sabe qué pasó con su sitio.
  *
- * El tope se **reporta** en `remaining`. Un límite silencioso sería peor que no tenerlo:
- * leer `published: [...]` sin más da a entender que ya está todo.
+ * El tope se **reporta** en `remaining`, y quien llama encadena las vueltas: el bucle vive en el
+ * botón de "Publicar todo" (#119), donde cada llamada es corta y ninguna choca con el límite de
+ * duración. Un límite silencioso sería peor que no tenerlo: leer `published: [...]` sin más da a
+ * entender que ya está todo.
+ *
+ * ## Por qué el bucle está en el cliente y no aquí (ADR-600)
+ *
+ * Subir el tope solo mueve el problema: con mil entradas se choca igual. Las otras salidas eran
+ * una operación en segundo plano —que exige una cola que `SPEC.md` §2 no contempla, y en la que
+ * el editor deja de ver el resultado— o publicar en menos transacciones, que rompería el
+ * todo-o-nada **por entrada** de ADR-401.
+ *
+ * Encadenar desde el cliente conserva las dos propiedades que importan: cada entrada sigue yendo
+ * en su transacción, y el informe se acumula y se ve entero al final.
  */
 const MAX_PUBLISH_ALL = 100;
 

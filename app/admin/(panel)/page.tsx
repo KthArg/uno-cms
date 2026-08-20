@@ -22,20 +22,20 @@ export default async function PanelContenido() {
   /**
    * La Server Action que consume el botón.
    *
-   * La firma es la de `useActionState` —`(estadoAnterior, formData)`— aunque no se usen los
-   * argumentos, porque **se pasa la función tal cual al componente de cliente**. Envolverla en
-   * una flecha (`action={() => publicarTodo()}`) parece equivalente y no lo es: esa flecha se
-   * crea en el servidor y no lleva la marca de `'use server'`, así que Next no puede
-   * serializarla y la página revienta con "Functions cannot be passed directly to Client
-   * Components".
+   * **Se pasa la función tal cual al componente de cliente.** Envolverla en una flecha
+   * (`action={() => publicarTodo()}`) parece equivalente y no lo es: esa flecha se crea en el
+   * servidor y no lleva la marca de `'use server'`, así que Next no puede serializarla y la
+   * página revienta con "Functions cannot be passed directly to Client Components".
    *
    * Ni `typecheck` ni `build` lo detectan. Lo encontró el e2e al renderizar la página con una
    * sesión de verdad.
+   *
+   * Llevaba la firma de `useActionState` —`(estadoAnterior, formData)`— con los dos argumentos
+   * sin usar. Desde #119 el botón la llama él mismo en un bucle, así que esos parámetros eran
+   * dos huecos que había que rellenar con `null` y un `FormData` vacío para nada. Fuera: una
+   * firma que miente sobre cómo se usa la función es peor que una firma incómoda.
    */
-  async function publicarTodo(
-    _anterior: PublishAllResult | null,
-    _formData: FormData
-  ): Promise<PublishAllResult> {
+  async function publicarTodo(): Promise<PublishAllResult> {
     'use server';
 
     const resultado = await publishAll({});
