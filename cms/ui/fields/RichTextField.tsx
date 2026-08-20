@@ -124,19 +124,17 @@ export function CampoTextoRico({ id, field, value, onChange, error }: RichTextFi
 
     ultimoEmitido.current = entrante;
     // `emitUpdate: false` porque aplicar un valor de fuera no es una edición: avisar
-    // provocaría un guardado de algo que acaba de leerse del servidor.
+    // provocaría un guardado de algo que acaba de leerse del servidor — una escritura inútil y
+    // un `version` gastado por nada.
     //
-    // **Y aquí hay algo que decir en vez de dar por hecho.** El tipo de Tiptap documenta que
-    // el valor por defecto es `true`, así que la opción debería importar. Pero al ponerla a
-    // `true` a propósito, el evento **tampoco** se emite: la mutación sobrevive y el test no
-    // distingue. O sea que en esta versión el comportamiento correcto se obtiene igual sin la
-    // opción, y esta línea es un cinturón contra el valor por defecto documentado, no algo que
-    // esté verificado.
+    // **Y está verificado**, cosa que una nota anterior negaba (#121). Poniéndolo a `true` a
+    // propósito, `richtext-sync.test.tsx` cae: `onChange` se llama una vez. Aquella nota decía
+    // que la mutación sobrevivía y era falsa; lo comprobé volviendo a ejecutarla.
     //
-    // Se queda porque el coste es cero y el riesgo que cubre es real: si una versión futura
-    // empieza a emitir, recuperar un borrador dispararía un guardado inútil y gastaría un
-    // `version`. PENDIENTE(#121): averiguar por qué no se emite y que un test lo detecte
-    // antes que un editor.
+    // El mecanismo, para no tener que volver a averiguarlo: `setContent` marca la transacción
+    // con `preventUpdate`, y el emisor de Tiptap descarta el evento si esa marca está puesta
+    // —o si el documento no cambió—. Medido también a pelo contra el editor: con `true` emite
+    // uno, con `false` ninguno, y en los dos casos el documento cambia.
     editor.commands.setContent((value ?? { type: 'doc', content: [] }) as Record<string, unknown>, {
       emitUpdate: false,
     });
