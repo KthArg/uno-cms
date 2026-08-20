@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ACTION_MARKER } from '@/cms/actions/pipeline';
+import { CARGA_DE_MODULO_MS } from '../support/timeouts';
 
 /**
  * T-75-6: **toda action exportada pasa por el envoltorio**.
@@ -26,25 +27,31 @@ const ACTIONS_DIR = fileURLToPath(new URL('../../cms/actions', import.meta.url))
 const NOT_ACTIONS = new Set(['pipeline.ts', 'index.ts', 'README.md']);
 
 describe('T-75-6 — toda action pasa por el envoltorio', () => {
-  it('cada función exportada del barril lleva la marca', async () => {
-    const actions = (await import('@/cms/actions')) as Record<string, unknown>;
+  // El plazo, y no el de por defecto: este caso carga el grafo entero de actions y lo que
+  // mide es la estructura, no lo que tarda en cargarlo (#140).
+  it(
+    'cada función exportada del barril lleva la marca',
+    { timeout: CARGA_DE_MODULO_MS },
+    async () => {
+      const actions = (await import('@/cms/actions')) as Record<string, unknown>;
 
-    const sinMarca = Object.entries(actions)
-      .filter(([, value]) => typeof value === 'function')
-      // Las herramientas del envoltorio no son actions. La lista es explícita a propósito:
-      // una exclusión por patrón ("todo lo que empiece por fail") dejaría pasar una action
-      // suelta el día que alguien la llame `failoverContent`.
-      .filter(
-        ([name]) =>
-          !['defineAction', 'ok', 'fail', 'failFields', 'fieldsFromZod', 'contentTag'].includes(
-            name
-          )
-      )
-      .filter(([, value]) => (value as Record<symbol, unknown>)[ACTION_MARKER] !== true)
-      .map(([name]) => name);
+      const sinMarca = Object.entries(actions)
+        .filter(([, value]) => typeof value === 'function')
+        // Las herramientas del envoltorio no son actions. La lista es explícita a propósito:
+        // una exclusión por patrón ("todo lo que empiece por fail") dejaría pasar una action
+        // suelta el día que alguien la llame `failoverContent`.
+        .filter(
+          ([name]) =>
+            !['defineAction', 'ok', 'fail', 'failFields', 'fieldsFromZod', 'contentTag'].includes(
+              name
+            )
+        )
+        .filter(([, value]) => (value as Record<symbol, unknown>)[ACTION_MARKER] !== true)
+        .map(([name]) => name);
 
-    expect(sinMarca, 'estas exportaciones no pasan por defineAction').toEqual([]);
-  });
+      expect(sinMarca, 'estas exportaciones no pasan por defineAction').toEqual([]);
+    }
+  );
 
   it('ningún fichero de cms/actions exporta una función fuera del envoltorio', async () => {
     // Reexportar es opcional: sin esta comprobación, bastaría con no incluirla en el barril
