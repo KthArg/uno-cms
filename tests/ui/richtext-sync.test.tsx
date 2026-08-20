@@ -50,9 +50,13 @@ describe('el editor sigue al valor de fuera', () => {
     // Recuperar un borrador no puede disparar un guardado de algo que acaba de leerse del
     // servidor: sería una escritura inútil y un `version` gastado por nada.
     //
-    // El test fija el **comportamiento**, no la línea que lo produce. Conviene saberlo: al
-    // poner `emitUpdate: true` a propósito, esto sigue pasando, así que la opción no es lo que
-    // lo sostiene en esta versión de Tiptap. Está anotado en el componente.
+    // **Este test es el vigilante de `emitUpdate: false`** (#121), y sí distingue: poniéndolo a
+    // `true` a propósito, `onChange` se llama una vez y esto cae. Una nota anterior decía lo
+    // contrario —que la mutación sobrevivía— y era falsa.
+    //
+    // Lo que vigila no es la línea, es el riesgo: si una versión futura de Tiptap dejara de
+    // honrar la marca `preventUpdate`, recuperar un borrador dispararía un guardado de algo que
+    // acaba de leerse del servidor. Aquí se enteraría CI, no un editor.
     const onChange = vi.fn();
 
     const { rerender } = render(
