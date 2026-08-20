@@ -560,3 +560,57 @@ que no podía comprobar dos de ellos.
   Este hito puso en rojo a propósito el presupuesto de Lighthouse, el de JavaScript, el modelo de
   amenazas y las cuatro defensas del canal de mensajes — y en dos de esos casos el rojo no llegó
   a la primera.
+
+---
+
+## Después de cerrar M6
+
+El MVP quedó cerrado con los seis hitos en verde. Una pasada de repaso encontró **tres fallos de
+verdad**, y merecen estar aquí: leer que el proyecto terminó sin incidencias sería falso.
+
+### Lo que apareció
+
+- **El panel se quedaba bloqueado si la red se caía** (#160). Seis pantallas subían la bandera de
+  "ocupado", esperaban a una action y la bajaban después. Si la llamada **lanza** en vez de
+  responder, el manejador muere ahí y la bandera no vuelve a bajar: botón deshabilitado diciendo
+  "Guardando…" para siempre, sin un mensaje, y a recargar.
+- **El autoguardado mentía** (#161). La misma causa, peor sitio: el indicador que existe justo
+  para decir si lo escrito está a salvo se quedaba en "Guardando…" sobre algo que nunca se
+  guardó. El borrador local seguía ahí, así que no se perdía nada — lo que se perdía era saberlo.
+- **Una subida fallida hablaba en inglés** (#162). El `catch` enseñaba el texto del navegador
+  —"Failed to fetch"— a alguien que solo quería subir una foto, con un comentario encima que
+  afirmaba que ese mensaje venía siempre de nuestra ruta.
+
+Y **quince README de directorio** seguían anunciando "se llena en **M4**" con los directorios
+llenos (#159).
+
+### Por qué ninguna suite los detectaba
+
+**La condición no existe en local ni en CI.** La red no se cae, el servidor no devuelve 500, el
+despliegue no cambia a mitad de una petición. Solo pasa en producción, con alguien delante.
+
+Eso no es un descuido de los tests: es el límite de lo que un test puede ver. Tres suites en
+verde, cobertura por encima del umbral, y el fallo estaba en el camino más usado del panel.
+
+### Qué se hizo para que no vuelva
+
+Un test estructural que recorre `cms/ui` con el AST y **exige que toda espera al servidor esté
+dentro de un `try`**, con dos excepciones declaradas y su motivo escrito. No comprueba que el
+código de hoy esté bien —eso lo hacen los tests de comportamiento— sino que el **próximo** `await`
+no repita el patrón.
+
+Y otro que exige que cada directorio con código tenga su README y que ninguno prometa un hito que
+ya pasó.
+
+### Lo que enseñó esta pasada
+
+- **Un cabo suelto escrito en una autorevisión hay que seguirlo.** El fallo de la subida salió de
+  una frase que yo mismo había dejado en #161: "no he comprobado que su recuperación sea buena,
+  solo que existe". Un pendiente que se escribe y no se sigue vale lo mismo que no escribirlo.
+- **Arreglar puede romper.** El arreglo del autoguardado metió una recursión infinita que tumbó
+  el proceso de tests. No lo vi releyendo el código que acababa de escribir; lo vi porque el
+  worker se cayó.
+- **Y la mutación mal elegida da falsos verdes.** Quité un `finally` dejando la línea justo
+  después: con el `catch` presente eso es equivalente, así que los ocho tests pasaron y estuve a
+  punto de escribir "comprobado por mutación". Es la tercera vez en el proyecto, y las tres por
+  lo mismo — **mutar la forma en vez del comportamiento**.
