@@ -62,6 +62,12 @@ que sea una limitación conocida y no una función por construir.
 | Falta la documentación para quien despliega                    | `SETUP.md`, `DEVELOPER.md` y `SECURITY.md`                                                                                                                                                                                                                                                                                                                       | [#118](https://github.com/KthArg/uno-cms/issues/118) |
 | La revisión de seguridad transversal                           | Es la primera vez que se puede hacer con el sistema entero construido                                                                                                                                                                                                                                                                                            | [#120](https://github.com/KthArg/uno-cms/issues/120) |
 
+### Después del MVP
+
+| Qué                                                       | Por qué se aplazó                                                                                                                                                                                                                                                                         | Issue                                                |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Un test de `unit`+`ui` falló una vez y no vuelve a fallar | El nombre se perdió porque el comando filtraba la salida de vitest. Descartado el formato —`prettier` no cambió nada— y descartada la dependencia de orden con ocho pasadas, tres barajadas. Sin nombre no hay nada que arreglar; queda abierto porque cerrarlo sería decidir que no pasó | [#167](https://github.com/KthArg/uno-cms/issues/167) |
+
 ---
 
 ## Deuda aceptada
