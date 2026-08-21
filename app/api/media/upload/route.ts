@@ -2,6 +2,7 @@ import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { auth } from '@/cms/auth';
 import { getDb, media } from '@/cms/db';
 import { audit } from '@/cms/security/audit';
+import { mensajeNuestro, SUBIDA_FALLIDA } from '@/cms/mensajes-de-subida';
 import { decidirSubida, nombreLegible, TIPOS_PERMITIDOS } from '@/cms/security/uploads';
 
 /**
@@ -123,10 +124,31 @@ export async function POST(request: Request): Promise<Response> {
 
     return Response.json(respuesta);
   } catch (error) {
-    // El mensaje sí sale, porque es nuestro y está pensado para el editor ("La imagen pesa
-    // demasiado…"). Lo que no sale es nada de lo que venga de dentro de Vercel.
-    const mensaje = error instanceof Error ? error.message : 'No se ha podido subir la imagen.';
-    return Response.json({ error: mensaje }, { status: 400 });
+    // **Solo salen los mensajes nuestros.** El comentario anterior aquí decía justo esto y el
+    // código no lo hacía: devolvía `error.message` sin mirar, así que un fallo interno de la
+    // librería salía tal cual. Fue así como llegó "Vercel Blob: Failed to retrieve the client
+    // token" a la pantalla de alguien que solo quería subir una foto.
+    //
+    // Y no es solo cuestión de idioma: el texto de un fallo interno cuenta cosas del servidor
+    // —qué proveedor hay detrás, qué le falta— a cualquiera que sepa provocar el error.
+    const texto = error instanceof Error ? error.message : '';
+    const nuestro = mensajeNuestro(texto);
+
+    // Lo que no sale por la respuesta, sale por el registro: es lo único que le sirve a quien
+    // puede arreglar un almacén sin conectar.
+    if (nuestro === null) console.error('[media/upload] fallo no previsto', error);
+
+    // **Sigue siendo 400 aunque el fallo sea nuestro, y es a conciencia.** Un almacén sin
+    // conectar es un 500 de manual: el cliente no ha hecho nada mal. Pero una vez que la
+    // librería ha lanzado, distinguir "no hay token" de "el cuerpo venía mal" solo se puede
+    // haciendo lo que este arreglo quita: mirar su texto en inglés. Y equivocarse tiene precio
+    // en los dos sentidos — un cuerpo malicioso contando como error nuestro ensucia las
+    // alarmas igual que un almacén roto escondido en los 400.
+    //
+    // Así que el código de estado se queda como estaba y el aviso va al registro, que es donde
+    // se distingue sin adivinar. Si algún día hace falta separarlos, la librería expone
+    // `BlobError` y sus subclases: eso sí es una comprobación estable.
+    return Response.json({ error: nuestro ?? SUBIDA_FALLIDA }, { status: 400 });
   }
 }
 

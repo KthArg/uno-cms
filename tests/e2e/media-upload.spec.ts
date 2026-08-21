@@ -74,6 +74,42 @@ test('T-D-3: un tamaño por encima del límite se rechaza en el servidor', async
   expect(await respuesta.text()).toContain('pesa demasiado');
 });
 
+test('sin almacén conectado, el fallo tampoco se cuenta en inglés', async ({ page }) => {
+  await crearYEntrar(page, { email: 'media-sin-almacen@ejemplo.com', role: 'admin' });
+
+  // Una petición **válida**: tipo permitido, tamaño razonable, nombre correcto. Pasa nuestras
+  // comprobaciones y llega a la librería, que sin `BLOB_READ_WRITE_TOKEN` falla con
+  // "Failed to retrieve the client token".
+  //
+  // Ese es exactamente el camino que en local acabó enseñando el nombre del proveedor en la
+  // pantalla de alguien que solo quería subir una foto. El cliente ya lo tapaba desde #164; lo
+  // que se comprueba aquí es que **el servidor no lo manda siquiera**.
+  const respuesta = await page.request.post('/api/media/upload', {
+    data: {
+      type: 'blob.generate-client-token',
+      payload: {
+        pathname: 'foto.png',
+        callbackUrl: 'http://127.0.0.1/api/media/upload',
+        clientPayload: JSON.stringify({
+          contentType: 'image/png',
+          sizeBytes: 1024,
+          filename: 'foto.png',
+        }),
+        multipart: false,
+      },
+    },
+  });
+
+  // Si esto deja de ser 400, es que alguien conectó un almacén a la suite de e2e. No es un fallo
+  // del arreglo — pero este test deja de comprobarlo, así que mejor que se entere ruidosamente.
+  expect(respuesta.status(), 'el entorno de e2e no tiene almacén conectado, a propósito').toBe(400);
+
+  const cuerpo = await respuesta.text();
+  expect(cuerpo).not.toContain('Vercel');
+  expect(cuerpo).not.toContain('token');
+  expect(cuerpo).toContain('No se ha podido subir la imagen');
+});
+
 test('la biblioteca carga y explica qué hacer cuando está vacía', async ({ page }) => {
   await crearYEntrar(page, { email: 'media-biblioteca@ejemplo.com', role: 'admin' });
 
