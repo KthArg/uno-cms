@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb, media } from '@/cms/db';
 import { defineAction, fail, ok } from './pipeline';
+import { borrarDelDisco, esImagenLocal } from '@/cms/security/almacen-local';
 
 /**
  * Las actions de la biblioteca de imágenes (SPEC §5.3, ADR-005).
@@ -43,7 +44,12 @@ export const deleteMedia = defineAction({
     // la biblioteca, y se vuelve a intentar. Un residuo que se ve es recuperable; uno que no,
     // no.
     try {
-      await del(fila.url);
+      // **Se decide por dónde está el fichero, no por qué almacén está activo.** Quien conecta
+      // un almacén de Vercel después de haber probado en local sigue teniendo filas que apuntan
+      // al disco: preguntarle al entorno las mandaría a borrar en Vercel, donde no están, y
+      // esas imágenes se quedarían en la biblioteca sin forma de quitarlas.
+      if (esImagenLocal(fila.url)) await borrarDelDisco(fila.pathname);
+      else await del(fila.url);
     } catch (error) {
       console.error(`[media] no se ha podido borrar ${fila.pathname} en el almacén`, error);
       return fail(

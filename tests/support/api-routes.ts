@@ -61,6 +61,19 @@ export const ACCESO_DECLARADO: Record<string, { nivel: NivelDeAcceso; motivo: st
       'Emite un permiso de escritura en el almacén de imágenes. Sin sesión sería un almacén ' +
       'de cualquiera.',
   },
+  '/api/media/local': {
+    nivel: 'con-sesion',
+    motivo:
+      'Escribe un fichero en el disco. Sin sesión, cualquiera podría llenarlo. Además solo ' +
+      'existe en desarrollo: en producción responde 404 sin mirar nada (spec 07 §4.3).',
+  },
+  '/api/media/local/[...ruta]': {
+    nivel: 'publica',
+    motivo:
+      'Sirve las imágenes que salen en la landing, que la ve cualquiera — el mismo acceso ' +
+      'que el `access: public` de Blob. Solo lee, solo rutas con la forma que generamos ' +
+      'nosotros, y solo en desarrollo.',
+  },
 };
 
 function recorrer(dir: string): string[] {

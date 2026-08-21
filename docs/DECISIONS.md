@@ -878,3 +878,36 @@ O sea que **el armazón se pasa del presupuesto por 41,6 KB antes de escribir un
 - **Los otros tres presupuestos de §8 sí se cumplen**, y con holgura: medidos con Lighthouse en perfil móvil contra la landing con contenido de ejemplo, **performance 100, accesibilidad 100 y LCP 1,7 s** sobre un límite de 2,5 s.
 - Si el techo del total salta, **la respuesta no es subirlo**: es mirar qué creció. Está dicho en el script y en el mensaje de error.
 - **Lighthouse no es una dependencia del proyecto.** `@lhci/cli` arrastra tres vulnerabilidades altas por vía transitiva —`tmp` y `extract-zip`, esta última **sin versión corregida**— y §11 exige `pnpm audit` sin findings altos. Se ejecuta con `pnpm dlx` y versión fijada, en un contenedor de usar y tirar. No es esconder el aviso: es que el aviso describa lo que debe describir, que son las dependencias del producto. Lo descubrió CI al poner el job en rojo, no una revisión posterior.
+
+---
+
+## ADR-700 — Un segundo almacén de imágenes, en disco y **solo en desarrollo** (resuelve #168)
+
+**Contexto.** `SPEC.md` §2 nombra Vercel Blob y solo ese, y ADR-005 fija que el navegador sube directo al proveedor sin pasar por nuestro servidor. La consecuencia práctica apareció al probar el CMS en local: **sin cuenta de Vercel no se puede subir una imagen**. Quien clona el repositorio puede escribir textos, crear colecciones, publicar, invitar gente y cambiar ajustes; lo único que no puede ejercitar es el camino que acepta ficheros de fuera, que es el que más miedo da.
+
+`SPEC.md` §0 pide auto-hospedable. Un producto que exige darse de alta en un proveedor **para verlo funcionar** no lo es del todo.
+
+**Las salidas evaluadas.**
+
+| Salida                                          | Por qué no                                                                                                                                                                                                           |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Documentar que hace falta una cuenta y ya**   | Es lo que había. Deja el camino de subida sin poder probarse a mano por nadie que no pague un proveedor, y a la primera persona que llega la deja sin ver la mitad del producto                                      |
+| **Un adaptador genérico de almacenamiento**     | Una interfaz, un registro de proveedores y un ajuste para elegir, con **un** caso real y otro imaginado. La abstracción saldría del ejemplo que la inspiró y habría que rehacerla al aparecer el tercero             |
+| **Simular Vercel Blob en local**                | Un servidor falso que habla su protocolo. Todo el coste de mantener una imitación, y lo que se prueba sigue sin ser el camino de verdad                                                                              |
+| **Un almacén en disco para todos los entornos** | El disco de una función serverless es efímero y no se comparte entre instancias: desplegado, **acepta el fichero, dice que todo fue bien y lo pierde**. De los fallos posibles es el peor, porque se parece al éxito |
+
+**Decisión.** Un segundo camino de almacenamiento que guarda en el disco y sirve desde una ruta propia, activo **solo si no hay `BLOB_READ_WRITE_TOKEN` y `NODE_ENV` no es `production`**.
+
+Las dos condiciones a la vez, y la segunda es la que hace aceptable a la primera. Vive sola en `cms/security/almacen-local.ts` —entra el entorno, sale un booleano— precisamente para que se pueda probar sin servidor ni base de datos: una condición de seguridad metida dentro de un manejador acaba comprobándose de refilón en un test que va de otra cosa.
+
+**Lo que NO cambia.** El camino de Vercel se queda exactamente igual, ADR-005 incluido. Y `decidirSubida()` es **la misma función para los dos**: la allowlist, el tope, el rechazo del SVG y el nombre generado no se duplican ni se tocan.
+
+**Consecuencias.**
+
+- Se puede probar el CMS entero sin cuenta en ningún sitio, que era el criterio de #168.
+- **El camino local mide el tamaño de verdad** y el de Vercel no: allí lo declara el cliente (deuda aceptada en `docs/PENDIENTES.md`). Hay que decirlo alto porque invita a la conclusión contraria — **la deuda sigue viva**, porque lo que se despliega es el otro camino.
+- **Lo subido en local no existe en producción.** Las filas de `media` guardan `/api/media/local/…`, una ruta que en un despliegue devuelve 404. No hay migración entre almacenes y no se planea: son las imágenes de prueba de quien desarrolla.
+- **Se lee el cuerpo entero antes de poder rechazarlo por tamaño.** `request.formData()` tiene que consumir el multipart para saber cuánto pesa. En una ruta de producción sería inaceptable; aquí corre en el `localhost` de quien desarrolla, con sesión y contra su propia máquina.
+- La ruta que sirve es **la única parte peligrosa**: convierte una cadena de fuera en una lectura de disco. No se sanea la ruta recibida —sanear es un juego que se pierde— sino que se exige la forma exacta que genera `generarPathname()`.
+
+**Qué lo revertiría.** Que aparezca un tercer almacén de verdad: ahí sí habría tres ejemplos delante para decidir la abstracción, en vez de dos y una suposición. Y si alguien quisiera esto en un servidor propio con disco persistente, **lo único que hay que cambiar es `usarAlmacenLocal()`** — que está sola por esta razón. Habría que decidir antes dónde vive el directorio, cómo se respalda y qué pasa al escalar a dos instancias, que es un producto distinto del que describe §2.

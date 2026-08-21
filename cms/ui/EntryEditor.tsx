@@ -53,6 +53,7 @@ export interface EntryEditorProps {
   readonly imagenes?: readonly ImagenDeBiblioteca[];
   readonly tiposAceptados?: readonly string[];
   readonly tamanoMaximoBytes?: number;
+  readonly almacenLocal?: boolean;
   /** Solo para tests: acorta la espera del autosave. */
   readonly esperaMs?: number;
 }
@@ -71,6 +72,7 @@ export function EntryEditor({
   imagenes = [],
   tiposAceptados = [],
   tamanoMaximoBytes = 0,
+  almacenLocal,
   esperaMs,
 }: EntryEditorProps) {
   const [valores, setValores] = useState<ValoresDeEntrada>(valoresIniciales);
@@ -193,6 +195,7 @@ export function EntryEditor({
           imagenes={imagenes}
           tiposAceptados={tiposAceptados}
           tamanoMaximoBytes={tamanoMaximoBytes}
+          almacenLocal={almacenLocal}
           onElegir={(imagen) => {
             // El `alt` que ya tenga la imagen se hereda como punto de partida; el editor puede
             // cambiarlo para esta sección sin tocar la biblioteca, porque una misma foto se

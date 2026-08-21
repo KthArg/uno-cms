@@ -2,6 +2,7 @@ import { auth } from '@/cms/auth';
 import { deleteMedia } from '@/cms/actions';
 import { listMedia } from '@/cms/core/media';
 import { MediaLibrary } from '@/cms/ui/MediaLibrary';
+import { usarAlmacenLocal } from '@/cms/security/almacen-local';
 import { TAMANO_MAXIMO_BYTES, TIPOS_PERMITIDOS } from '@/cms/security/uploads';
 
 /**
@@ -28,6 +29,7 @@ export default async function BibliotecaDeImagenes() {
       imagenes={imagenes}
       tiposAceptados={[...TIPOS_PERMITIDOS]}
       tamanoMaximoBytes={TAMANO_MAXIMO_BYTES}
+      almacenLocal={usarAlmacenLocal()}
       puedeBorrar={session?.user.role === 'admin'}
       onBorrar={borrar}
     />
