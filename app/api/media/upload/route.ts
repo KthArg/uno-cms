@@ -138,6 +138,16 @@ export async function POST(request: Request): Promise<Response> {
     // puede arreglar un almacén sin conectar.
     if (nuestro === null) console.error('[media/upload] fallo no previsto', error);
 
+    // **Sigue siendo 400 aunque el fallo sea nuestro, y es a conciencia.** Un almacén sin
+    // conectar es un 500 de manual: el cliente no ha hecho nada mal. Pero una vez que la
+    // librería ha lanzado, distinguir "no hay token" de "el cuerpo venía mal" solo se puede
+    // haciendo lo que este arreglo quita: mirar su texto en inglés. Y equivocarse tiene precio
+    // en los dos sentidos — un cuerpo malicioso contando como error nuestro ensucia las
+    // alarmas igual que un almacén roto escondido en los 400.
+    //
+    // Así que el código de estado se queda como estaba y el aviso va al registro, que es donde
+    // se distingue sin adivinar. Si algún día hace falta separarlos, la librería expone
+    // `BlobError` y sus subclases: eso sí es una comprobación estable.
     return Response.json({ error: nuestro ?? SUBIDA_FALLIDA }, { status: 400 });
   }
 }

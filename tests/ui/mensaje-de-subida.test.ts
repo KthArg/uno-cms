@@ -95,6 +95,15 @@ describe('qué texto es nuestro', () => {
     }
   });
 
+  it('ningún mensaje está vacío, o los reconocería todos', () => {
+    // `texto.includes('')` es **siempre** cierto. Un mensaje vacío en la lista convertiría el
+    // filtro en un pasa-todo: cualquier fallo interno se daría por nuestro y se enseñaría
+    // entero. No pasa hoy; esto está para que no empiece a pasar sin que nadie se entere.
+    for (const mensaje of Object.values(MENSAJES_DE_SUBIDA)) {
+      expect(mensaje.length).toBeGreaterThan(0);
+    }
+  });
+
   it('no reconoce nada que no hayamos escrito', () => {
     for (const ajeno of [
       'Vercel Blob: Failed to retrieve the client token',
