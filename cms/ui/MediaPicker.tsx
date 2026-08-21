@@ -3,6 +3,7 @@
 import { upload } from '@vercel/blob/client';
 import { useState } from 'react';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
+import { MENSAJES_DE_SUBIDA, SUBIDA_FALLIDA } from '@/cms/mensajes-de-subida';
 import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
@@ -77,6 +78,9 @@ export function MediaPicker({
       setRecienSubidas((previas) => [subida, ...previas]);
       onElegir(subida);
     } catch (fallo) {
+      // El texto original al registro: es lo único que le sirve a quien puede arreglar un
+      // almacén sin conectar o un token caducado.
+      console.error('[subida] ha fallado', fallo);
       setError(mensajeDeSubida(fallo));
     } finally {
       setSubiendo(false);
@@ -167,29 +171,39 @@ export function MediaPicker({
 /**
  * Qué se enseña cuando una subida falla.
  *
- * ## El problema, que es de vocabulario y no de funcionamiento
+ * ## La regla: solo se enseña texto que hemos escrito nosotros
  *
- * Cuando quien rechaza es **nuestra ruta** —tipo no permitido, demasiado grande, nombre
- * inválido— el mensaje llega en español llano y es exactamente lo que hay que enseñar.
+ * El error que llega aquí no viene solo de nuestra ruta. La librería de subidas construye
+ * **todos** sus errores como `Vercel Blob: <lo que sea>`, así que por el mismo canal llegan
+ * cosas como **"Vercel Blob: Failed to retrieve the client token"** — que es exactamente lo que
+ * se leía en el panel al probarlo en local sin almacén conectado.
  *
- * Cuando lo que falla es la **red**, no. Ahí el mensaje lo escribe el navegador, y decía cosas
- * como "Failed to fetch" a alguien que solo quería subir una foto. `SPEC.md` §9 pide cero jerga
- * en el panel, y este era el único sitio donde se colaba en inglés — el comentario anterior daba
- * por hecho que el mensaje siempre venía de nuestra ruta.
+ * La primera versión de esta función clasificaba al revés: enseñaba el mensaje salvo que fuera
+ * un `TypeError` de red. Eso deja pasar **todo** lo demás, y lo demás es inglés y jerga. Lo dije
+ * como "mejor esfuerzo" y no lo era: era una lista negra de un solo caso.
  *
- * ## Cómo se distinguen, y por qué es "mejor esfuerzo"
+ * Ahora se comprueba lo contrario, que es lo único que no se equivoca: si el mensaje **contiene**
+ * uno de los nuestros —`cms/mensajes-de-subida.ts`— se enseña ese; si no, uno propio. Se compara
+ * por contenido y no por igualdad justamente porque la librería antepone su prefijo.
  *
- * `fetch` rechaza con **`TypeError`** cuando la petición no llega a hacerse: eso está en su
- * especificación, no es una corazonada sobre la librería. Cualquier otro `Error` se trata como
- * un rechazo con motivo y se enseña tal cual.
+ * ## Y el original no se pierde
  *
- * Es mejor esfuerzo y no una garantía: si la librería envolviera el fallo de red en otro tipo,
- * volveríamos a enseñar su texto. Se queda porque cubre el caso frecuente sin inventar nada y
- * sin mover módulos de sitio.
+ * Va al registro del navegador. Esconder jerga no puede significar tirar el diagnóstico: quien
+ * puede arreglar un almacén sin conectar necesita leer que el fallo era el token.
  */
 export function mensajeDeSubida(fallo: unknown): string {
-  if (fallo instanceof TypeError) return FALLO_DE_RED;
-  if (fallo instanceof Error && fallo.message.trim() !== '') return fallo.message;
+  if (fallo instanceof Error) {
+    const nuestro = Object.values(MENSAJES_DE_SUBIDA).find((mensaje) =>
+      fallo.message.includes(mensaje)
+    );
 
-  return 'No se ha podido subir la imagen.';
+    if (nuestro !== undefined) return nuestro;
+  }
+
+  // `fetch` rechaza con `TypeError` cuando la petición no llega a hacerse; está en su
+  // especificación. Merece un mensaje distinto porque la acción a tomar es distinta: aquí sí
+  // sirve mirar la conexión.
+  if (fallo instanceof TypeError) return FALLO_DE_RED;
+
+  return SUBIDA_FALLIDA;
 }

@@ -1,4 +1,5 @@
 import 'server-only';
+import { MENSAJES_DE_SUBIDA, type MotivoDeRechazo } from '@/cms/mensajes-de-subida';
 
 /**
  * Las reglas de qué se puede subir (SPEC §5.3, §7.1 "abuso de uploads").
@@ -47,19 +48,19 @@ const EXTENSIONES: Record<string, string> = {
   'image/gif': 'gif',
 };
 
-export type MotivoDeRechazo = 'tipo-no-permitido' | 'demasiado-grande' | 'nombre-invalido';
+// El tipo vive con los mensajes: son la misma decisión, y tenerlo aquí obligaría a mantener dos
+// listas de motivos en dos ficheros.
+export type { MotivoDeRechazo };
 
 export type DecisionDeSubida =
   | { readonly ok: true; readonly pathname: string; readonly contentType: string }
   | { readonly ok: false; readonly motivo: MotivoDeRechazo; readonly mensaje: string };
 
 /** Lo que el editor lee cuando se le rechaza algo. En español llano (SPEC §9). */
-const MENSAJES: Record<MotivoDeRechazo, string> = {
-  'tipo-no-permitido':
-    'Ese tipo de archivo no se puede subir. Usa una imagen JPG, PNG, WEBP, AVIF o GIF.',
-  'demasiado-grande': 'La imagen pesa demasiado. El máximo son 10 MB.',
-  'nombre-invalido': 'Ese archivo no tiene un nombre válido.',
-};
+// Los mensajes viven en `cms/mensajes-de-subida.ts`, fuera de la frontera: el navegador los
+// necesita para distinguir un rechazo nuestro del texto de la librería de subidas, que llega en
+// inglés por el mismo canal.
+const MENSAJES = MENSAJES_DE_SUBIDA;
 
 /**
  * El nombre con el que se guarda, **generado siempre**.
