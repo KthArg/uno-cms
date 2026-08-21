@@ -614,3 +614,40 @@ ya pasó.
   después: con el `catch` presente eso es equivalente, así que los ocho tests pasaron y estuve a
   punto de escribir "comprobado por mutación". Es la tercera vez en el proyecto, y las tres por
   lo mismo — **mutar la forma en vez del comportamiento**.
+
+---
+
+## Probando el CMS en local
+
+Levantar el proyecto y usarlo como lo usaría cualquiera destapó, en una tarde, más que la última
+pasada de repaso entera. Los tres hallazgos salieron del mismo intento: **subir una foto**.
+
+### Lo que apareció
+
+- **El editor enseñaba `Vercel Blob: Failed to retrieve the client token`** (#164). En inglés y
+  con el nombre del proveedor, a alguien que solo quería subir una imagen. Mi clasificación de
+  errores era una lista negra de un caso, y la librería tiene decenas. La regla correcta es la
+  inversa: **enseñar solo texto que hemos escrito nosotros**.
+- **Y la ruta lo seguía mandando** (#165). Arreglado el cliente, dejó de verse — no de enviarse.
+  El `catch` devolvía `error.message` sin mirar, con un comentario encima afirmando justo lo
+  contrario. No es solo idioma: el texto de un fallo interno cuenta qué hay detrás del servidor.
+- **Sin cuenta de Vercel no se podía subir nada** (#168, ADR-700). Los dos arreglos anteriores
+  mejoraron lo que el CMS _dice_ cuando esto falla; ninguno lo arreglaba. Ahora hay un almacén en
+  disco que se activa solo fuera de producción.
+
+### Lo que enseñó
+
+- **Usar el producto encuentra cosas que ninguna suite busca.** Ochocientos tests en verde y el
+  primer clic en "subir una imagen" enseñó jerga en inglés. No es que faltara un test: es que
+  nadie había mirado esa pantalla con los ojos de quien la usa.
+- **"Arreglado" y "ha dejado de verse" no son lo mismo.** Tapé la fuga en el cliente y la di por
+  cerrada. Seguía saliendo por la respuesta HTTP, y solo se vio al ir a buscarla.
+- **La mutación volvió a cazar dos guardas de adorno**, y las dos eran las piezas de seguridad
+  que más confianza me daban: el test de recorrido de directorios pasaba con la defensa quitada,
+  y una comprobación de tamaño que escribí "por seguridad" no comprobaba nada. El código era
+  correcto en los dos casos; lo que no probaba nada eran los tests.
+- **Escribir la spec antes no protege de una premisa falsa.** La comprobación redundante la
+  escribí porque creía algo del funcionamiento de `formData()` que no había verificado. La spec
+  la recogió tal cual. Lo único que lo destapó fue mutar.
+- **Y el borrado no estaba.** Construí la subida entera —rutas, tests, spec, ADR— sin caer en que
+  una imagen también se borra. Salió al releer el diff preguntándome qué más toca una imagen.
