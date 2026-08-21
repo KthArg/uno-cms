@@ -29,6 +29,18 @@ pnpm db:migrate
 La primera vez, entra en `/setup` con el `SETUP_TOKEN` que hayas puesto en `.env.local` para
 crear tu cuenta. No hay usuario por defecto, nunca (§7.3).
 
+### Las imágenes, sin cuenta de Vercel
+
+No hace falta ninguna. Si dejas `BLOB_READ_WRITE_TOKEN` vacío, las subidas se guardan en
+`.uploads/` —ignorado por git— y el panel funciona entero (ADR-700).
+
+Dos cosas que conviene saber:
+
+- **Se apaga solo en cuanto pones un token**, y **nunca se enciende en producción**. Un almacén
+  en disco desplegado en serverless aceptaría el fichero y lo perdería, que es peor que fallar.
+- **Lo que subas en local no existe en un despliegue.** Las filas apuntan a `/api/media/local/…`,
+  una ruta que allí no responde. Son tus imágenes de prueba, no un almacén que se migre.
+
 ## Comandos
 
 | Comando                             | Qué hace                                                                                                                                                     |

@@ -3,6 +3,7 @@ import { createPreviewToken, publish, revertDraft, saveDraft } from '@/cms/actio
 import { definicionDeColeccion, tituloDeElemento } from '@/cms/core/collections';
 import { readEntryForEditor, schemaForType } from '@/cms/core/content';
 import { listMedia } from '@/cms/core/media';
+import { usarAlmacenLocal } from '@/cms/security/almacen-local';
 import { TAMANO_MAXIMO_BYTES, TIPOS_PERMITIDOS } from '@/cms/security/uploads';
 import { EntryEditor } from '@/cms/ui/EntryEditor';
 import type { ResultadoGuardado } from '@/cms/ui/useAutosave';
@@ -108,6 +109,9 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
       imagenes={imagenes}
       tiposAceptados={[...TIPOS_PERMITIDOS]}
       tamanoMaximoBytes={TAMANO_MAXIMO_BYTES}
+      // Lo decide el servidor y viaja como dato. El navegador no mira ninguna variable de
+      // entorno para esto: no puede contradecir a quien va a recibir el fichero.
+      almacenLocal={usarAlmacenLocal()}
     />
   );
 }

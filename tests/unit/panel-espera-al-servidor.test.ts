@@ -44,6 +44,11 @@ const EXCEPCIONES: { readonly fichero: string; readonly motivo: string }[] = [
       'Es el `import()` perezoso de Tiptap dentro de `dynamic`, no una llamada al servidor. Un fallo al cargar el trozo lo gestiona Next, y envolverlo aquí no daría ninguna forma de recuperarse.',
   },
   {
+    fichero: 'cms/ui/MediaPicker.tsx',
+    motivo:
+      'Son los `await` de `subirABlob` y `subirAlDisco`, las dos funciones a las que `subir` llama **desde dentro** de su `try`. La protección está y es una sola, que es justo el motivo de que los dos caminos se hayan escrito así: bifurcar el manejo de errores era el riesgo. Igual que en PublishAllButton, este escaneo mira la forma y no el camino de llamada.',
+  },
+  {
     fichero: 'cms/ui/PublishAllButton.tsx',
     motivo:
       'El `await action()` vive en `encadenar`, que se llama **desde dentro** del `try` de `publicarTodo`. La protección está, pero no léxicamente: este escaneo mira la forma, no el camino de llamada.',

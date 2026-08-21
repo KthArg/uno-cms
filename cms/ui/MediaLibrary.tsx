@@ -16,6 +16,7 @@ export interface MediaLibraryProps {
   readonly imagenes: readonly ImagenDeBiblioteca[];
   readonly tiposAceptados: readonly string[];
   readonly tamanoMaximoBytes: number;
+  readonly almacenLocal?: boolean;
   /** Borrar es solo para administración: quita un fichero que puede estar en uso. */
   readonly puedeBorrar: boolean;
   readonly onBorrar: (id: string) => Promise<{ ok: boolean; message?: string }>;
@@ -25,6 +26,7 @@ export function MediaLibrary({
   imagenes,
   tiposAceptados,
   tamanoMaximoBytes,
+  almacenLocal,
   puedeBorrar,
   onBorrar,
 }: MediaLibraryProps) {
@@ -113,6 +115,7 @@ export function MediaLibrary({
           imagenes={visibles}
           tiposAceptados={tiposAceptados}
           tamanoMaximoBytes={tamanoMaximoBytes}
+          almacenLocal={almacenLocal}
           onElegir={() => {
             setAbierto(false);
           }}

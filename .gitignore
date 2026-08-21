@@ -43,3 +43,6 @@ yarn-error.log*
 
 # lighthouse
 .lighthouseci/
+
+# Las imágenes del almacén local de desarrollo (spec 07). Nunca se versionan.
+.uploads/

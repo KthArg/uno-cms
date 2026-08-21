@@ -3,7 +3,7 @@
 import { upload } from '@vercel/blob/client';
 import { useState } from 'react';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
-import { mensajeNuestro, SUBIDA_FALLIDA } from '@/cms/mensajes-de-subida';
+import { MENSAJES_DE_SUBIDA, mensajeNuestro, SUBIDA_FALLIDA } from '@/cms/mensajes-de-subida';
 import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
@@ -27,6 +27,14 @@ export interface MediaPickerProps {
   /** Los tipos que el servidor acepta, para adelantar el aviso. */
   readonly tiposAceptados: readonly string[];
   readonly tamanoMaximoBytes: number;
+  /**
+   * Si las imágenes van al disco de quien desarrolla en vez de a Vercel Blob (spec 07 §4.5).
+   *
+   * Llega por props y no por una variable `NEXT_PUBLIC_` porque **la decisión es del servidor**:
+   * una variable pública sería una segunda fuente de verdad, y el día que discrepara, el
+   * navegador subiría a un sitio y el servidor esperaría el otro.
+   */
+  readonly almacenLocal?: boolean;
 }
 
 export function MediaPicker({
@@ -35,6 +43,7 @@ export function MediaPicker({
   onCerrar,
   tiposAceptados,
   tamanoMaximoBytes,
+  almacenLocal = false,
 }: MediaPickerProps) {
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,36 +53,23 @@ export function MediaPicker({
     setError(null);
 
     // El aviso adelantado. Lo mismo lo comprueba el servidor.
+    // Los mismos textos que usa el servidor, no una copia. Estaban escritos a mano aquí, que
+    // es exactamente cómo dos mensajes que deben coincidir dejan de coincidir.
     if (!tiposAceptados.includes(fichero.type)) {
-      setError('Ese tipo de archivo no se puede subir. Usa una imagen JPG, PNG, WEBP, AVIF o GIF.');
+      setError(MENSAJES_DE_SUBIDA['tipo-no-permitido']);
       return;
     }
     if (fichero.size > tamanoMaximoBytes) {
-      setError('La imagen pesa demasiado. El máximo son 10 MB.');
+      setError(MENSAJES_DE_SUBIDA['demasiado-grande']);
       return;
     }
 
     setSubiendo(true);
     try {
-      const blob = await upload(fichero.name, fichero, {
-        access: 'public',
-        handleUploadUrl: '/api/media/upload',
-        // Lo que el servidor necesita para decidir. Va aparte del fichero porque la decisión
-        // ocurre **antes** de subirlo: si tuviera que mirar el fichero, ya estaría subido.
-        clientPayload: JSON.stringify({
-          contentType: fichero.type,
-          sizeBytes: fichero.size,
-          filename: fichero.name,
-        }),
-      });
-
-      const subida: ImagenDeBiblioteca = {
-        id: blob.pathname,
-        url: blob.url,
-        filename: fichero.name,
-        alt: '',
-        mimeType: fichero.type,
-      };
+      // Lo único que se bifurca es a dónde van los bytes. El `catch` de abajo, el mensaje que
+      // se enseña y el `finally` son los mismos para los dos, así que lo aprendido en #164 y
+      // #165 cubre este camino sin repetirse ni una línea.
+      const subida = almacenLocal ? await subirAlDisco(fichero) : await subirABlob(fichero);
 
       setRecienSubidas((previas) => [subida, ...previas]);
       onElegir(subida);
@@ -191,6 +187,59 @@ export function MediaPicker({
  * Va al registro del navegador. Esconder jerga no puede significar tirar el diagnóstico: quien
  * puede arreglar un almacén sin conectar necesita leer que el fallo era el token.
  */
+/**
+ * El camino de siempre: el navegador sube **directo** a Vercel Blob (ADR-005).
+ *
+ * El fichero no pasa por nuestro servidor, que es lo que hace viable subir diez megas desde una
+ * función serverless. La contrapartida conocida es que el tamaño que se comprueba lo declara
+ * este código: está en `docs/PENDIENTES.md` y sigue siendo así.
+ */
+async function subirABlob(fichero: File): Promise<ImagenDeBiblioteca> {
+  const blob = await upload(fichero.name, fichero, {
+    access: 'public',
+    handleUploadUrl: '/api/media/upload',
+    // Lo que el servidor necesita para decidir. Va aparte del fichero porque la decisión
+    // ocurre **antes** de subirlo: si tuviera que mirar el fichero, ya estaría subido.
+    clientPayload: JSON.stringify({
+      contentType: fichero.type,
+      sizeBytes: fichero.size,
+      filename: fichero.name,
+    }),
+  });
+
+  return {
+    id: blob.pathname,
+    url: blob.url,
+    filename: fichero.name,
+    alt: '',
+    mimeType: fichero.type,
+  };
+}
+
+/**
+ * El camino de desarrollo: el fichero va a nuestro servidor y de ahí al disco (spec 07).
+ *
+ * Un `fetch` normal con `FormData`, sin librería. Aquí el fichero **sí** pasa por el servidor,
+ * así que allí el tope se comprueba sobre los bytes que llegan de verdad.
+ *
+ * Si la respuesta no es correcta, se lanza con el texto que mandó el servidor. Eso lo recoge
+ * `mensajeDeSubida()`, que ya sabe distinguir un rechazo nuestro de cualquier otra cosa: por
+ * eso este camino no necesita su propio manejo de errores.
+ */
+async function subirAlDisco(fichero: File): Promise<ImagenDeBiblioteca> {
+  const cuerpo = new FormData();
+  cuerpo.append('fichero', fichero);
+
+  const respuesta = await fetch('/api/media/local', { method: 'POST', body: cuerpo });
+
+  if (!respuesta.ok) {
+    const datos = (await respuesta.json().catch(() => ({}))) as { error?: string };
+    throw new Error(datos.error ?? SUBIDA_FALLIDA);
+  }
+
+  return (await respuesta.json()) as ImagenDeBiblioteca;
+}
+
 export function mensajeDeSubida(fallo: unknown): string {
   // La misma regla que aplica la ruta, en la misma función: si se separaran, una de las dos
   // acabaría dejando pasar algo que la otra filtra.
