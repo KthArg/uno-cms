@@ -1,4 +1,6 @@
 import 'server-only';
+import { rm } from 'node:fs/promises';
+import { join } from 'node:path';
 
 /**
  * Cuándo se guardan las imágenes en el disco de quien desarrolla, en vez de en Vercel Blob.
@@ -52,4 +54,41 @@ export function usarAlmacenLocal(
   const hayToken = token !== undefined && token.trim() !== '';
 
   return !hayToken && entorno['NODE_ENV'] !== 'production';
+}
+
+/** El prefijo de las URL que sirve el almacén local. */
+const PREFIJO = '/api/media/local/';
+
+/**
+ * Si una imagen está guardada **en disco**, mirando dónde dice estar.
+ *
+ * No se pregunta a `usarAlmacenLocal()`, y la diferencia importa: esa función dice qué almacén
+ * se usa **ahora**, y esto tiene que decidir sobre un fichero que se subió **antes**. Quien
+ * conecta un almacén de Vercel después de haber probado en local seguiría teniendo filas que
+ * apuntan al disco, y con la otra pregunta se intentarían borrar en Vercel — donde no están.
+ *
+ * La URL sabe dónde está el fichero. El entorno solo sabe dónde iría el siguiente.
+ */
+export function esImagenLocal(url: string): boolean {
+  return url.startsWith(PREFIJO);
+}
+
+/**
+ * Borra del disco. Un fichero que ya no está **no es un error**.
+ *
+ * En el almacén de Vercel, fallar al borrar impide borrar la fila a propósito: deja un residuo
+ * **visible** que se puede reintentar, en vez de uno invisible que se paga para siempre
+ * (ADR-005). Aquí, si el fichero no está, no hay residuo que proteger: quedarse con la fila
+ * sería dejar en la biblioteca una imagen que no existe y que nadie podría quitar.
+ */
+export async function borrarDelDisco(pathname: string): Promise<void> {
+  // El `pathname` sale de la columna `media.pathname`, que escribió `generarPathname()`. Nada
+  // de lo que mande un cliente llega hasta aquí.
+  //
+  // **Y aquí el linter no avisa**, aunque esta línea borra ficheros con una ruta que no es
+  // literal: la regla `security/detect-non-literal-fs-filename` cubre `readFile`, `writeFile`
+  // y `mkdir` —lo comprobé poniéndole una directiva y viendo que sobraba— pero no `rm`. Se deja
+  // escrito porque la regla vigila las otras tres operaciones de este mismo almacén, y leerlas
+  // silenciadas invita a pensar que la que no dice nada es que no hace falta.
+  await rm(join(process.cwd(), DIRECTORIO_LOCAL, pathname), { force: true });
 }

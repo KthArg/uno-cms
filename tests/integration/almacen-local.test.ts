@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { GET } from '@/app/api/media/local/[...ruta]/route';
+import { deleteMedia } from '@/cms/actions';
+import { resetBucketsForTests, setSessionProviderForTests } from '@/cms/actions/pipeline';
 import { POST } from '@/app/api/media/local/route';
 import { getDb, media, users } from '@/cms/db';
 import { auditLog } from '@/cms/db/schema';
@@ -33,6 +35,10 @@ import { describeIntegration } from './env';
 
 const sesion = vi.hoisted(() => vi.fn());
 vi.mock('@/cms/auth', () => ({ auth: sesion }));
+
+// Si el borrado local llamara a Vercel, este espía lo delataría — que es medio T-A-17.
+const borrarEnBlob = vi.hoisted(() => vi.fn());
+vi.mock('@vercel/blob', () => ({ del: borrarEnBlob }));
 
 const RAIZ = join(process.cwd(), DIRECTORIO_LOCAL);
 
@@ -75,6 +81,8 @@ async function hayFichero(ruta: string): Promise<boolean> {
 describeIntegration('el almacén local de imágenes', () => {
   beforeEach(() => {
     sesion.mockReset();
+    borrarEnBlob.mockReset();
+    resetBucketsForTests();
     // El entorno de los tests no es producción y no hay token, así que el almacén está activo.
     // Se deja explícito porque de lo contrario media suite dependería de una variable que
     // nadie ve en este fichero.
@@ -82,6 +90,7 @@ describeIntegration('el almacén local de imágenes', () => {
   });
 
   afterEach(async () => {
+    setSessionProviderForTests(null);
     vi.restoreAllMocks();
     // Los ficheros de los tests no se quedan en el disco de quien los ejecuta.
     await rm(RAIZ, { recursive: true, force: true });
@@ -251,6 +260,46 @@ describeIntegration('el almacén local de imágenes', () => {
     expect(respuesta.headers.get('Content-Type')).toBe('image/png');
     expect(respuesta.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect((await respuesta.arrayBuffer()).byteLength).toBe(321);
+  });
+
+  it('T-A-17: una imagen guardada en disco se puede borrar, y no se llama a Vercel', async () => {
+    const usuario = await crearUsuario();
+    setSessionProviderForTests(() =>
+      Promise.resolve({ userId: usuario.id, email: usuario.email, role: 'admin' })
+    );
+
+    const subida = (await (await POST(peticionCon(png(64)))).json()) as { id: string };
+    const [fila] = await getDb().select().from(media).where(eq(media.pathname, subida.id));
+
+    const resultado = await deleteMedia({ id: fila!.id });
+
+    // Esto es lo que estaba roto: `deleteMedia` llamaba a `del()` de Vercel sin mirar dónde
+    // estaba el fichero, así que una imagen local devolvía INTERNAL y **la fila se quedaba
+    // para siempre**, visible en la biblioteca y sin forma de quitarla.
+    expect(resultado.ok).toBe(true);
+    expect(borrarEnBlob).not.toHaveBeenCalled();
+
+    expect(await hayFichero(subida.id)).toBe(false);
+    const quedan = await getDb().select().from(media).where(eq(media.pathname, subida.id));
+    expect(quedan).toHaveLength(0);
+  });
+
+  it('T-A-17b: y si el fichero ya no está, la fila se borra igual', async () => {
+    const usuario = await crearUsuario();
+    setSessionProviderForTests(() =>
+      Promise.resolve({ userId: usuario.id, email: usuario.email, role: 'admin' })
+    );
+
+    const subida = (await (await POST(peticionCon(png(64)))).json()) as { id: string };
+    const [fila] = await getDb().select().from(media).where(eq(media.pathname, subida.id));
+
+    // Alguien vació `.uploads/` a mano, que en desarrollo pasa.
+    await rm(RAIZ, { recursive: true, force: true });
+
+    // En el almacén de Vercel, fallar al borrar bloquea la fila a propósito: deja un residuo
+    // **visible**. Aquí no hay residuo que proteger, y quedarse con la fila dejaría en la
+    // biblioteca una imagen que no existe y que nadie podría quitar.
+    expect((await deleteMedia({ id: fila!.id })).ok).toBe(true);
   });
 
   it('T-A-13b: la forma que exige la ruta que sirve es la que genera la que sube', async () => {

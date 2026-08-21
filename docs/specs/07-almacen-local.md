@@ -161,6 +161,22 @@ test acertaba por casualidad.
 T-A-13b ata las dos escrituras de la misma forma —`generarPathname()` y el regex de la ruta que
 sirve— que nada en el compilador relaciona.
 
+### 5.3b Borrar (añadido al implementar)
+
+| ID      | Caso                                                                        |
+| ------- | --------------------------------------------------------------------------- |
+| T-A-17  | Borrar una imagen local quita el fichero y la fila, y **no** llama a Vercel |
+| T-A-17b | Si el fichero ya no está, la fila se borra igual                            |
+
+Faltaba en esta spec, y por tanto faltaba en el código: había escrito la subida y no el borrado.
+`deleteMedia` llamaba a `del()` de Vercel sin mirar dónde estaba el fichero, así que una imagen
+local devolvía `INTERNAL` y **la fila se quedaba para siempre**, visible en la biblioteca y sin
+forma de quitarla. Salió al releer el diff, no de ningún test.
+
+Se decide por **dónde está el fichero** —el prefijo de su URL— y no por qué almacén está activo:
+quien conecta un almacén de Vercel después de haber probado en local conserva filas que apuntan
+al disco.
+
 ### 5.4 El editor
 
 | ID     | Caso                                                                   |
