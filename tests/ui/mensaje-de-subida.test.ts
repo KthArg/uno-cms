@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MENSAJES_DE_SUBIDA, SUBIDA_FALLIDA } from '@/cms/mensajes-de-subida';
+import { MENSAJES_DE_SUBIDA, mensajeNuestro, SUBIDA_FALLIDA } from '@/cms/mensajes-de-subida';
 import { FALLO_DE_RED } from '@/cms/ui/fallo-de-red';
 import { mensajeDeSubida } from '@/cms/ui/MediaPicker';
 
@@ -75,6 +75,34 @@ describe('el mensaje de una subida fallida', () => {
       for (const jerga of ['token', 'Blob', 'fetch', 'error', 'null', 'API']) {
         expect(mensaje.toLowerCase(), mensaje).not.toContain(jerga.toLowerCase());
       }
+    }
+  });
+});
+
+/**
+ * La regla en sí, aparte de la pantalla.
+ *
+ * Vive en un módulo compartido porque **la ruta y el editor tienen que aplicar la misma**. Al
+ * arreglar el editor dejé la ruta devolviendo `error.message` a pelo, con un comentario encima
+ * que afirmaba lo contrario. El editor tapaba la fuga, así que dejó de verse; seguía saliendo
+ * por la respuesta HTTP.
+ */
+describe('qué texto es nuestro', () => {
+  it('reconoce los tres rechazos, con el prefijo de la librería o sin él', () => {
+    for (const nuestro of Object.values(MENSAJES_DE_SUBIDA)) {
+      expect(mensajeNuestro(nuestro)).toBe(nuestro);
+      expect(mensajeNuestro(`Vercel Blob: ${nuestro}`)).toBe(nuestro);
+    }
+  });
+
+  it('no reconoce nada que no hayamos escrito', () => {
+    for (const ajeno of [
+      'Vercel Blob: Failed to retrieve the client token',
+      'Failed to fetch',
+      'ECONNREFUSED',
+      '',
+    ]) {
+      expect(mensajeNuestro(ajeno)).toBeNull();
     }
   });
 });

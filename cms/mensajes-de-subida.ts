@@ -39,3 +39,17 @@ export const MENSAJES_DE_SUBIDA: Record<MotivoDeRechazo, string> = {
  */
 export const SUBIDA_FALLIDA =
   'No se ha podido subir la imagen. Vuelve a intentarlo; si sigue fallando, avisa a quien administra el sitio.';
+
+/**
+ * Si un texto de error es **uno de los nuestros**, y cuál.
+ *
+ * La regla que usan los dos lados: se enseña únicamente lo que hemos escrito. Todo lo demás
+ * —la librería de subidas, el proveedor, lo que sea— se sustituye por un mensaje propio.
+ *
+ * Se compara por **contenido y no por igualdad** porque la librería antepone su prefijo:
+ * `Vercel Blob: <nuestro mensaje>`. Comparar exacto haría que un rechazo legítimo nuestro
+ * —"la imagen pesa demasiado"— acabara enseñándose como un fallo genérico.
+ */
+export function mensajeNuestro(texto: string): string | null {
+  return Object.values(MENSAJES_DE_SUBIDA).find((mensaje) => texto.includes(mensaje)) ?? null;
+}

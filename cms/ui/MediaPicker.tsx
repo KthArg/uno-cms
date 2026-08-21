@@ -3,7 +3,7 @@
 import { upload } from '@vercel/blob/client';
 import { useState } from 'react';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
-import { MENSAJES_DE_SUBIDA, SUBIDA_FALLIDA } from '@/cms/mensajes-de-subida';
+import { mensajeNuestro, SUBIDA_FALLIDA } from '@/cms/mensajes-de-subida';
 import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
@@ -192,12 +192,11 @@ export function MediaPicker({
  * puede arreglar un almacén sin conectar necesita leer que el fallo era el token.
  */
 export function mensajeDeSubida(fallo: unknown): string {
+  // La misma regla que aplica la ruta, en la misma función: si se separaran, una de las dos
+  // acabaría dejando pasar algo que la otra filtra.
   if (fallo instanceof Error) {
-    const nuestro = Object.values(MENSAJES_DE_SUBIDA).find((mensaje) =>
-      fallo.message.includes(mensaje)
-    );
-
-    if (nuestro !== undefined) return nuestro;
+    const nuestro = mensajeNuestro(fallo.message);
+    if (nuestro !== null) return nuestro;
   }
 
   // `fetch` rechaza con `TypeError` cuando la petición no llega a hacerse; está en su
