@@ -105,6 +105,24 @@ Lo que se elige, entonces, no es si se filtra: es cuánto dura el daño y hasta 
 Lo que **no** cubre: quien tenga el token dentro de su ventana de vida ve ese borrador. Es la
 misma propiedad que el enlace de arriba, con quince minutos en vez de dos horas.
 
+### Y qué protege de verdad la lista de orígenes, que no es lo que parece
+
+La spec §4.1 dice que `PREVIEW_ORIGINS` "decide quién puede leer contenido sin publicar". Es
+cierto a medias y conviene tenerlo claro antes de apoyarse en ella.
+
+**La cabecera `Origin` la escribe quien hace la petición.** Un cliente que no sea un navegador
+—`curl`, un script, un servidor— puede poner la que quiera, así que la lista no le impide nada:
+con un token válido lee ese borrador. **El token es la credencial**, y por eso dura quince
+minutos y no dos horas.
+
+**Lo que la lista sí decide es qué páginas web pueden leer la respuesta**, y eso lo impone el
+navegador, no nosotros: sin `Access-Control-Allow-Origin` con el origen exacto, el `fetch` de
+otra web falla aunque el servidor haya respondido. La diferencia es entre "un token filtrado se
+puede usar" —inevitable— y "cualquier página que visite quien edita puede leer sus borradores en
+silencio", que es lo que pasaría con `*`.
+
+Por eso `*` no aparece en ningún camino, y hay un test que lo comprueba (T-R-5).
+
 ### Publicar todo depende de que la pestaña siga abierta
 
 El bucle que encadena las llamadas vive en el cliente (ADR-600). Cerrar la pestaña a mitad deja

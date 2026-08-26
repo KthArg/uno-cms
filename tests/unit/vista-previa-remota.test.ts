@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { GET } from '@/app/api/preview/contenido/route';
 import {
+  origenPermitido,
   origenesDeVistaPreviaRemota,
   urlDeVistaPreviaRemota,
   vistaPreviaRemotaActiva,
@@ -36,24 +36,14 @@ describe('T-R-1 — sin PREVIEW_ORIGINS no hay nada', () => {
     }
   });
 
-  it('la ruta de borradores responde 404', async () => {
-    vi.stubEnv('PREVIEW_ORIGINS', undefined);
-
-    const respuesta = await GET();
-
-    // 404 y no 403: un 403 confirmaría que ahí hay un endpoint y que solo falta la credencial.
-    expect(respuesta.status).toBe(404);
-    expect(await respuesta.text()).toBe('');
-  });
-
-  it('con la variable, la ruta deja de responder 404', async () => {
-    // El caso que hace que el anterior pueda fallar. Sin este, quitar la comprobación del
-    // manejador dejaría el 404 igual —porque hoy no hay nada que servir— y T-R-1 pasaría sin
-    // probar nada. El 501 lo sustituye #179 por la respuesta de §4.3.
-    vi.stubEnv('PREVIEW_ORIGINS', 'https://mi-web.com');
-
-    expect((await GET()).status).not.toBe(404);
-  });
+  // **T-R-1 sobre la ruta se ha mudado a `tests/integration/vista-previa-remota.test.ts`.**
+  //
+  // Aquí vivió mientras la ruta era solo el interruptor: entonces el camino encendido devolvía
+  // un 501 de andamio y "sin la variable, 404" podía fallar. Con la ruta construida (#179), el
+  // camino encendido **también** responde 404 si no hay origen permitido y token válido, así
+  // que un caso aquí pasaría con la comprobación quitada y no probaría nada.
+  //
+  // Donde sí puede fallar es al lado de un 200, y para eso hace falta base de datos.
 });
 
 describe('qué se acepta como origen', () => {
@@ -169,5 +159,43 @@ describe('PREVIEW_URL, que es a dónde apunta el iframe', () => {
     vi.stubEnv('PREVIEW_URL', undefined);
 
     expect(urlDeVistaPreviaRemota(undefined, ORIGENES)).toBeNull();
+  });
+});
+
+describe('T-R-4 y T-R-7 — quién está en la lista', () => {
+  const ORIGENES = ['https://mi-web.com', 'http://localhost:4321'];
+
+  it('un origen de la lista pasa, y sale el que se pidió', () => {
+    // Se devuelve el pedido y no "el de la lista", aunque aquí sean la misma cadena: lo que va
+    // en `Access-Control-Allow-Origin` tiene que ser el origen de **esta** petición.
+    expect(origenPermitido('https://mi-web.com', ORIGENES)).toBe('https://mi-web.com');
+    expect(origenPermitido('http://localhost:4321', ORIGENES)).toBe('http://localhost:4321');
+  });
+
+  it.each([
+    // **T-R-7, el caso que decide si esto está bien hecho.** Cualquiera puede registrar un
+    // dominio que empiece por el nuestro; comparar con `includes` o `startsWith` le regalaría
+    // el permiso, y acertaría con todos los demás casos de esta lista.
+    ['un dominio que contiene al permitido', 'https://mi-web.com.malo.io'],
+    ['un subdominio del permitido', 'https://sub.mi-web.com'],
+    ['el permitido como sufijo', 'https://malo.io/https://mi-web.com'],
+    ['el mismo host por http', 'http://mi-web.com'],
+    ['el mismo host en otro puerto', 'https://mi-web.com:8443'],
+    ['con barra final, que un navegador nunca manda', 'https://mi-web.com/'],
+    ['uno que no tiene nada que ver', 'https://otra.example'],
+    ['la cadena vacía', ''],
+  ])('%s no pasa', (_caso, pedido) => {
+    expect(origenPermitido(pedido, ORIGENES)).toBeNull();
+  });
+
+  it('sin cabecera `Origin` no pasa', () => {
+    // Una petición desde un servidor no la lleva. Aceptarla dejaría la lista sin efecto en el
+    // único caso en el que tendría alguno.
+    expect(origenPermitido(null, ORIGENES)).toBeNull();
+    expect(origenPermitido(undefined, ORIGENES)).toBeNull();
+  });
+
+  it('con la lista vacía no pasa nadie, ni siquiera con un origen bien escrito', () => {
+    expect(origenPermitido('https://mi-web.com', [])).toBeNull();
   });
 });
