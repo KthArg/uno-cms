@@ -74,3 +74,23 @@ test('el iframe no se puede embeber desde fuera (§6.2)', async ({ page }) => {
   const csp = respuesta?.headers()['content-security-policy'] ?? '';
   expect(csp).toContain("frame-ancestors 'self'");
 });
+
+/**
+ * T-R-15: **la vista previa de una web de este repositorio sigue igual** (spec 08 §6.4).
+ *
+ * Esta suite corre sin `PREVIEW_ORIGINS`, o sea en el estado por defecto de cualquier
+ * despliegue. Los tests de arriba ya demuestran que la vista previa funciona; lo que este añade
+ * es que **apunta a donde apuntaba**: si algún día el iframe empezara a salir hacia fuera sin
+ * que nadie configurara nada, se vería aquí y no en producción.
+ */
+test('T-R-15: sin fase remota, el iframe apunta a `/preview` de este sitio', async ({ page }) => {
+  await crearYEntrar(page, { email: 't-r-15@ejemplo.com', role: 'admin' });
+  await page.goto(`/admin/content/${CLAVE}`);
+
+  const src = await page
+    .locator('iframe[title="Vista previa de tu web"]')
+    .getAttribute('src', { timeout: 15_000 });
+
+  expect(src).toMatch(/^\/preview\?token=/);
+  expect(src).not.toContain('unocms_preview');
+});

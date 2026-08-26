@@ -7,7 +7,7 @@ import type { ObjectSchema } from '@/cms/core/config';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
 import { ConfirmarAccion } from './ConfirmarAccion';
 import { FALLO_DE_RED } from './fallo-de-red';
-import { PreviewFrame } from './PreviewFrame';
+import { PreviewFrame, type RelevoDeToken } from './PreviewFrame';
 import { EntryForm, type ValoresDeEntrada } from './EntryForm';
 import { EstadoGuardado } from './EstadoGuardado';
 import { MediaPicker } from './MediaPicker';
@@ -49,6 +49,16 @@ export interface EntryEditorProps {
    * publicar. La vista previa es lo que distingue a este CMS, no lo que lo sostiene.
    */
   readonly urlDeVistaPrevia?: string;
+  /**
+   * A qué origen se mandan los mensajes del iframe. Sin él, al nuestro (spec 08 §4.5).
+   *
+   * Va aparte de `urlDeVistaPrevia` y no se deriva de ella: derivarlo sería sacar el origen de
+   * la misma cadena que se quiere comprobar.
+   */
+  readonly origenDeVistaPrevia?: string;
+  /** Cómo pedir un token nuevo y cuánto vive el actual. Solo en la vista previa remota. */
+  readonly renovarTokenDeVistaPrevia?: () => Promise<RelevoDeToken>;
+  readonly vidaDelTokenSegundos?: number;
   /** La biblioteca, para el selector de imágenes. */
   readonly imagenes?: readonly ImagenDeBiblioteca[];
   readonly tiposAceptados?: readonly string[];
@@ -69,6 +79,9 @@ export function EntryEditor({
   entryKey,
   sePuedeDeshacer,
   urlDeVistaPrevia,
+  origenDeVistaPrevia,
+  renovarTokenDeVistaPrevia,
+  vidaDelTokenSegundos,
   imagenes = [],
   tiposAceptados = [],
   tamanoMaximoBytes = 0,
@@ -242,7 +255,16 @@ export function EntryEditor({
           <HuecoDeVistaPrevia />
         ) : (
           <div className="hidden lg:block">
-            <PreviewFrame src={urlDeVistaPrevia} entryKey={entryKey} valores={valores} />
+            <PreviewFrame
+              src={urlDeVistaPrevia}
+              entryKey={entryKey}
+              valores={valores}
+              {...(origenDeVistaPrevia === undefined ? {} : { origenDestino: origenDeVistaPrevia })}
+              {...(renovarTokenDeVistaPrevia === undefined
+                ? {}
+                : { renovarToken: renovarTokenDeVistaPrevia })}
+              {...(vidaDelTokenSegundos === undefined ? {} : { vidaDelTokenSegundos })}
+            />
           </div>
         )}
       </div>

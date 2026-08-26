@@ -20,6 +20,29 @@ export interface MensajeDeCambio {
   readonly seq: number;
 }
 
+/**
+ * El relevo del token de vista previa remota (spec 08 §4.2, ADR-701).
+ *
+ * ## Por qué el token viaja por aquí y no recargando el iframe
+ *
+ * Porque recargar es lo que el contrato prohíbe: quien edita perdería la posición del `scroll`,
+ * el estado de la web de destino y vería un parpadeo cada quince minutos. El canal que ya
+ * existe entre las dos ventanas sirve para esto sin tocar nada.
+ *
+ * ## Y por qué el token puede ir en un mensaje sin más
+ *
+ * Porque el `postMessage` va con **origen explícito** al de `PREVIEW_URL`, así que el navegador
+ * solo lo entrega si en el iframe hay exactamente esa web. Mandarlo con `'*'` sería regalarle
+ * una credencial a quien sea que haya acabado ahí dentro, y ese es el motivo por el que en este
+ * proyecto no hay ningún `'*'` — ahora también por este.
+ */
+export interface MensajeDeToken {
+  readonly type: 'cms:token';
+  readonly token: string;
+  /** Cuánto vive el nuevo, en segundos. Lo dice el servidor al emitirlo. */
+  readonly vidaEnSegundos: number;
+}
+
 /** Lo que manda el iframe de vuelta (SPEC §6.1 paso 5). */
 export type MensajeDelIframe =
   { readonly type: 'cms:ready' } | { readonly type: 'cms:section-visible'; readonly key: string };
@@ -84,4 +107,23 @@ export function esMensajeDeCambio(valor: unknown): valor is MensajeDeCambio {
   // una lista para una colección. Una cadena o un número entrarían al contexto y harían que
   // `useContent` devolviera vacío — lo mismo que ignorarlo, pero después.
   return typeof mensaje.data === 'object' && mensaje.data !== null;
+}
+
+/**
+ * La forma de un relevo de token.
+ *
+ * Se comprueba igual de estrictamente que un cambio, y por más motivo: esto entra en la
+ * siguiente petición que haga el cliente remoto. Un `token` que no sea una cadena no vale, y un
+ * `vidaEnSegundos` que no sea un número finito tampoco — si entrara un `NaN`, el cliente no
+ * podría saber nunca cuándo caduca (es el mismo agujero que se tapó en `estadoDelTokenRemoto`).
+ */
+export function esMensajeDeToken(valor: unknown): valor is MensajeDeToken {
+  if (typeof valor !== 'object' || valor === null) return false;
+
+  const mensaje = valor as Partial<MensajeDeToken>;
+
+  if (mensaje.type !== 'cms:token') return false;
+  if (typeof mensaje.token !== 'string' || mensaje.token === '') return false;
+
+  return typeof mensaje.vidaEnSegundos === 'number' && Number.isFinite(mensaje.vidaEnSegundos);
 }
