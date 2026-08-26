@@ -167,7 +167,21 @@ describe('T-R-19 y T-R-20 — la renovación del token', () => {
       />
     );
 
-    return { enviados, vista };
+    /** Vuelve a pintar con **otra** referencia de `renovarToken`, que rearma el efecto. */
+    function repintarConOtraReferencia(otra: () => Promise<RelevoDeToken>) {
+      vista.rerender(
+        <PreviewFrame
+          src={`${REMOTO}/?unocms_preview=1&token=viejo`}
+          entryKey="hero"
+          valores={{ title: 'uno' }}
+          origenDestino={REMOTO}
+          renovarToken={otra}
+          vidaDelTokenSegundos={VIDA}
+        />
+      );
+    }
+
+    return { enviados, vista, repintarConOtraReferencia };
   }
 
   it('T-R-19: se pide uno nuevo antes de caducar y el iframe no se recarga', async () => {
@@ -221,6 +235,39 @@ describe('T-R-19 y T-R-20 — la renovación del token', () => {
     await avanzar(VIDA - 60);
     expect(renovar.mock.calls.length).toBe(2);
     expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('T-R-19: el reloj sobrevive a que el efecto se rearme', async () => {
+    // El fallo que este caso impide **no se ve leyendo el componente**: si la referencia de
+    // `renovarToken` cambia de identidad —basta con que alguien la envuelva en una función al
+    // vuelo en la pantalla de arriba—, el efecto se vuelve a montar. Con lo transcurrido en una
+    // variable del efecto, ese remontaje ponía el contador a cero: el token envejecía sin que
+    // nadie lo mirase y la vista previa **moría en silencio**, que es el fallo exacto que toda
+    // esta pieza existe para evitar.
+    const primera = vi.fn(async (): Promise<RelevoDeToken> => ({
+      ok: true,
+      token: 'nuevo',
+      vidaEnSegundos: VIDA,
+    }));
+    const segunda = vi.fn(async (): Promise<RelevoDeToken> => ({
+      ok: true,
+      token: 'nuevo',
+      vidaEnSegundos: VIDA,
+    }));
+
+    const { repintarConOtraReferencia } = montar(primera);
+    await iframeListo(REMOTO);
+
+    // A media vida, algo rearma el efecto.
+    await avanzar(VIDA / 2);
+    await act(async () => {
+      repintarConOtraReferencia(segunda);
+    });
+
+    // Y el relevo llega igual cuando toca, contando desde que se emitió el token.
+    await avanzar(VIDA / 2 - 60);
+
+    expect(segunda).toHaveBeenCalled();
   });
 
   it('T-R-20: si la renovación falla, se dice y no se manda un token roto', async () => {

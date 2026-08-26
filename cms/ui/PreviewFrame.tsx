@@ -85,6 +85,23 @@ export function PreviewFrame({
   const [listo, setListo] = useState(false);
   const [tokenCaido, setTokenCaido] = useState(false);
 
+  /**
+   * El token vigente y desde cuándo, **fuera del efecto que los usa**.
+   *
+   * En `useRef` y no en variables del efecto, y es lo que arregla un fallo que solo aparece
+   * cuando algo hace que el efecto se vuelva a montar: si la referencia de `renovarToken`
+   * cambiara de identidad —basta con que alguien la envuelva en una función al vuelo en la
+   * pantalla de arriba—, el efecto se rearmaría y `emitido` volvería a valer «ahora». El token
+   * envejecería sin que nadie lo mirara y la vista previa **moriría en silencio**, que es el
+   * fallo exacto que toda esta pieza existe para evitar.
+   *
+   * En una referencia, lo transcurrido sobrevive a que el efecto se rearme. Hay un caso que
+   * rearma el efecto a propósito y comprueba que el relevo sigue llegando a su hora.
+   */
+  const vidaDelToken = useRef<number | null>(null);
+  const emitidoEn = useRef<number | null>(null);
+  const pidiendoRelevo = useRef(false);
+
   const seq = useRef(0);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendiente = useRef<unknown>(null);
@@ -188,12 +205,16 @@ export function PreviewFrame({
     if (!listo) return;
 
     let vigente = true;
-    let vida = vidaDelTokenSegundos;
-    let emitido = performance.now();
-    let pidiendo = false;
+
+    // Solo la primera vez. Si el efecto se rearma con el mismo token, lo transcurrido sigue
+    // contando desde que se emitió y no desde ahora.
+    if (vidaDelToken.current === null || vidaDelToken.current !== vidaDelTokenSegundos) {
+      vidaDelToken.current = vidaDelTokenSegundos;
+      emitidoEn.current = performance.now();
+    }
 
     async function relevar(): Promise<void> {
-      pidiendo = true;
+      pidiendoRelevo.current = true;
       try {
         const relevo = await renovarToken!();
         if (!vigente) return;
@@ -218,21 +239,24 @@ export function PreviewFrame({
           origenDestino ?? window.location.origin
         );
 
-        vida = relevo.vidaEnSegundos;
-        emitido = performance.now();
+        vidaDelToken.current = relevo.vidaEnSegundos;
+        emitidoEn.current = performance.now();
       } catch {
         // La regla de `cms/ui`: un `await` que puede caerse va dentro de un `try`, o la pantalla
         // se queda bloqueada sin decir nada si se cae la red.
         if (vigente) setTokenCaido(true);
       } finally {
-        pidiendo = false;
+        pidiendoRelevo.current = false;
       }
     }
 
     const latido = setInterval(() => {
-      if (pidiendo) return;
+      if (pidiendoRelevo.current) return;
 
-      const estado = estadoDelTokenRemoto(vida, (performance.now() - emitido) / 1000);
+      const estado = estadoDelTokenRemoto(
+        vidaDelToken.current ?? Number.NaN,
+        (performance.now() - (emitidoEn.current ?? 0)) / 1000
+      );
 
       if (estado === 'vale') return;
       // `caducado` también se dice: llegar aquí significa que la renovación no ocurrió a tiempo

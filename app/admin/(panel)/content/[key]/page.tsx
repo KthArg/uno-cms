@@ -132,6 +132,7 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
   const destino = enlaceDeVistaPrevia.ok
     ? destinoDeVistaPrevia(enlaceDeVistaPrevia.data.token, urlRemota)
     : null;
+  const vidaDelToken = enlaceDeVistaPrevia.ok ? enlaceDeVistaPrevia.data.expiresInSeconds : 0;
 
   const vistaPrevia =
     destino === null
@@ -139,13 +140,14 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
       : {
           urlDeVistaPrevia: destino.src,
           ...(destino.origen === null ? {} : { origenDeVistaPrevia: destino.origen }),
+          // `destino` solo existe si el token se creó, así que aquí la vida siempre está. El
+          // `?? 0` que tenía antes era una rama muerta —y con un valor que habría dado un
+          // token nacido caducado si alguna vez se hubiera alcanzado—.
           ...(urlRemota === null
             ? {}
             : {
                 renovarTokenDeVistaPrevia: renovarTokenRemoto,
-                vidaDelTokenSegundos: enlaceDeVistaPrevia.ok
-                  ? enlaceDeVistaPrevia.data.expiresInSeconds
-                  : 0,
+                vidaDelTokenSegundos: vidaDelToken,
               }),
         };
 
