@@ -911,3 +911,43 @@ Las dos condiciones a la vez, y la segunda es la que hace aceptable a la primera
 - La ruta que sirve es **la única parte peligrosa**: convierte una cadena de fuera en una lectura de disco. No se sanea la ruta recibida —sanear es un juego que se pierde— sino que se exige la forma exacta que genera `generarPathname()`.
 
 **Qué lo revertiría.** Que aparezca un tercer almacén de verdad: ahí sí habría tres ejemplos delante para decidir la abstracción, en vez de dos y una suposición. Y si alguien quisiera esto en un servidor propio con disco persistente, **lo único que hay que cambiar es `usarAlmacenLocal()`** — que está sola por esta razón. Habría que decidir antes dónde vive el directorio, cómo se respalda y qué pasa al escalar a dos instancias, que es un producto distinto del que describe §2.
+
+---
+
+## ADR-701 — La web puede vivir fuera, y los borradores salen de la aplicación (acota ADR-001, resuelve #176)
+
+**Contexto.** `SPEC.md` §0 dice "no es headless multi-sitio: un despliegue = una landing = un CMS", y **ADR-001 evaluó exactamente lo que ahora se pide y lo descartó**: la opción B —admin y sitio separados— aparecía en su tabla como "requiere iframe cross-origin + CORS". Su justificación fue que el requisito "la preview implementa la página dentro del mismo CMS" _se resuelve de forma nativa_ si el admin renderiza los mismos componentes.
+
+O sea: **el acoplamiento no es una consecuencia del diseño, es lo que hizo ganar al diseño.** Ese razonamiento sigue siendo correcto para una web que vive aquí. Lo que ha cambiado no es que estuviera mal, es el producto que se quiere: alimentar una web hospedada en otro sitio, conservando la vista previa.
+
+**Y hay un límite que no depende de nosotros.** Una web que no sabe que existimos no puede enseñar contenido sin publicar: renderiza lo suyo, desde su fuente. Para enseñar un borrador tiene que pedírnoslo.
+
+**Las salidas evaluadas.**
+
+| Salida                                                     | Por qué no                                                                                                                                                                                                                                                 |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Mantener el acoplamiento**                               | Es lo que hay hoy y sigue siendo lo mejor para una web que pueda vivir en el repositorio. No resuelve el caso pedido                                                                                                                                       |
+| **Una copia de la web dentro del CMS, para previsualizar** | Dos implementaciones de lo mismo. La vista previa enseñaría la copia, y en cuanto divergen empieza a mentir **justo cuando se usa para decidir si publicar** — que es lo que el propio `app/preview/page.tsx` advierte que no puede pasar                  |
+| **Proxy: pedir el HTML de la web y sustituir los textos**  | Funciona con lo que sirve el servidor y falla con todo lo que se pinte en el cliente. Y lo peor no es que falle: es que **quien mira no puede saber en cuál de los dos casos está**. Una vista previa que a veces miente es peor que no tener vista previa |
+| **Multi-tenant (la opción C de ADR-001)**                  | Modelo de contenido por sitio, permisos por sitio, aislamiento. Toca §4 y §7 enteras para resolver un problema que no se tiene: se quiere una web por CMS, solo que la web pueda estar fuera                                                               |
+
+**Decisión.** La web de destino puede vivir fuera, **colaborando**: incluye un cliente nuestro que lee los borradores del CMS y escucha los cambios en vivo.
+
+**Se mantiene 1 CMS = 1 web.** Lo que se deroga de §0 es "no es headless", no "un despliegue = una landing". El producto sigue sin ser multi-sitio.
+
+**La consecuencia que hay que escribir con todas las letras: los borradores salen de la aplicación.** Hoy no salen nunca — la ruta pública sirve solo lo publicado y su propio comentario dice que filtrar un borrador ahí "es publicar sin querer, y sin que nadie pulse nada". Esa propiedad se acaba. A cambio de qué:
+
+- **Una ruta nueva y solo esa.** `GET /api/content/:key` no cambia: sigue sin borradores y sin CORS. Los borradores salen únicamente por `/api/preview/contenido`.
+- **Token de propósito propio y vida corta.** `preview-remoto`, 15 minutos, contra las 2 horas del actual. El token viaja a un tercero y acaba en su historial y en sus registros; los propósitos separados hacen que ninguno de los dos sirva en la ruta del otro, y eso lo comprueba `verifyToken` sin código nuevo.
+- **Lista de orígenes por variable de entorno, no por ajuste del panel.** Esta lista decide quién puede leer contenido sin publicar: un ajuste en la base de datos lo cambia cualquiera con una sesión de administrador, o cualquiera que consiga una. Una variable de entorno solo la cambia quien despliega.
+- **Sin la variable, nada de esto existe.** La ruta responde 404 y la CSP es byte a byte la de hoy. Se apaga entera, no se degrada.
+- **Ningún `*`, en ningún lado.** Ni en `Access-Control-Allow-Origin` ni en `postMessage`. Lo segundo ya era así y no se relaja: se parametriza.
+
+**Consecuencias.**
+
+- Se puede alimentar una web externa con vista previa en vivo, que era el criterio de #176.
+- **La web destino hay que tocarla.** No es un efecto secundario, es la premisa: sin colaboración no hay borradores que enseñar. Quien no pueda tocarla, no tiene esta funcionalidad — y es mejor eso que un proxy que acierta a veces.
+- **La superficie de ataque crece en un endpoint.** Es el único que sirve contenido sin publicar, y por eso concentra token, propósito, TTL corto, lista de orígenes y `no-store`. Es también donde hay que mirar primero cuando algo huela mal.
+- `SPEC.md` §0 queda desactualizado en esa frase. **Se cambia el documento**, no se deja que el código lo contradiga en silencio.
+
+**Qué lo revertiría.** Que la web de destino pueda vivir en el repositorio. Entonces esto sobra, y ADR-001 vuelve a valer entero: es mejor diseño cuando se puede aplicar.

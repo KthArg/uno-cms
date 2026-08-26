@@ -6,7 +6,12 @@
 
 ## 0. Resumen ejecutivo
 
-UnoCMS es un CMS embebido dentro del mismo proyecto Next.js que sirve la landing page. No es headless multi-sitio: **un despliegue = una landing = un CMS**. El desarrollador define el modelo de contenido en código (`cms.config.ts`); el CMS genera automáticamente el panel de administración, la validación, el versionado y la vista previa en vivo. El usuario final (principiante en IT) solo ve un panel simple: edita textos/imágenes, ve la página real actualizándose en tiempo real dentro del panel, y publica con un botón.
+UnoCMS es un CMS embebido dentro del mismo proyecto Next.js que sirve la landing page. No es headless multi-sitio: **un despliegue = una landing = un CMS**.
+
+> **Enmienda — ADR-701 (issue #176).** La frase "no es headless" deja de ser cierta: la landing puede vivir **fuera** de este proyecto y consumir el contenido por API, conservando la vista previa en vivo si incluye el cliente de `docs/specs/08-vista-previa-remota.md`. Lo que **sigue en pie es la otra mitad**: un despliegue sirve a una web. No hay multi-tenant, y §4 y §7 no cambian.
+>
+> Se enmienda aquí en vez de dejar que el código contradiga al documento en silencio. El razonamiento original —que el acoplamiento hace trivial la vista previa— **sigue siendo correcto** para una web que pueda vivir en el repositorio, y esa sigue siendo la opción recomendada.
+ El desarrollador define el modelo de contenido en código (`cms.config.ts`); el CMS genera automáticamente el panel de administración, la validación, el versionado y la vista previa en vivo. El usuario final (principiante en IT) solo ve un panel simple: edita textos/imágenes, ve la página real actualizándose en tiempo real dentro del panel, y publica con un botón.
 
 **Principios rectores (en orden):**
 
