@@ -1,12 +1,20 @@
 import { notFound } from 'next/navigation';
-import { createPreviewToken, publish, revertDraft, saveDraft } from '@/cms/actions';
+import {
+  crearTokenDeVistaPreviaRemota,
+  createPreviewToken,
+  publish,
+  revertDraft,
+  saveDraft,
+} from '@/cms/actions';
 import { definicionDeColeccion, tituloDeElemento } from '@/cms/core/collections';
 import { readEntryForEditor, schemaForType } from '@/cms/core/content';
 import { listMedia } from '@/cms/core/media';
 import { usarAlmacenLocal } from '@/cms/security/almacen-local';
 import { TAMANO_MAXIMO_BYTES, TIPOS_PERMITIDOS } from '@/cms/security/uploads';
 import { EntryEditor } from '@/cms/ui/EntryEditor';
+import type { RelevoDeToken } from '@/cms/ui/PreviewFrame';
 import type { ResultadoGuardado } from '@/cms/ui/useAutosave';
+import { destinoDeVistaPrevia, urlDeVistaPreviaRemota } from '@/cms/vista-previa-remota';
 
 /**
  * El editor de una entrada (SPEC §3, §8, §9).
@@ -83,13 +91,65 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
     return { ok: false, code: resultado.code, message: resultado.message };
   }
 
-  // El enlace del iframe (SPEC §6.1 paso 1). Si no se pudo crear —el limitador, un fallo
-  // puntual— la pantalla sigue sirviendo para escribir y publicar: la vista previa es lo que
-  // distingue a este CMS, no lo que lo sostiene.
-  const enlaceDeVistaPrevia = await createPreviewToken({ key });
-  const urlDeVistaPrevia = enlaceDeVistaPrevia.ok
-    ? `/preview?token=${encodeURIComponent(enlaceDeVistaPrevia.data.token)}`
-    : undefined;
+  /**
+   * Pedir un token remoto nuevo sin recargar la pantalla (spec 08 §4.2).
+   *
+   * Solo se le pasa al panel cuando la fase está encendida. Devuelve `{ ok: false }` sin motivo:
+   * la pantalla dice lo mismo pase lo que pase —que la vista previa dejó de actualizarse— y el
+   * motivo interno no le sirve a quien lo lee.
+   */
+  async function renovarTokenRemoto(): Promise<RelevoDeToken> {
+    'use server';
+
+    const resultado = await crearTokenDeVistaPreviaRemota({ key });
+    if (!resultado.ok) return { ok: false };
+
+    return {
+      ok: true,
+      token: resultado.data.token,
+      vidaEnSegundos: resultado.data.expiresInSeconds,
+    };
+  }
+
+  /**
+   * El enlace del iframe (SPEC §6.1 paso 1, spec 08 §4.5).
+   *
+   * Dos caminos y **una sola diferencia**: si hay web remota configurada, el token es el de
+   * quince minutos y el iframe apunta fuera; si no, todo sigue exactamente como antes de esta
+   * fase. Sin `PREVIEW_ORIGINS` no se llega ni a preguntar por la otra action.
+   *
+   * Si el token no se pudo crear —el limitador, un fallo puntual— la pantalla sigue sirviendo
+   * para escribir y publicar: la vista previa es lo que distingue a este CMS, no lo que lo
+   * sostiene.
+   */
+  const urlRemota = urlDeVistaPreviaRemota();
+
+  const enlaceDeVistaPrevia =
+    urlRemota === null
+      ? await createPreviewToken({ key })
+      : await crearTokenDeVistaPreviaRemota({ key });
+
+  const destino = enlaceDeVistaPrevia.ok
+    ? destinoDeVistaPrevia(enlaceDeVistaPrevia.data.token, urlRemota)
+    : null;
+  const vidaDelToken = enlaceDeVistaPrevia.ok ? enlaceDeVistaPrevia.data.expiresInSeconds : 0;
+
+  const vistaPrevia =
+    destino === null
+      ? {}
+      : {
+          urlDeVistaPrevia: destino.src,
+          ...(destino.origen === null ? {} : { origenDeVistaPrevia: destino.origen }),
+          // `destino` solo existe si el token se creó, así que aquí la vida siempre está. El
+          // `?? 0` que tenía antes era una rama muerta —y con un valor que habría dado un
+          // token nacido caducado si alguna vez se hubiera alcanzado—.
+          ...(urlRemota === null
+            ? {}
+            : {
+                renovarTokenDeVistaPrevia: renovarTokenRemoto,
+                vidaDelTokenSegundos: vidaDelToken,
+              }),
+        };
 
   return (
     <EntryEditor
@@ -105,7 +165,7 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
       // `revertDraft` devuelve NEVER_PUBLISHED (#79) y ofrecerlo sería un botón que solo
       // sirve para dar un error.
       sePuedeDeshacer={entrada.estado !== 'sin-publicar'}
-      {...(urlDeVistaPrevia === undefined ? {} : { urlDeVistaPrevia })}
+      {...vistaPrevia}
       imagenes={imagenes}
       tiposAceptados={[...TIPOS_PERMITIDOS]}
       tamanoMaximoBytes={TAMANO_MAXIMO_BYTES}

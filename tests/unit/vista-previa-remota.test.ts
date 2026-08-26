@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  destinoDeVistaPrevia,
   origenPermitido,
   origenesDeVistaPreviaRemota,
   urlDeVistaPreviaRemota,
@@ -197,5 +198,45 @@ describe('T-R-4 y T-R-7 — quién está en la lista', () => {
 
   it('con la lista vacía no pasa nadie, ni siquiera con un origen bien escrito', () => {
     expect(origenPermitido('https://mi-web.com', [])).toBeNull();
+  });
+});
+
+describe('T-R-15 y T-R-16 — a dónde apunta el iframe', () => {
+  it('sin web remota, la dirección de siempre y el origen se resuelve en el cliente', () => {
+    const destino = destinoDeVistaPrevia('el-token', null);
+
+    // Byte a byte la cadena que construía la pantalla del editor antes de esta fase.
+    expect(destino.src).toBe('/preview?token=el-token');
+    // `null` y no nuestro origen: el servidor no sabe con qué origen ha llegado el navegador
+    // —hay cabeceras que lo dicen y son manipulables—, así que lo resuelve quien puede saberlo.
+    expect(destino.origen).toBeNull();
+  });
+
+  it('el token se codifica, que si no un `&` partiría la dirección', () => {
+    expect(destinoDeVistaPrevia('a&b=c', null).src).toBe('/preview?token=a%26b%3Dc');
+  });
+
+  it('con web remota, apunta fuera y el origen sale de la URL analizada', () => {
+    const destino = destinoDeVistaPrevia('el-token', 'https://mi-web.com/es/');
+
+    expect(destino.src).toContain('https://mi-web.com/es/');
+    expect(destino.src).toContain('token=el-token');
+    // El parámetro que la web de destino mira para decidir si carga nuestro cliente. Sin él
+    // tendría que fisgar el token, que es una credencial nuestra y no una señal suya.
+    expect(destino.src).toContain('unocms_preview=1');
+    // De `new URL(...).origin`, no de recortar la cadena: es la misma normalización contra la
+    // que se comparó al aceptarla en `PREVIEW_ORIGINS`.
+    expect(destino.origen).toBe('https://mi-web.com');
+  });
+
+  it('conserva la ruta y los parámetros que ya llevara', () => {
+    // `PREVIEW_URL` puede llevar ruta —es la razón de que sea otra variable— y quien la escribe
+    // puede haberle puesto sus propios parámetros. Machacarlos rompería su web sin avisar.
+    const destino = destinoDeVistaPrevia('t', 'https://mi-web.com/es/inicio?tema=oscuro');
+
+    const url = new URL(destino.src);
+    expect(url.pathname).toBe('/es/inicio');
+    expect(url.searchParams.get('tema')).toBe('oscuro');
+    expect(url.searchParams.get('token')).toBe('t');
   });
 });

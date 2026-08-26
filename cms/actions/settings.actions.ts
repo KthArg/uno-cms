@@ -5,7 +5,8 @@ import { z } from 'zod';
 import appConfig from '@/cms.config';
 import { SETTINGS_SCHEMAS, SETTINGS_TAG } from '@/cms/core/settings';
 import { getDb, settings } from '@/cms/db';
-import { signToken } from '@/cms/security/tokens';
+import { TOKEN_TTL, signToken } from '@/cms/security/tokens';
+import { urlDeVistaPreviaRemota } from '@/cms/vista-previa-remota';
 import { defineAction, fail, failFields, fieldsFromZod, ok } from './pipeline';
 
 /**
@@ -50,6 +51,26 @@ export const updateSettings = defineAction({
   },
 });
 
+/**
+ * Si la clave existe en `cms.config.ts`.
+ *
+ * Un token firmado es una afirmación, y sin esto diría "esta clave es previsualizable" sin
+ * haberlo comprobado — dejando el problema a la ruta de vista previa, que se encontraría tokens
+ * nuestros con claves arbitrarias dentro. Aquí es una comprobación; allí sería acordarse.
+ *
+ * Está fuera de las dos actions que la usan porque son dos: la de `/preview` y la remota. Con una
+ * copia en cada una, añadir un tipo de clave y arreglar solo la primera dejaría la otra emitiendo
+ * tokens para claves que no existen, y en verde.
+ */
+function claveConocida(key: string): boolean {
+  return (
+    Object.hasOwn(appConfig.singletons, key) ||
+    Object.hasOwn(appConfig.collections, key) ||
+    // Los elementos de colección son `coleccion.id`: se valida la parte de la colección.
+    Object.hasOwn(appConfig.collections, key.split('.')[0] ?? '')
+  );
+}
+
 export const createPreviewToken = defineAction({
   name: 'content.createPreviewToken',
   role: 'editor',
@@ -58,17 +79,7 @@ export const createPreviewToken = defineAction({
   targetType: 'content',
   targetId: (input) => input.key,
   handler: async (input) => {
-    // La clave tiene que existir en `cms.config.ts`. Un token firmado es una afirmación, y sin
-    // esto diría "esta clave es previsualizable" sin haberlo comprobado — dejando el problema
-    // a la ruta de vista previa de M5, que se encontraría tokens nuestros con claves
-    // arbitrarias dentro. Aquí es una comprobación; allí sería acordarse.
-    const existe =
-      Object.hasOwn(appConfig.singletons, input.key) ||
-      Object.hasOwn(appConfig.collections, input.key) ||
-      // Los elementos de colección son `coleccion.id`: se valida la parte de la colección.
-      Object.hasOwn(appConfig.collections, input.key.split('.')[0] ?? '');
-
-    if (!existe) return fail('NOT_FOUND');
+    if (!claveConocida(input.key)) return fail('NOT_FOUND');
 
     // La clave va **dentro** del token firmado, no como parámetro aparte de la URL. Un token
     // sin clave dentro serviría para cualquier entrada, y el enlace compartible de §6.1 se
@@ -76,6 +87,47 @@ export const createPreviewToken = defineAction({
     const token = signToken('preview', { key: input.key });
 
     return ok({ token, expiresInSeconds: 2 * 60 * 60 });
+  },
+  // El token es una credencial: en la auditoría queda qué entrada se previsualizó, no con qué
+  // llave.
+  auditMeta: () => ({}),
+});
+
+/**
+ * El token que viaja a la web de destino (spec 08 §4.2, ADR-701).
+ *
+ * ## Por qué es una action aparte y no un parámetro de la de arriba
+ *
+ * Porque lo que emite **no es lo mismo**: dura quince minutos en vez de dos horas y sale de
+ * nuestro origen. Con un `remoto: true` en la de al lado, la auditoría diría "se creó un token de
+ * vista previa" para los dos casos, y el que importa revisar cuando algo huela mal es este.
+ *
+ * Lo que sí se comparte es `claveConocida`, que es la parte que no puede divergir.
+ *
+ * ## Y por qué responde `NOT_FOUND` si la fase está apagada
+ *
+ * Sin `PREVIEW_ORIGINS` —o con una `PREVIEW_URL` cuyo origen no esté en la lista— esta action no
+ * tiene nada que emitir, y emitirlo igualmente sería crear una credencial que no abre nada y
+ * animar a la pantalla a enseñar un iframe que la CSP va a bloquear. Es el mismo criterio que la
+ * ruta: la fase se apaga entera.
+ */
+export const crearTokenDeVistaPreviaRemota = defineAction({
+  name: 'content.crearTokenDeVistaPreviaRemota',
+  role: 'editor',
+  bucket: 'preview',
+  input: z.object({ key: z.string().min(1).max(200) }),
+  targetType: 'content',
+  targetId: (input) => input.key,
+  handler: async (input) => {
+    if (urlDeVistaPreviaRemota() === null) return fail('NOT_FOUND');
+    if (!claveConocida(input.key)) return fail('NOT_FOUND');
+
+    const token = signToken('preview-remoto', { key: input.key });
+
+    // La vida se manda con el token porque quien renueva la necesita, y la necesita **medida
+    // desde ahora**: el panel cuenta lo transcurrido, no compara contra una hora absoluta
+    // (`cms/preview/renovacion.ts`).
+    return ok({ token, expiresInSeconds: TOKEN_TTL['preview-remoto'] });
   },
   // El token es una credencial: en la auditoría queda qué entrada se previsualizó, no con qué
   // llave.

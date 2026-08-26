@@ -204,3 +204,48 @@ export function origenPermitido(
   // deja pasar a todo el mundo». Ese cambio pone T-R-1 en rojo.
   return origenes.includes(pedido) ? pedido : null;
 }
+
+/** A dónde apunta el iframe del panel, y a qué origen se le mandan los mensajes. */
+export interface DestinoDeVistaPrevia {
+  /** El `src` del iframe, con el token dentro. */
+  readonly src: string;
+  /**
+   * El origen al que mandar los `postMessage`, o `null` si es **el nuestro**.
+   *
+   * `null` y no la cadena de nuestro origen a propósito: el servidor no sabe con qué origen ha
+   * llegado el navegador —hay cabeceras que lo dicen y son manipulables—, así que lo resuelve
+   * quien puede saberlo de verdad, con `window.location.origin`. Es además lo que hace que sin
+   * `PREVIEW_URL` el comportamiento sea **exactamente** el de antes de esta fase (T-R-17).
+   */
+  readonly origen: string | null;
+}
+
+/** El parámetro que enciende el cliente en la web de destino (spec 08 §4.6). */
+export const PARAMETRO_DE_VISTA_PREVIA = 'unocms_preview';
+
+/**
+ * Compone a dónde apunta el iframe (spec 08 §4.5 y §4.6).
+ *
+ * Entra el token y a dónde va; sale una dirección y un origen. Sin `urlRemota` es la vista
+ * previa de siempre, con la misma cadena que se construía en la pantalla del editor.
+ *
+ * El parámetro `unocms_preview` va **además** del token, y no sobra: es lo que la web de destino
+ * mira para decidir si carga nuestro cliente. Sin él tendría que fisgar el token, que es una
+ * credencial nuestra y no una señal suya.
+ */
+export function destinoDeVistaPrevia(
+  token: string,
+  urlRemota: string | null
+): DestinoDeVistaPrevia {
+  if (urlRemota === null) {
+    return { src: `/preview?token=${encodeURIComponent(token)}`, origen: null };
+  }
+
+  const url = new URL(urlRemota);
+  url.searchParams.set(PARAMETRO_DE_VISTA_PREVIA, '1');
+  url.searchParams.set('token', token);
+
+  // El origen sale de la URL ya analizada, no de recortar la cadena: `new URL(...).origin` es
+  // la misma normalización contra la que se comparó al aceptarla en `PREVIEW_ORIGINS`.
+  return { src: url.href, origen: url.origin };
+}
