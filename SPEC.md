@@ -458,6 +458,22 @@ BLOB_READ_WRITE_TOKEN=   # inyectada por integración Vercel Blob
 KV_REST_API_URL=/TOKEN=  # opcional (rate limit distribuido); sin esto, fallback in-memory
 ```
 
+> **Enmienda — ADR-701 (issue #177).** Dos variables más, las dos **opcionales** y las dos del
+> lado de la vista previa de una web que vive fuera:
+>
+> ```
+> PREVIEW_ORIGINS=         # opcional; orígenes que pueden leer borradores, separados por comas
+> PREVIEW_URL=             # opcional; a dónde apunta el iframe de la vista previa
+> ```
+>
+> Se listan aquí porque esta sección es el inventario de lo que hay que definir al desplegar, y
+> una variable que decide **quién puede leer contenido sin publicar** no puede estar solo en la
+> spec de su fase. Sin `PREVIEW_ORIGINS` el comportamiento es exactamente el de antes de esta
+> enmienda: la ruta de borradores responde 404 y la CSP de §7.2 no cambia ni un carácter.
+>
+> Que sean variables de entorno y no ajustes del panel es la decisión, no el detalle: un ajuste
+> en la base de datos lo cambia cualquiera con una sesión de administrador.
+
 ---
 
 ## 8. Optimización y rendimiento

@@ -1,6 +1,8 @@
 import NextAuth from 'next-auth';
 import { NextResponse, type NextRequest } from 'next/server';
+import { construirCsp } from '@/cms/csp';
 import { esNoIndexable, esRutaPublicaDelPanel } from '@/cms/routes';
+import { origenesDeVistaPreviaRemota } from '@/cms/vista-previa-remota';
 
 /**
  * Cabeceras de seguridad, CSP con nonce y guard de `/admin` (SPEC §7.2, §7.1).
@@ -42,37 +44,26 @@ const { auth } = NextAuth({
 /** Métodos que modifican estado y por tanto exigen comprobación de origen (SPEC §7.1). */
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-function buildContentSecurityPolicy(nonce: string, isDevelopment: boolean): string {
-  // SPEC §7.2, literal. `'unsafe-eval'` solo en desarrollo: Next lo necesita para la
-  // recarga en caliente, y dejarlo en producción anularía buena parte de la política.
-  const scriptSrc = [
-    "'self'",
-    `'nonce-${nonce}'`,
-    "'strict-dynamic'",
-    ...(isDevelopment ? ["'unsafe-eval'"] : []),
-  ].join(' ');
-
-  return [
-    "default-src 'self'",
-    `script-src ${scriptSrc}`,
-    // `'unsafe-inline'` en estilos es lo que fija SPEC §7.2. Tailwind emite una hoja
-    // estática, pero Next inyecta estilos en línea durante la hidratación.
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' blob: data: https://*.public.blob.vercel-storage.com",
-    "connect-src 'self'",
-    // Anti-clickjacking (SPEC §7.1). Permite el iframe de la vista previa, que es
-    // same-origin, y bloquea que nadie embeba la landing desde fuera.
-    "frame-ancestors 'self'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "object-src 'none'",
-  ].join('; ');
-}
-
 function applySecurityHeaders(response: NextResponse, request: NextRequest, nonce: string): void {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
-  response.headers.set('Content-Security-Policy', buildContentSecurityPolicy(nonce, isDevelopment));
+  response.headers.set(
+    'Content-Security-Policy',
+    construirCsp({
+      nonce,
+      desarrollo: isDevelopment,
+      // La variable se nombra aquí, escrita entera, y no se lee por una clave calculada:
+      // los empaquetadores sustituyen `process.env.ALGO` cuando lo ven literal y no cuando
+      // lo ven como `entorno[clave]`, y ese fallo dejaría la lista vacía **en el despliegue**
+      // con todos los tests en verde.
+      //
+      // Que aquí haga falta no está comprobado: con `next build && next start`, una
+      // `PREVIEW_ORIGINS` definida solo al arrancar llegó igualmente y la cabecera salió con
+      // sus orígenes. Lo que sí está comprobado es que así llega; escribirla literal cuesta
+      // nada y cubre el caso en que el empaquetado sea otro.
+      origenesEmpotrables: origenesDeVistaPreviaRemota(process.env.PREVIEW_ORIGINS),
+    })
+  );
   response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');

@@ -664,7 +664,8 @@ mensajes de subida (#164, #165) y el almacén local de imágenes (#168, ADR-700)
 
 ### Lo siguiente: la vista previa de una web que vive fuera
 
-Está **diseñado y sin empezar**. El diseño se mezcló en #182:
+Está **diseñada y empezada**: el interruptor (#177) está cerrado y las otras cuatro piezas
+nacen apagadas gracias a él. El diseño se mezcló en #182:
 
 - La contradicción que lo motiva: [#176](https://github.com/KthArg/uno-cms/issues/176)
 - La decisión: **ADR-701** en `docs/DECISIONS.md`, que acota ADR-001
@@ -677,7 +678,7 @@ la que hay un endpoint sirviendo contenido sin publicar y nada que lo apague.
 
 | Pieza                             | Issue                                                | Estado    |
 | --------------------------------- | ---------------------------------------------------- | --------- |
-| El interruptor y la CSP           | [#177](https://github.com/KthArg/uno-cms/issues/177) | sin hacer |
+| El interruptor y la CSP           | [#177](https://github.com/KthArg/uno-cms/issues/177) | **hecho** |
 | El propósito de token propio      | [#178](https://github.com/KthArg/uno-cms/issues/178) | sin hacer |
 | La ruta que sirve borradores      | [#179](https://github.com/KthArg/uno-cms/issues/179) | sin hacer |
 | El iframe remoto y los mensajes   | [#180](https://github.com/KthArg/uno-cms/issues/180) | sin hacer |
@@ -685,10 +686,15 @@ la que hay un endpoint sirviendo contenido sin publicar y nada que lo apague.
 
 ### Lo que hay que verificar antes de prometerlo
 
-En #177 hay una cosa **sin comprobar**, y está escrito así a propósito en la spec: empotrar
-`http://localhost` desde una página `https` —el caso "CMS desplegado, web en local"— tiene reglas
-propias del navegador que **nadie ha verificado**. Hay que mirarlo con un navegador delante, no
-razonarlo.
+Empotrar `http://localhost` desde una página `https` —el caso "CMS desplegado, web en local"—
+tiene reglas propias del navegador que **nadie ha verificado**. Hay que mirarlo con un navegador
+delante, no razonarlo. #177 lo deja permitido por la CSP y ahí acaba lo que puede hacer: quien
+pone el iframe es #180, y ahí es donde hay que comprobarlo. Anotado en `PENDIENTES.md`.
+
+**Lo que sí se comprobó en #177**, porque tenía la misma pinta de suposición: que
+`process.env.PREVIEW_ORIGINS` llega de verdad al runtime edge donde se construye la CSP. Se
+levantó `next build && next start` con la variable puesta y se leyó la cabecera. Si no llegara,
+la fase quedaría apagada en el despliegue **sin que fallara ni un test**.
 
 ### Lo que está abierto y no bloquea
 

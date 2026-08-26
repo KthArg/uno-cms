@@ -202,3 +202,32 @@ test('T-N-1: la ruta de subida lleva las cabeceras, y rechaza sin sesión', asyn
   }
   expect(cabeceras['x-robots-tag']).toBe('noindex');
 });
+
+/**
+ * T-R-1 y T-R-2 sobre la **respuesta real** (spec 08 §6.1).
+ *
+ * Los unitarios comparan la política carácter a carácter y comprueban el manejador de la ruta;
+ * los dos pasarían igual si el middleware dejara de llamar a `construirCsp` o si la ruta no
+ * estuviera desplegada. Esto es lo que dice que sale por el cable.
+ *
+ * Esta suite corre **sin** `PREVIEW_ORIGINS`, que es el estado por defecto de cualquier
+ * despliegue: lo que se comprueba aquí es que la fase nace apagada.
+ */
+
+test('T-R-2: sin PREVIEW_ORIGINS, la CSP que sale no lleva frame-src', async ({ request }) => {
+  const csp = (await request.get('/')).headers()['content-security-policy'] ?? '';
+
+  expect(csp).not.toContain('frame-src');
+  // Y lo que ya había sigue: la comprobación de arriba pasaría también con una CSP vacía.
+  expect(csp).toContain("frame-ancestors 'self'");
+  expect(csp).toContain("default-src 'self'");
+});
+
+test('T-R-1: sin PREVIEW_ORIGINS, la ruta de borradores responde 404', async ({ request }) => {
+  // La única ruta por la que pueden salir borradores (ADR-701). Sin la variable no existe, y
+  // un 404 —no un 403— para no confirmar que ahí hay un endpoint.
+  const respuesta = await request.get('/api/preview/contenido', { failOnStatusCode: false });
+
+  expect(respuesta.status()).toBe(404);
+  expect(await respuesta.text()).toBe('');
+});
