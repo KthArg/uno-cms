@@ -21,6 +21,8 @@ export interface PanelShellProps {
   readonly nombreDeUsuario: string;
   /** Para marcar la entrada activa. Es el `pathname`. */
   readonly rutaActual: string;
+  /** Si esta pantalla usa el ancho de la ventana en vez del techo de lectura (issue #190). */
+  readonly anchoCompleto?: boolean;
 }
 
 export interface EntradaMenu {
@@ -53,13 +55,28 @@ export function entradasVisibles(rol: 'admin' | 'editor'): readonly EntradaMenu[
   return MENU.filter((entrada) => entrada.soloAdmin !== true || rol === 'admin');
 }
 
-export function PanelShell({ children, rol, nombreDeUsuario, rutaActual }: PanelShellProps) {
+export function PanelShell({
+  children,
+  rol,
+  nombreDeUsuario,
+  rutaActual,
+  anchoCompleto = false,
+}: PanelShellProps) {
   const entradas = entradasVisibles(rol);
+
+  /**
+   * El techo de 1152 px se levanta **solo donde hace falta** (issue #190).
+   *
+   * Es bueno para leer: una lista de contenido ocupando 1900 píxeles obliga a barrer la cabeza
+   * de un lado a otro. La excepción es el editor, donde media pantalla es una web de verdad y el
+   * techo la dejaba al tercio de su tamaño.
+   */
+  const ancho = anchoCompleto ? 'max-w-none' : 'max-w-6xl';
 
   return (
     <div className="flex min-h-dvh flex-col bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
+        <div className={`mx-auto flex ${ancho} items-center justify-between gap-4 px-6 py-3`}>
           <Link
             href="/admin"
             className="font-semibold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
@@ -82,7 +99,7 @@ export function PanelShell({ children, rol, nombreDeUsuario, rutaActual }: Panel
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-6xl flex-1 gap-8 px-6 py-8">
+      <div className={`mx-auto flex w-full ${ancho} flex-1 gap-8 px-6 py-8`}>
         {/* `aria-label` porque puede haber más de un `nav` en la página y un lector de
             pantalla necesita distinguirlos por algo que no sea el orden. */}
         <nav aria-label="Secciones del panel" className="w-48 shrink-0">

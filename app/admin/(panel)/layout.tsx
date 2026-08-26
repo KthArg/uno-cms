@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { auth } from '@/cms/auth';
+import { esPantallaDeAnchoCompleto } from '@/cms/routes';
 import { PanelShell } from '@/cms/ui/PanelShell';
 
 /**
@@ -37,6 +38,9 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       rol={session.user.role}
       nombreDeUsuario={session.user.name || session.user.email}
       rutaActual={rutaActual}
+      // El editor de una entrada usa el ancho de la ventana: media pantalla es una vista previa
+      // de una web de verdad, y el techo de lectura la dejaba al tercio (issue #190).
+      anchoCompleto={esPantallaDeAnchoCompleto(rutaActual)}
     >
       {children}
     </PanelShell>
