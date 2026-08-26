@@ -101,6 +101,10 @@ describe('una lista mal escrita apaga la lista entera', () => {
     ['que no es una URL', 'no es una url'],
     ['con protocolo peligroso', 'javascript:alert(1)'],
     ['con protocolo que no habla HTTP', 'ftp://mi-web.com'],
+    // `URL` acepta este: el punto y coma se queda dentro del host y sobrevive a `origin`. El
+    // navegador leería `frame-src 'self' https://a` y tiraría el resto como una directiva
+    // desconocida, o sea un permiso más ancho del escrito y sin aviso.
+    ['con un punto y coma en el host', 'https://a;b.com'],
   ])('%s no se acepta', (_caso, valor) => {
     expect(origenesDeVistaPreviaRemota(valor)).toEqual([]);
   });
@@ -126,13 +130,20 @@ describe('una lista mal escrita apaga la lista entera', () => {
 describe('PREVIEW_URL, que es a dónde apunta el iframe', () => {
   const ORIGENES = 'https://mi-web.com';
 
-  it('sin PREVIEW_ORIGINS no vale de nada', () => {
-    // Es lo que significa «se apaga entera»: una sola de las dos variables no enciende media
-    // fase.
-    expect(urlDeVistaPreviaRemota('https://mi-web.com/es/', undefined)).toBeNull();
+  it('la misma URL vale con lista y no vale sin ella', () => {
+    // Los dos lados en el mismo caso a propósito. La primera versión de este test solo miraba
+    // el lado de «sin lista» y **no probaba nada**: devolvía `null` porque el origen no estaba
+    // en la lista, no porque no hubiera lista, y pasaba igual con el interruptor quitado. Lo
+    // enseñó la octava mutación, y de ahí salió que aquel corte sobraba.
+    expect(urlDeVistaPreviaRemota('https://mi-web.com/es/', ORIGENES)).toBe(
+      'https://mi-web.com/es/'
+    );
+    expect(urlDeVistaPreviaRemota('https://mi-web.com/es/', '')).toBeNull();
   });
 
   it('puede llevar ruta, que es la razón de que sean dos variables', () => {
+    // Un origen no puede llevarla; esta sí. Derivar una de la otra funcionaría hasta el primer
+    // caso raro.
     expect(urlDeVistaPreviaRemota('https://mi-web.com/es/', ORIGENES)).toBe(
       'https://mi-web.com/es/'
     );
@@ -145,9 +156,18 @@ describe('PREVIEW_URL, que es a dónde apunta el iframe', () => {
     expect(urlDeVistaPreviaRemota('https://otra.example/', ORIGENES)).toBeNull();
   });
 
-  it('ausente, vacía o no siendo una URL, es null', () => {
-    for (const valor of [undefined, '', '   ', 'no es una url', 'javascript:alert(1)']) {
+  it('vacía o no siendo una URL, es null', () => {
+    for (const valor of ['', '   ', 'no es una url', 'javascript:alert(1)']) {
       expect(urlDeVistaPreviaRemota(valor, ORIGENES), String(valor)).toBeNull();
     }
+  });
+
+  it('ausente también, y aquí hay que quitarla del entorno para preguntarlo', () => {
+    // Pasar `undefined` no significa «ausente»: significa «usa el valor por defecto», que es
+    // `process.env.PREVIEW_URL`. Sin este `stubEnv`, el caso mediría lo que tenga puesto la
+    // máquina donde corra la suite.
+    vi.stubEnv('PREVIEW_URL', undefined);
+
+    expect(urlDeVistaPreviaRemota(undefined, ORIGENES)).toBeNull();
   });
 });

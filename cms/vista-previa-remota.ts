@@ -49,6 +49,16 @@ function esOrigen(url: URL): boolean {
   if (url.username !== '' || url.password !== '') return false;
   if (url.search !== '' || url.hash !== '') return false;
 
+  // El punto y coma separa directivas en una CSP, y `URL` **lo deja pasar dentro del host**:
+  // `https://a;b.com` se acepta como origen y su `origin` conserva el punto y coma. Comprobado
+  // en Node, no supuesto.
+  //
+  // Lo que impide no es una inyección: para añadir una directiva de verdad haría falta un
+  // espacio, y ahí `URL` lanza. Lo que impide es que un error de tecleo se convierta en un
+  // permiso **más ancho y en silencio**: el navegador leería `frame-src 'self' https://a` y
+  // descartaría el resto como una directiva desconocida, sin decir nada a nadie.
+  if (/[;\s]/.test(url.origin)) return false;
+
   // Se mira `pathname` y no el texto escrito. La primera versión comparaba contra el texto y
   // rechazaba `https://MI-WEB.com:443`, que es un origen perfectamente válido escrito de otra
   // forma: `URL` ya lo había normalizado y los caracteres sobrantes parecían una ruta. Lo
@@ -123,8 +133,11 @@ export function urlDeVistaPreviaRemota(
   valorUrl: string | undefined = process.env.PREVIEW_URL,
   valorOrigenes?: string | undefined
 ): string | null {
+  // No hay un corte aparte por «la lista está vacía», y la primera versión lo tenía. Sobra: si
+  // la lista está vacía, la comprobación de más abajo no puede encontrar el origen en ella y
+  // devuelve `null` igual. Escrito parecía el interruptor y no lo era — quitarlo no ponía en
+  // rojo ni un test, que es como se descubrió.
   const origenes = origenesDeVistaPreviaRemota(valorOrigenes);
-  if (origenes.length === 0) return null;
 
   const escrita = (valorUrl ?? '').trim();
   if (escrita === '') return null;
