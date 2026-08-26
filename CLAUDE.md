@@ -32,16 +32,41 @@ en una autorevisión y no se sigue vale lo mismo que no escribirlo — ya pasó 
 deja desactualizado a `SPEC.md`, **se enmienda `SPEC.md`** — no se deja que el código lo
 contradiga por su cuenta.
 
-**7. Todo en español.** Comentarios, documentación, commits, issues, PR. El código —nombres de
-símbolos— también, salvo lo que impone el framework.
+**7. Todo en español**: comentarios, documentación, commits, issues y PR.
+
+**Los nombres del código no siguen esa regla, y conviene saber cuál siguen** — escribí aquí "el
+código también" y es falso, basta abrir `cms/core/`. La regla real:
+
+- **Inglés lo que fija `SPEC.md` §5.3**, porque es la API que ve quien monta el CMS sobre su
+  landing: `saveDraft`, `publish`, `revertDraft`, `deleteMedia`, `listMedia`, `getDraft`.
+- **Español lo que hemos añadido nosotros por dentro**: `decidirSubida`, `usarAlmacenLocal`,
+  `mensajeNuestro`, `definicionDeColeccion`.
+
+Así que hay mezcla, y es deliberada solo a medias: la frontera está donde la spec deja de mandar.
+Al añadir código nuevo, en español; al tocar la API pública, se respeta el nombre que ya tiene.
+
+**8. Conventional Commits, en español, con el trailer.** El tipo y el ámbito en inglés porque es
+el formato; el resto del mensaje en español:
+
+```
+fix(media): la ruta de subida deja de devolver fallos internos al navegador
+
+El cuerpo explica **por qué**, no qué cambió — el diff ya dice qué. Si el
+arreglo salió de un fallo real, se cuenta cómo se vio.
+
+Closes #165
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+```
 
 ---
 
 ## La mutación es la disciplina central
 
 **Escribir el test no basta: hay que comprobar que puede fallar.** Se rompe la línea que el test
-dice proteger y se mira si muere. Si sobrevive, el test no probaba nada — y eso ha pasado
-**cinco veces** en este proyecto, siempre en código correcto con tests de adorno.
+dice proteger y se mira si muere. Si sobrevive, el test no probaba nada — y ha pasado **cinco
+veces**, siempre sobre código correcto con tests de adorno. Los casos están contados en
+`docs/PROGRESS.md`, en "Lo que enseñó esta pasada" y en "Probando el CMS en local".
 
 Dos reglas que salieron de equivocarse:
 
@@ -50,6 +75,16 @@ Dos reglas que salieron de equivocarse:
   Tres de los cinco fallos fueron por esto.
 - **Muta una copia y restaura desde la copia.** `cp` antes, `cp` de vuelta después. Un
   `git checkout` para deshacer una mutación **destruyó un documento sin commitear**.
+
+```sh
+cp app/api/x/route.ts /tmp/x.bak     # 1. copia
+#    rompe la línea que el test dice proteger
+pnpm vitest run --project unit tests/unit/lo-que-deberia-morir.test.ts
+cp /tmp/x.bak app/api/x/route.ts     # 3. restaura DESDE LA COPIA, nunca con git
+```
+
+Si el test sigue verde, el hallazgo no es "la mutación falló": es que **el test no probaba nada** y
+hay que rehacerlo antes de seguir.
 
 Ejemplos reales de lo que la mutación cazó, para calibrar: un test de recorrido de directorios
 que pasaba con la defensa quitada (acertaba por la extensión del fichero, no por la comprobación
