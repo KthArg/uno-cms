@@ -651,3 +651,55 @@ pasada de repaso entera. Los tres hallazgos salieron del mismo intento: **subir 
   la recogió tal cual. Lo único que lo destapó fue mutar.
 - **Y el borrado no estaba.** Construí la subida entera —rutas, tests, spec, ADR— sin caer en que
   una imagen también se borra. Salió al releer el diff preguntándome qué más toca una imagen.
+
+---
+
+## Dónde está el trabajo ahora
+
+> Esta sección es la que hay que actualizar al terminar cada pieza. Si dice algo que ya no es
+> cierto, es peor que si no existiera.
+
+**El MVP está cerrado** (M0–M6) y después se han cerrado tres cosas más: los dos arreglos de los
+mensajes de subida (#164, #165) y el almacén local de imágenes (#168, ADR-700).
+
+### Lo siguiente: la vista previa de una web que vive fuera
+
+Está **diseñado y sin empezar**. El diseño se mezcló en #182:
+
+- La contradicción que lo motiva: [#176](https://github.com/KthArg/uno-cms/issues/176)
+- La decisión: **ADR-701** en `docs/DECISIONS.md`, que acota ADR-001
+- Los contratos y los veinte casos: `docs/specs/08-vista-previa-remota.md`
+- `SPEC.md` §0 lleva la enmienda correspondiente
+
+**Empieza por [#177](https://github.com/KthArg/uno-cms/issues/177), y el orden importa**: es el
+interruptor. Cada pieza posterior nace apagada porque él existe. Al revés habría una ventana en
+la que hay un endpoint sirviendo contenido sin publicar y nada que lo apague.
+
+| Pieza                             | Issue                                                | Estado    |
+| --------------------------------- | ---------------------------------------------------- | --------- |
+| El interruptor y la CSP           | [#177](https://github.com/KthArg/uno-cms/issues/177) | sin hacer |
+| El propósito de token propio      | [#178](https://github.com/KthArg/uno-cms/issues/178) | sin hacer |
+| La ruta que sirve borradores      | [#179](https://github.com/KthArg/uno-cms/issues/179) | sin hacer |
+| El iframe remoto y los mensajes   | [#180](https://github.com/KthArg/uno-cms/issues/180) | sin hacer |
+| El cliente para la web de destino | [#181](https://github.com/KthArg/uno-cms/issues/181) | sin hacer |
+
+### Lo que hay que verificar antes de prometerlo
+
+En #177 hay una cosa **sin comprobar**, y está escrito así a propósito en la spec: empotrar
+`http://localhost` desde una página `https` —el caso "CMS desplegado, web en local"— tiene reglas
+propias del navegador que **nadie ha verificado**. Hay que mirarlo con un navegador delante, no
+razonarlo.
+
+### Lo que está abierto y no bloquea
+
+- [#157](https://github.com/KthArg/uno-cms/issues/157) — las capturas de `SETUP.md`. Hacerlas
+  exige el primer despliegue limpio, que cierra además el criterio §11.1 y
+  [#43](https://github.com/KthArg/uno-cms/issues/43)
+- [#170](https://github.com/KthArg/uno-cms/issues/170) — el almacén local no lo cubre ningún e2e
+- [#167](https://github.com/KthArg/uno-cms/issues/167) — un test falló una vez y no se reproduce
+- Nueve issues `post-mvp`, **sin código por diseño**
+
+### Lo que nadie ha hecho todavía
+
+**Desplegar.** El `v0.1.0` no está etiquetado, y dos criterios de §11 siguen marcados como no
+verificados en este documento por eso mismo.

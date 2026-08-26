@@ -31,6 +31,7 @@ hito— está en [`docs/PROGRESS.md`](docs/PROGRESS.md). Lo aplazado, con su mot
 | Documento                                  | Para quién                                                                  |
 | ------------------------------------------ | --------------------------------------------------------------------------- |
 | [`SPEC.md`](SPEC.md)                       | **Fuente de verdad** del proyecto. Ante cualquier duda, manda esto          |
+| [`CLAUDE.md`](CLAUDE.md)                   | **Quien vaya a escribir código aquí. Cómo se trabaja, y por qué así**       |
 | [`docs/SETUP.md`](docs/SETUP.md)           | Quien despliega su web. Sin jerga, sin terminal _(esqueleto, M6)_           |
 | [`docs/DEVELOPER.md`](docs/DEVELOPER.md)   | Quien monta UnoCMS sobre otra landing                                       |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md)   | Los ADR: qué se decidió donde la spec callaba, y a cambio de qué            |
