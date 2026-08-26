@@ -151,6 +151,33 @@ describe('cuándo se pide el siguiente', () => {
   });
 });
 
+describe('lo que no se entiende no se da por bueno', () => {
+  const VIDA = TOKEN_TTL['preview-remoto'];
+
+  it.each([
+    ['sin la vida', undefined, 10],
+    ['sin lo transcurrido', VIDA, undefined],
+    ['con un NaN', Number.NaN, 0],
+    ['con un infinito', Number.POSITIVE_INFINITY, 0],
+  ])('%s, dice que caducó en vez de decir que vale', (_caso, vida, transcurrido) => {
+    // El camino realista: #180 llama a esto con lo que devuelva el servidor y se pierde un
+    // campo. `undefined - 10` es `NaN`, y `NaN` no es menor ni mayor que nada, así que **las
+    // dos comparaciones fallan y el token se declara sano para siempre**. La vista previa
+    // seguiría enseñando lo último que recibió con un token muerto.
+    //
+    // Esto lo encontré en la autorevisión mirando qué devuelve cada camino con entrada rota,
+    // no leyendo el código: leyéndolo, las dos comparaciones parecen cubrirlo todo.
+    expect(estadoDelTokenRemoto(vida as number, transcurrido as number)).toBe('caducado');
+  });
+
+  it('si el reloj se va hacia atrás, pide otro en vez de morirse', () => {
+    // Aquí el dato no está roto, solo deja de ser fiable: la resta daría más vida de la que
+    // hay. Matar la vista previa por una corrección de NTP sería desproporcionado para algo
+    // que se arregla con una petición.
+    expect(estadoDelTokenRemoto(VIDA, -50)).toBe('toca-renovar');
+  });
+});
+
 describe('el panel y el verificador no pueden discrepar en el instante de la caducidad', () => {
   it('en el segundo exacto en que expira, los dos dicen que está muerto', () => {
     // La frontera escrita dos veces —`exp <= ahora` allí, `restante <= 0` aquí— es una

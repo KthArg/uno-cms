@@ -55,10 +55,45 @@ export const MARGEN_DE_RENOVACION_SEGUNDOS = 3 * 60;
  */
 export type EstadoDelTokenRemoto = 'vale' | 'toca-renovar' | 'caducado';
 
+/**
+ * Entra cuánto vive el token —lo dice el servidor al emitirlo— y cuánto lleva vivo —lo mide
+ * quien lo tiene—, y sale qué hacer.
+ *
+ * `transcurridoEnSegundos` debe venir de un reloj **monótono** (`performance.now()`). Con
+ * `Date.now()` funciona casi siempre y falla justo cuando el sistema corrige la hora.
+ */
 export function estadoDelTokenRemoto(
   vidaEnSegundos: number,
   transcurridoEnSegundos: number
 ): EstadoDelTokenRemoto {
+  // **Lo que no se entiende no se da por bueno**, y esto no es defensa preventiva: sin estas
+  // dos líneas, el valor por defecto de una entrada rota es `'vale'`, que es el único de los
+  // tres que no obliga al panel a hacer nada. Comprobado con los cinco casos escritos abajo.
+  //
+  // El camino realista es que #180 llame a esto con lo que devuelva el servidor y a alguien se
+  // le pase un campo: `undefined - 10` es `NaN`, `NaN <= 0` es falso y `NaN <= margen` también,
+  // así que el token se declararía sano **para siempre**. La vista previa seguiría enseñando lo
+  // último que recibió con un token muerto, que es exactamente la forma silenciosa de mentir
+  // que la spec §4.2 prohíbe.
+  //
+  // `caducado` y no `toca-renovar`: si los números están rotos, renovar traerá otros igual de
+  // rotos. Lo útil es que se vea, y `caducado` es el estado que obliga al panel a decirlo.
+  if (!Number.isFinite(vidaEnSegundos) || !Number.isFinite(transcurridoEnSegundos)) {
+    return 'caducado';
+  }
+
+  // Un tiempo transcurrido negativo significa que el reloj se ha movido hacia atrás — una
+  // corrección de NTP, por ejemplo. Aquí el dato no está roto, solo deja de ser fiable: la
+  // resta daría **más** vida de la que hay y el token moriría sin que nadie lo pidiera de nuevo.
+  //
+  // Se pide otro y ya está. No se declara caducado: matar la vista previa por un ajuste de
+  // reloj sería un castigo desproporcionado para algo que se arregla con una petición.
+  //
+  // Lo correcto es que quien llame use un reloj **monótono** —`performance.now()`—, que no da
+  // saltos por definición. Esto está aquí porque lo más fácil de escribir es `Date.now()`, y lo
+  // más fácil de escribir es lo que se acaba escribiendo.
+  if (transcurridoEnSegundos < 0) return 'toca-renovar';
+
   const restante = vidaEnSegundos - transcurridoEnSegundos;
 
   // `<= 0` y no `< 0`, y la frontera no es un detalle: `verifyToken` rechaza cuando
