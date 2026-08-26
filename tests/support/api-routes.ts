@@ -67,6 +67,16 @@ export const ACCESO_DECLARADO: Record<string, { nivel: NivelDeAcceso; motivo: st
       'Escribe un fichero en el disco. Sin sesión, cualquiera podría llenarlo. Además solo ' +
       'existe en desarrollo: en producción responde 404 sin mirar nada (spec 07 §4.3).',
   },
+  '/api/preview/contenido': {
+    nivel: 'publica',
+    motivo:
+      'Es la ruta por la que la web de destino lee borradores (spec 08 §4.3), y no la pide un ' +
+      'navegador con sesión: la pide un servidor o un script de otro origen, que no lleva ' +
+      'nuestras cookies. Lo que autoriza aquí no es una sesión, son tres cosas a la vez: la ' +
+      'variable `PREVIEW_ORIGINS` —sin ella responde 404 sin mirar nada—, que el `Origin` esté ' +
+      'en esa lista, y un token firmado de propósito `preview-remoto` con quince minutos de ' +
+      'vida. Declararla "con-sesion" sería mentir sobre cómo se protege.',
+  },
   '/api/media/local/[...ruta]': {
     nivel: 'publica',
     motivo:
