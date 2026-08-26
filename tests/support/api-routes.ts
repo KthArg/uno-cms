@@ -75,7 +75,8 @@ export const ACCESO_DECLARADO: Record<string, { nivel: NivelDeAcceso; motivo: st
       'nuestras cookies. Lo que autoriza aquí no es una sesión, son tres cosas a la vez: la ' +
       'variable `PREVIEW_ORIGINS` —sin ella responde 404 sin mirar nada—, que el `Origin` esté ' +
       'en esa lista, y un token firmado de propósito `preview-remoto` con quince minutos de ' +
-      'vida. Declararla "con-sesion" sería mentir sobre cómo se protege.',
+      'vida. Declararla "con-sesion" sería mentir sobre cómo se protege: quien la llama es un ' +
+      'script de otro origen, que no lleva nuestras cookies.',
   },
   '/api/media/local/[...ruta]': {
     nivel: 'publica',

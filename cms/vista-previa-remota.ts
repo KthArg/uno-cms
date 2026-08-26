@@ -154,3 +154,53 @@ export function urlDeVistaPreviaRemota(
 
   return url.href;
 }
+
+/**
+ * Si el `Origin` que pide puede leer borradores, devolviendo **el que se pidió** o `null`.
+ *
+ * Devuelve el pedido y no el de la lista a propósito, aunque en el caso correcto sean la misma
+ * cadena: lo que va en `Access-Control-Allow-Origin` tiene que ser el origen de **esta**
+ * petición. Devolver "el de la lista" invitaría a que algún día alguien devolviera el primero,
+ * o todos, o un `*`.
+ *
+ * ## La comparación es de pertenencia a una lista, y esa es toda la pieza
+ *
+ * `origenes.includes(pedido)` compara cadenas enteras. Lo que **no** se hace, y es el fallo
+ * clásico, es preguntar si el origen pedido *contiene* a uno permitido:
+ *
+ * ```ts
+ * origenes.some((permitido) => pedido.includes(permitido)); // ← https://mi-web.com.malo.io
+ * ```
+ *
+ * Esa versión es indistinguible de esta salvo con T-R-7 delante: acierta con todos los casos
+ * razonables y regala el permiso a cualquier dominio que se registre poniendo el nuestro
+ * delante del suyo.
+ *
+ * ## Y no se normaliza lo que llega
+ *
+ * El `Origin` de un navegador viene ya en su forma canónica —minúsculas, sin puerto por
+ * defecto, sin barra final—, que es contra la que se guarda la lista. Aceptar además otras
+ * escrituras solo ampliaría el permiso a clientes que no son navegadores, y quien no es un
+ * navegador puede escribir el origen exacto de todas formas.
+ */
+export function origenPermitido(
+  pedido: string | null | undefined,
+  origenes: readonly string[] = origenesDeVistaPreviaRemota()
+): string | null {
+  if (pedido === null || pedido === undefined || pedido === '') return null;
+
+  // **Y aquí no hay un corte por «la lista está vacía», que es el interruptor de la fase.**
+  //
+  // Lo escribí dos veces —aquí y en la ruta— y las dos sobraban: una lista vacía no autoriza a
+  // nadie porque `includes` sobre cero elementos es falso, y quitar ambas líneas dejaba los
+  // cuarenta y tres casos en verde. Es la segunda vez que escribo ese mismo corte de más en
+  // esta fase; la primera fue en `urlDeVistaPreviaRemota` (#178).
+  //
+  // El interruptor **es** la lista, y esa es una propiedad mejor que una comprobación aparte:
+  // no hay dos sitios que puedan discrepar sobre si la fase está encendida.
+  //
+  // Lo que sí vigila un test es la forma realista de romperlo, que no es quitar una línea sino
+  // añadir una: `origenes.length === 0 || origenes.includes(pedido)`, o sea «sin configurar,
+  // deja pasar a todo el mundo». Ese cambio pone T-R-1 en rojo.
+  return origenes.includes(pedido) ? pedido : null;
+}
