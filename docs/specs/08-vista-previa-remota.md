@@ -194,13 +194,19 @@ T-R-12 decía antes "el TTL es de minutos, no de horas", que es comprobar una co
 
 ## 7. En qué piezas se corta
 
-| Pieza                             | Issue                                                | Casos                     |
-| --------------------------------- | ---------------------------------------------------- | ------------------------- |
-| El interruptor y la CSP           | [#177](https://github.com/KthArg/uno-cms/issues/177) | T-R-1 … T-R-3             |
-| El propósito de token propio      | [#178](https://github.com/KthArg/uno-cms/issues/178) | T-R-9 … T-R-12            |
-| La ruta que sirve borradores      | [#179](https://github.com/KthArg/uno-cms/issues/179) | T-R-4 … T-R-8, T-R-13, 14 |
-| El iframe remoto y los mensajes   | [#180](https://github.com/KthArg/uno-cms/issues/180) | T-R-15 … T-R-17           |
-| El cliente para la web de destino | [#181](https://github.com/KthArg/uno-cms/issues/181) | T-R-18                    |
+| Pieza                             | Issue                                                | Casos                           |
+| --------------------------------- | ---------------------------------------------------- | ------------------------------- |
+| El interruptor y la CSP           | [#177](https://github.com/KthArg/uno-cms/issues/177) | T-R-1 … T-R-3                   |
+| El propósito de token propio      | [#178](https://github.com/KthArg/uno-cms/issues/178) | T-R-9 … T-R-12                  |
+| La ruta que sirve borradores      | [#179](https://github.com/KthArg/uno-cms/issues/179) | T-R-4 … T-R-8, T-R-13, 14       |
+| El iframe remoto y los mensajes   | [#180](https://github.com/KthArg/uno-cms/issues/180) | T-R-15 … T-R-17, T-R-19, T-R-20 |
+| El cliente para la web de destino | [#181](https://github.com/KthArg/uno-cms/issues/181) | T-R-18                          |
+
+**T-R-19 y T-R-20 se apuntaron a #178 al autorevisar esta spec, y se comprueban en #180.** No es
+un cambio de criterio: la decisión de _cuándo_ renovar es del token y vive con él —es lo que hace
+aceptables quince minutos—, pero lo que los dos casos dicen es observable solo con el iframe
+delante: «no recarga» y «lo dice y ofrece recargar». Escribirlos antes sería afirmar sobre una
+pantalla que todavía no existe. #178 deja construida y probada la decisión; #180 la enseña.
 
 En ese orden, y no es arbitrario: **#177 es el interruptor**, así que hasta que exista, cada pieza siguiente se construye ya apagada por defecto. Lo contrario —construir la ruta de borradores primero y ponerle el interruptor después— deja una ventana en la que existe un endpoint que sirve contenido sin publicar y nada lo apaga.
 

@@ -679,7 +679,7 @@ la que hay un endpoint sirviendo contenido sin publicar y nada que lo apague.
 | Pieza                             | Issue                                                | Estado    |
 | --------------------------------- | ---------------------------------------------------- | --------- |
 | El interruptor y la CSP           | [#177](https://github.com/KthArg/uno-cms/issues/177) | **hecho** |
-| El propósito de token propio      | [#178](https://github.com/KthArg/uno-cms/issues/178) | sin hacer |
+| El propósito de token propio      | [#178](https://github.com/KthArg/uno-cms/issues/178) | **hecho** |
 | La ruta que sirve borradores      | [#179](https://github.com/KthArg/uno-cms/issues/179) | sin hacer |
 | El iframe remoto y los mensajes   | [#180](https://github.com/KthArg/uno-cms/issues/180) | sin hacer |
 | El cliente para la web de destino | [#181](https://github.com/KthArg/uno-cms/issues/181) | sin hacer |
