@@ -15,3 +15,7 @@ bien, es que no hay cadena donde inyectar nada.
 `renovacion.ts` decide cuándo pedir el siguiente token de vista previa remota (ADR-701). Está aquí
 y no en `cms/security/` porque lo necesita el panel, o sea el navegador — y porque cuenta tiempo
 **transcurrido** en vez de mirar el reloj: el del navegador no es el del servidor.
+
+`cliente-remoto.ts` no es código que ejecutemos nosotros: es **el texto** del módulo que descarga
+la web de destino por `/preview-cliente.js` (ADR-701). Se prueba importando esa misma cadena con
+una URL `data:`, para que lo probado y lo servido no puedan divergir.

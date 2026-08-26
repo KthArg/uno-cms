@@ -20,7 +20,19 @@ import { join, relative } from 'node:path';
  */
 
 const RAIZ = process.cwd();
-const DIRECTORIO_API = join(RAIZ, 'app', 'api');
+
+/**
+ * Se recorre `app/` **entero**, no solo `app/api`.
+ *
+ * Hasta #181 todas las rutas colgaban de `app/api` y mirar solo ahí era suficiente. La primera
+ * que se salió —`/preview-cliente.js`, cuya dirección fija la spec 08 §4.6— habría quedado
+ * fuera del inventario: una ruta que se protege sola y **nada que lo vigile**, que es
+ * exactamente el agujero que este fichero existe para tapar.
+ *
+ * El coste de recorrer `app/` es recorrer también las páginas, que no tienen `route.ts`. Sale
+ * gratis y no hay que acordarse de nada la próxima vez.
+ */
+const DIRECTORIO_APP = join(RAIZ, 'app');
 
 export type NivelDeAcceso = 'publica' | 'con-sesion';
 
@@ -67,6 +79,14 @@ export const ACCESO_DECLARADO: Record<string, { nivel: NivelDeAcceso; motivo: st
       'Escribe un fichero en el disco. Sin sesión, cualquiera podría llenarlo. Además solo ' +
       'existe en desarrollo: en producción responde 404 sin mirar nada (spec 07 §4.3).',
   },
+  '/preview-cliente.js': {
+    nivel: 'publica',
+    motivo:
+      'Es el módulo que la web de destino carga en su navegador (spec 08 §4.6): código ' +
+      'nuestro, público, sin una línea de configuración de nadie dentro. No puede exigir ' +
+      'sesión porque quien lo pide no la tiene — es un `import()` desde otro origen. Lo que ' +
+      'sí exige es que ese origen esté en `PREVIEW_ORIGINS`, y sin la variable responde 404.',
+  },
   '/api/preview/contenido': {
     nivel: 'publica',
     motivo:
@@ -100,7 +120,7 @@ function recorrer(dir: string): string[] {
 }
 
 export function rutasDeApi(): RutaDeApi[] {
-  return recorrer(DIRECTORIO_API).map((fichero) => {
+  return recorrer(DIRECTORIO_APP).map((fichero) => {
     const relativa = relative(RAIZ, fichero).split('\\').join('/');
     const url = `/${relativa.split('/').slice(1, -1).join('/')}`;
 

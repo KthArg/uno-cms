@@ -222,6 +222,117 @@ Panel con autoguardado, publicación con bloqueo optimista, historial con "volve
 anterior", biblioteca de imágenes, gestión de personas con invitaciones, ajustes del sitio y la
 vista previa en vivo.
 
+## Alimentar una web que vive fuera de este repositorio
+
+Esto es ADR-701 y su spec es [`docs/specs/08-vista-previa-remota.md`](specs/08-vista-previa-remota.md).
+Sigue siendo **un CMS por web**: lo único que cambia es que la web puede estar en otro sitio.
+
+**No es la opción recomendada si puedes evitarla.** Con la landing en este repositorio, la vista
+previa funciona sin que nadie configure nada y sin que ningún borrador salga de la aplicación.
+Todo lo de abajo existe porque a veces no se puede.
+
+### 1. Dos variables de entorno en el CMS
+
+```sh
+PREVIEW_ORIGINS=https://mi-web.com     # quién puede leer borradores; orígenes exactos, por comas
+PREVIEW_URL=https://mi-web.com/es/     # a dónde apunta el iframe del panel; esta sí puede llevar ruta
+```
+
+**Sin `PREVIEW_ORIGINS` no existe nada de esto**: la ruta de borradores responde 404, la CSP no
+cambia y el panel sigue enseñando la vista previa de siempre.
+
+Tres cosas que ahorran un rato:
+
+- Son **orígenes**, no direcciones: protocolo, host y puerto, sin ruta. `https://mi-web.com/es`
+  no vale.
+- Si una sola entrada está mal escrita, **se descarta la lista entera** y la fase queda apagada.
+  Es a propósito: media configuración funcionando y la otra media callada es peor.
+- El origen de `PREVIEW_URL` tiene que estar en `PREVIEW_ORIGINS`. Si no, se ignora — nuestra
+  propia CSP bloquearía el iframe y verías una vista previa en blanco sin más pista que la
+  consola.
+
+### 2. Un cliente en tu web
+
+```js
+if (new URLSearchParams(location.search).has('unocms_preview')) {
+  const { conectar } = await import('https://mi-cms.com/preview-cliente.js');
+
+  conectar(
+    (contenido) => {
+      // Tu web decide qué hacer. `contenido` trae el borrador de la sección que se está
+      // editando y lo publicado de todo lo demás, con la misma forma que devuelve tu API.
+      pintar(contenido);
+    },
+    {
+      alFallar: (motivo) => {
+        // 'sin-token' | 'sin-acceso' | 'sin-red'. Genérico a propósito: el CMS responde 404 a
+        // todo lo que rechaza y no dice por qué, así que aquí tampoco se adivina.
+        console.warn('vista previa no disponible:', motivo);
+      },
+    }
+  );
+}
+```
+
+Lo que fija este contrato:
+
+1. **Quien visite tu web en producción no descarga nada nuestro.** El `import()` solo ocurre con
+   el parámetro puesto, y ese parámetro solo lo pone el panel.
+2. **No repintamos tu web.** Te entregamos el contenido y te avisamos cuando cambia; qué hacer
+   con eso lo decides tú. Cualquier otra cosa sería adivinar tu arquitectura.
+3. **Es JavaScript a secas.** No hay que instalar nada ni usar ningún framework.
+
+`conectar` devuelve una función para desconectar, por si desmontas la vista.
+
+### 3. Lo que tienes que tocar en TU configuración, y es lo que más falla
+
+Si tu web tiene su propia CSP —y debería—, el navegador va a bloquear esto y el mensaje aparecerá
+en tu consola, no en la nuestra:
+
+```
+script-src  ... https://mi-cms.com    # para poder importar el cliente
+connect-src ... https://mi-cms.com    # para poder pedir los borradores
+```
+
+No podemos comprobarlo desde aquí ni arreglarlo por ti. Lo que sí podemos es que salga escrito
+antes de que te pase.
+
+### Lo que NO se lleva la web remota
+
+- **Los ajustes del sitio y el SEO por defecto.** Siguen sin endpoint público.
+- **El aviso al publicar.** Hoy `publish` solo invalida nuestra caché; tu web se entera cuando
+  vuelva a pedir. Un webhook es otra fase.
+- **La landing de este repositorio**, que sigue existiendo y sirviéndose aunque no la uses.
+
+### Qué esperar de la vista previa remota, con sus límites
+
+- El token dura **quince minutos** y el panel lo renueva solo mientras la pestaña esté abierta.
+  Si la renovación falla, el panel lo dice y ofrece recargar; no se queda enseñando contenido
+  viejo como si estuviera al día.
+- Si navegas **dentro** del iframe a otra página de tu web, el parámetro `unocms_preview` no
+  viaja solo: esa página ya no será una vista previa. Propágalo tú si lo necesitas.
+- **El caso «CMS desplegado, web en local» no está verificado**: empotrar `http://localhost`
+  desde una página `https` tiene reglas propias del navegador que nadie ha comprobado todavía.
+  Está anotado en [`PENDIENTES.md`](PENDIENTES.md).
+
+### Y con React
+
+No hay hook, y es deliberado: sería azúcar sobre estas seis líneas y habría que probarlo con un
+consumidor que todavía no existe.
+
+```jsx
+useEffect(() => {
+  if (!new URLSearchParams(location.search).has('unocms_preview')) return;
+
+  let desconectar;
+  void import('https://mi-cms.com/preview-cliente.js').then(({ conectar }) => {
+    desconectar = conectar(setContenido);
+  });
+
+  return () => desconectar?.();
+}, []);
+```
+
 ## Añadir un tipo de campo nuevo
 
 Se toca `cms/core/config.ts` (el constructor y su tipo), `cms/core/schema-gen.ts` (cómo se
