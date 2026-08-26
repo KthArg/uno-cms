@@ -76,3 +76,19 @@ export function esNoIndexable(path: string): boolean {
     (prefijo) => path === prefijo || path.startsWith(`${prefijo}/`)
   );
 }
+
+/**
+ * Las pantallas que se sirven **con todo el ancho de la ventana** (issue #190).
+ *
+ * El panel vive dentro de `max-w-6xl` —1152 px— y eso está bien para leer: una lista de
+ * contenido a 1900 píxeles es peor, no mejor. La excepción es el editor de una entrada, porque
+ * ahí media pantalla es una vista previa de una web de verdad y el techo la dejaba al tercio.
+ *
+ * Vive aquí, junto a las demás listas de rutas, por el mismo motivo que ellas: quien decide el
+ * ancho es el armazón y quien conoce la ruta es el layout. Con la comprobación escrita en uno de
+ * los dos, el otro no puede discrepar.
+ */
+export function esPantallaDeAnchoCompleto(path: string): boolean {
+  // Solo el editor de una entrada, no el listado: `/admin/content` a secas es una lista.
+  return path.startsWith('/admin/content/');
+}

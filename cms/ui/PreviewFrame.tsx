@@ -116,8 +116,15 @@ export type TamanoDePantalla = keyof typeof PANTALLAS;
  * un móvil de hoy.
  */
 
-/** Lo más alto que se deja crecer al recuadro en el panel, en píxeles. */
-const ALTO_MAXIMO_DEL_RECUADRO = 576;
+/**
+ * Lo más bajo que se deja el recuadro, en píxeles.
+ *
+ * El alto ya no es una constante: se mide lo que queda de ventana por debajo del recuadro. Con
+ * un alto fijo de 576, la escala de escritorio se quedaba clavada en 0,69 por mucho que se le
+ * diera ancho con el divisor de #190 — el techo había pasado del ancho al alto sin que se
+ * notara. Esto es solo un suelo para que no desaparezca en una ventana muy baja.
+ */
+const ALTO_MINIMO_DEL_RECUADRO = 320;
 
 /** El margen alrededor del recuadro. En una constante porque el alto del iframe la resta. */
 const MARGEN = 12;
@@ -178,8 +185,9 @@ export function PreviewFrame({
    * otra sin tocar nada.
    */
   const [tamano, setTamano] = useState<TamanoDePantalla>('escritorio');
-  /** El ancho del hueco donde cabe la vista previa. Lo mide el navegador, no se supone. */
+  /** El hueco donde cabe la vista previa. Lo mide el navegador, no se supone. */
   const [anchoDisponible, setAnchoDisponible] = useState(0);
+  const [altoDisponible, setAltoDisponible] = useState(ALTO_MINIMO_DEL_RECUADRO);
   const hueco = useRef<HTMLDivElement | null>(null);
 
   /**
@@ -397,9 +405,41 @@ export function PreviewFrame({
     };
   }, []);
 
+  /**
+   * Y cuánto queda de ventana por debajo del recuadro.
+   *
+   * No lo puede decir un `ResizeObserver` sobre el propio recuadro, porque su alto es justo lo
+   * que se está calculando: se estaría midiendo el resultado para decidir el resultado. Se mide
+   * dónde empieza y cuánto queda de ventana hasta abajo.
+   *
+   * Con `resize` de la ventana y no `ResizeObserver`: lo que cambia aquí es el alto de la
+   * ventana, y el sitio que ocupa lo de arriba solo cambia al recargar la pantalla.
+   */
+  useEffect(() => {
+    function medir(): void {
+      const nodo = hueco.current;
+      if (nodo === null) return;
+
+      const desdeArriba = nodo.getBoundingClientRect().top;
+      setAltoDisponible(
+        Math.max(
+          ALTO_MINIMO_DEL_RECUADRO,
+          Math.round(window.innerHeight - desdeArriba - MARGEN * 2)
+        )
+      );
+    }
+
+    medir();
+    window.addEventListener('resize', medir);
+
+    return () => {
+      window.removeEventListener('resize', medir);
+    };
+  }, []);
+
   const pantalla = PANTALLAS[tamano];
   const escala = escalaDeVistaPrevia(
-    { ancho: anchoDisponible, alto: ALTO_MAXIMO_DEL_RECUADRO - MARGEN * 2 },
+    { ancho: anchoDisponible, alto: altoDisponible - MARGEN * 2 },
     pantalla
   );
 
@@ -409,10 +449,7 @@ export function PreviewFrame({
    * Un escritorio encogido a un tercio ocupa unos 250 px de alto: con el recuadro clavado a 576
    * quedaba un palmo de gris debajo que parecía que faltaba algo por cargar.
    */
-  const altoDelRecuadro = Math.min(
-    ALTO_MAXIMO_DEL_RECUADRO,
-    Math.round(pantalla.alto * escala) + MARGEN * 2
-  );
+  const altoDelRecuadro = Math.min(altoDisponible, Math.round(pantalla.alto * escala) + MARGEN * 2);
 
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">

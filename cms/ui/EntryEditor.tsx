@@ -1,11 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ActionFieldError } from '@/cms/actions/pipeline';
 import type { ObjectSchema } from '@/cms/core/config';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
 import { ConfirmarAccion } from './ConfirmarAccion';
+import {
+  ANCHO_INICIAL_DEL_FORMULARIO,
+  MINIMO_DEL_FORMULARIO,
+  PASO_DE_TECLADO,
+  anchoDelFormulario,
+  guardarAncho,
+  leerAnchoGuardado,
+} from './divisor';
 import { FALLO_DE_RED } from './fallo-de-red';
 import { PreviewFrame, type RelevoDeToken } from './PreviewFrame';
 import { EntryForm, type ValoresDeEntrada } from './EntryForm';
@@ -93,6 +101,122 @@ export function EntryEditor({
   const [confirmandoDeshacer, setConfirmandoDeshacer] = useState(false);
   const [erroresDePublicar, setErroresDePublicar] = useState<readonly ActionFieldError[]>([]);
   const [avisoDePublicar, setAvisoDePublicar] = useState<string | null>(null);
+
+  /**
+   * El reparto de la pantalla entre el formulario y la vista previa (issue #190).
+   *
+   * ## Por qué el ancho viaja por una variable de CSS y no por el `style` de cada columna
+   *
+   * Porque arrastrar dispara decenas de repintados por segundo, y lo que **no puede** pasar es
+   * que el iframe se remonte por el camino (T-190-5): remontarlo tira la sesión de vista previa
+   * entera y, con una web remota, recarga esa web y vuelve a pedir los borradores.
+   *
+   * Cambiando una variable en el contenedor, React solo toca un atributo `style` de ese nodo: el
+   * árbol de dentro no se vuelve a montar. Pasar el ancho como prop a las columnas haría lo
+   * mismo hoy y sería una trampa esperando: basta que alguien añada una condición encima del
+   * iframe para que el ancho pase a decidir qué se pinta.
+   */
+  const reparto = useRef<HTMLDivElement | null>(null);
+  const [anchoPedido, setAnchoPedido] = useState(ANCHO_INICIAL_DEL_FORMULARIO);
+  const [disponible, setDisponible] = useState(0);
+
+  /**
+   * Los dos números también en referencias, y no es duplicarlos por gusto.
+   *
+   * Un manejador de evento lee el valor que había **cuando se creó**. Con el estado a secas, dos
+   * pulsaciones de flecha seguidas —o el teclado repitiendo, que es lo normal al mantenerla—
+   * calculan las dos desde el mismo punto de partida y el divisor avanza un solo paso. Lo
+   * escribí así y lo enseñó el test que pulsa cuarenta veces: se movía uno.
+   *
+   * Una referencia se actualiza en el acto, así que cada evento parte de donde dejó el anterior.
+   */
+  const anchoActual = useRef(ANCHO_INICIAL_DEL_FORMULARIO);
+  const disponibleActual = useRef(0);
+
+  const fijarAncho = useCallback((pedido: number) => {
+    const ajustado = anchoDelFormulario(pedido, disponibleActual.current);
+
+    anchoActual.current = ajustado;
+    setAnchoPedido(ajustado);
+    guardarAncho(ajustado);
+  }, []);
+
+  // Lo recordado se lee en un efecto y no al pintar: en el servidor no hay `localStorage`, y
+  // leerlo durante el render daría un HTML distinto del que el navegador reconstruye.
+  useEffect(() => {
+    const guardado = leerAnchoGuardado();
+    if (guardado === null) return;
+
+    anchoActual.current = guardado;
+    setAnchoPedido(guardado);
+  }, []);
+
+  useEffect(() => {
+    const nodo = reparto.current;
+    if (nodo === null || typeof ResizeObserver === 'undefined') return;
+
+    const observador = new ResizeObserver(([entrada]) => {
+      if (entrada === undefined) return;
+
+      disponibleActual.current = entrada.contentRect.width;
+      setDisponible(entrada.contentRect.width);
+    });
+    observador.observe(nodo);
+
+    return () => {
+      observador.disconnect();
+    };
+  }, []);
+
+  const anchoPintado = anchoDelFormulario(anchoPedido, disponible);
+
+  const alAgarrar = useCallback(
+    (evento: React.PointerEvent<HTMLDivElement>) => {
+      const nodo = reparto.current;
+      if (nodo === null) return;
+
+      const divisor = evento.currentTarget;
+      // `setPointerCapture` es lo que hace que el arrastre siga funcionando cuando el puntero se
+      // sale del divisor —que es lo que pasa siempre— y que se acabe solo al soltar aunque sea
+      // encima del iframe. Sin esto habría que escuchar en `window` y acordarse de dejar de
+      // escuchar; y con un iframe en medio, el ratón se pierde dentro de él y el arrastre se
+      // queda pegado.
+      divisor.setPointerCapture(evento.pointerId);
+
+      const izquierda = nodo.getBoundingClientRect().left;
+
+      const seguir = (movimiento: PointerEvent): void => {
+        fijarAncho(movimiento.clientX - izquierda);
+      };
+
+      divisor.addEventListener('pointermove', seguir);
+      divisor.addEventListener(
+        'pointerup',
+        () => {
+          divisor.removeEventListener('pointermove', seguir);
+        },
+        { once: true }
+      );
+    },
+    [fijarAncho]
+  );
+
+  const alTeclear = useCallback(
+    (evento: React.KeyboardEvent<HTMLDivElement>) => {
+      const saltos: Record<string, number> = {
+        ArrowLeft: -PASO_DE_TECLADO,
+        ArrowRight: PASO_DE_TECLADO,
+      };
+      const salto = saltos[evento.key];
+
+      if (salto === undefined) return;
+
+      // Solo aquí: sin esto, las flechas moverían además el desplazamiento de la página.
+      evento.preventDefault();
+      fijarAncho(anchoActual.current + salto);
+    },
+    [fijarAncho]
+  );
 
   const autosave = useAutosave({
     key: nombreSeccion,
@@ -229,7 +353,11 @@ export function EntryEditor({
         />
       )}
 
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div
+        ref={reparto}
+        className="grid gap-8 lg:grid-cols-[var(--ancho-formulario)_auto_1fr] lg:gap-0"
+        style={{ '--ancho-formulario': `${String(anchoPintado)}px` } as React.CSSProperties}
+      >
         {/* `onBlur` en el contenedor y no en cada campo: el evento burbujea, y ponerlo en los
             ocho componentes de campo sería ocho sitios donde olvidarlo. */}
         <form
@@ -250,6 +378,26 @@ export function EntryEditor({
             }}
           />
         </form>
+
+        {/*
+          El divisor. `role="separator"` con `aria-valuenow` es lo que hace que exista para quien
+          no usa el ratón: sin eso sería un `div` bonito que solo obedece a un puntero, y la
+          pantalla del editor pasaría a repartirse solo con la mano.
+        */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Repartir el espacio entre el formulario y la vista previa"
+          aria-valuemin={MINIMO_DEL_FORMULARIO}
+          aria-valuemax={Math.round(disponible)}
+          aria-valuenow={Math.round(anchoPintado)}
+          tabIndex={0}
+          onPointerDown={alAgarrar}
+          onKeyDown={alTeclear}
+          className="group hidden cursor-col-resize items-center justify-center px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 lg:flex"
+        >
+          <span className="h-16 w-1 rounded-full bg-slate-300 transition group-hover:bg-slate-500" />
+        </div>
 
         {urlDeVistaPrevia === undefined ? (
           <HuecoDeVistaPrevia />
