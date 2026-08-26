@@ -73,6 +73,59 @@ export interface PreviewFrameProps {
 /** Cada cuánto se mira si toca renovar. Ver `MARGEN_DE_RENOVACION_SEGUNDOS`. */
 const LATIDO_MS = 15_000;
 
+/**
+ * Los tamaños de pantalla que se pueden mirar (SPEC §6.1, issue #138).
+ *
+ * **Son anchos de ventana de verdad, no anchos de la caja del panel**, y esa distinción es la
+ * pieza entera. La primera versión de esto solo estrechaba el iframe hasta 375 px y dejaba
+ * "Escritorio" ocupando la columna del panel, que mide unos 400 px **y no crece con la
+ * pantalla**. El resultado, comprobado con una web de verdad dentro: con "Escritorio" elegido,
+ * esa web decía *«me creo de 398px, maqueta MÓVIL»*.
+ *
+ * O sea que el control enseñaba la maqueta de móvil en sus dos posiciones y solo cambiaba el
+ * ancho del recuadro. Ningún test unitario lo habría visto: todos pasaban.
+ *
+ * Lo que hace que funcione es renderizar el iframe **al ancho que dice la etiqueta** y encogerlo
+ * con `transform` para que quepa. La web de dentro cree tener 1280 px y aplica sus reglas de
+ * escritorio; lo que se ve pequeño es la escala, que es justo lo que hace cualquier herramienta
+ * de vista previa por dispositivo.
+ *
+ * Los números: 1280 es el escritorio de referencia de casi cualquier maqueta, y 390 los píxeles
+ * CSS de un móvil corriente de hoy.
+ */
+export const ANCHOS_DE_PANTALLA = {
+  escritorio: 1280,
+  movil: 390,
+} as const;
+
+export type TamanoDePantalla = keyof typeof ANCHOS_DE_PANTALLA;
+
+/** El alto visible del recuadro, en píxeles. El iframe se estira por dentro para llenarlo. */
+const ALTO_VISIBLE = 576;
+
+/**
+ * Cuánto hay que encoger para que un ancho quepa en el hueco que hay.
+ *
+ * Nunca agranda: `1` es el tope. Estirar una web de 390 px hasta 900 no enseña nada que no se
+ * viera antes y engaña sobre el tamaño de las letras.
+ *
+ * Un hueco de cero o sin medir devuelve `1`, que es "no toques nada". Pasa en el primer pintado,
+ * antes de que nadie haya medido, y también en los tests de componentes —jsdom no maqueta, así
+ * que todas las cajas miden cero—. Devolver `0` ahí dejaría el iframe invisible.
+ */
+export function escalaDeVistaPrevia(anchoDisponible: number, anchoDeseado: number): number {
+  if (!Number.isFinite(anchoDisponible) || anchoDisponible <= 0) return 1;
+  if (!Number.isFinite(anchoDeseado) || anchoDeseado <= 0) return 1;
+
+  return Math.min(1, anchoDisponible / anchoDeseado);
+}
+
+/** El orden en que se ofrecen, y el nombre que lee quien edita. */
+const TAMANOS: readonly { readonly valor: TamanoDePantalla; readonly nombre: string }[] = [
+  { valor: 'escritorio', nombre: 'Escritorio' },
+  { valor: 'movil', nombre: 'Móvil' },
+];
+
 export function PreviewFrame({
   src,
   entryKey,
@@ -84,6 +137,18 @@ export function PreviewFrame({
   const iframe = useRef<HTMLIFrameElement | null>(null);
   const [listo, setListo] = useState(false);
   const [tokenCaido, setTokenCaido] = useState(false);
+  /**
+   * El tamaño que se está mirando.
+   *
+   * Vive aquí y en ningún sitio más: **no se guarda en el servidor** (issue #138). Es una
+   * preferencia de quien mira, no del sitio — dos personas editando la misma sección pueden
+   * querer mirarla en pantallas distintas, y guardarla haría que una le cambiara la vista a la
+   * otra sin tocar nada.
+   */
+  const [tamano, setTamano] = useState<TamanoDePantalla>('escritorio');
+  /** El ancho del hueco donde cabe la vista previa. Lo mide el navegador, no se supone. */
+  const [anchoDisponible, setAnchoDisponible] = useState(0);
+  const hueco = useRef<HTMLDivElement | null>(null);
 
   /**
    * El token vigente y desde cuándo, **fuera del efecto que los usa**.
@@ -276,11 +341,62 @@ export function PreviewFrame({
     };
   }, [renovarToken, vidaDelTokenSegundos, listo, origenDestino]);
 
+  /**
+   * Mide el hueco y vuelve a medirlo cuando cambie.
+   *
+   * Con `ResizeObserver` y no con el evento `resize` de la ventana: el hueco cambia también sin
+   * que la ventana cambie —al plegar un panel, al aparecer una barra de desplazamiento— y con
+   * `resize` esos casos dejarían la escala equivocada hasta que alguien tocara el borde.
+   *
+   * `ResizeObserver` no existe en jsdom, así que se comprueba antes: sin él la escala se queda
+   * en 1 y los tests de componentes miden lo que pueden medir, que es qué ancho se pide.
+   */
+  useEffect(() => {
+    const nodo = hueco.current;
+    if (nodo === null || typeof ResizeObserver === 'undefined') return;
+
+    const observador = new ResizeObserver(([entrada]) => {
+      if (entrada !== undefined) setAnchoDisponible(entrada.contentRect.width);
+    });
+    observador.observe(nodo);
+
+    return () => {
+      observador.disconnect();
+    };
+  }, []);
+
+  const anchoDeseado = ANCHOS_DE_PANTALLA[tamano];
+  const escala = escalaDeVistaPrevia(anchoDisponible, anchoDeseado);
+
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <p className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-        Así se ve tu web con lo que llevas escrito. Todavía no está publicado.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
+        <p className="text-sm text-slate-600">
+          Así se ve tu web con lo que llevas escrito. Todavía no está publicado.
+        </p>
+        <div role="group" aria-label="Tamaño de pantalla" className="flex gap-1">
+          {TAMANOS.map(({ valor, nombre }) => (
+            <button
+              key={valor}
+              type="button"
+              // `aria-pressed` y no un `role="radio"` a mano: son dos botones que dejan pulsado
+              // el elegido, que es lo que se ve, y el lector de pantalla dice cuál está activo
+              // sin que haya que construir la navegación por flechas de un grupo de radios.
+              aria-pressed={tamano === valor}
+              onClick={() => {
+                setTamano(valor);
+              }}
+              className={
+                tamano === valor
+                  ? 'rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white'
+                  : 'rounded-md px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-200'
+              }
+            >
+              {nombre}
+            </button>
+          ))}
+        </div>
+      </div>
       {tokenCaido ? (
         // Se dice **y se ofrece salir de ahí**. Un aviso que solo informa deja a quien lo lee
         // sin saber qué hacer, y lo que hay que hacer es volver a cargar: el permiso lo emite
@@ -302,15 +418,39 @@ export function PreviewFrame({
           </button>
         </p>
       ) : null}
-      <iframe
-        ref={iframe}
-        src={src}
-        title="Vista previa de tu web"
-        className="h-[36rem] w-full"
-        // Sin `sandbox`: el iframe es una ruta de este mismo sitio y necesita ejecutar su
-        // JavaScript para repintarse. Lo que lo protege es la CSP `frame-ancestors 'self'` de
-        // §6.2, que impide que nadie lo embeba desde fuera.
-      />
+      {/*
+        El iframe se pinta al ancho que dice la etiqueta y se encoge con `transform` para caber.
+        Así la web de dentro cree tener ese ancho y aplica sus propias reglas de maqueta, que es
+        lo único que hace que "Escritorio" signifique algo.
+
+        **Y sigue siendo el mismo nodo al cambiar de tamaño** (T-138-1): la estructura no cambia,
+        solo cambian dos estilos. Un `key` por tamaño, o pintar dos ramas distintas, lo
+        remontaría — y remontar tira la sesión de vista previa entera: con una web remota,
+        recarga esa web y vuelve a pedir los borradores. Una comodidad no puede costar eso.
+      */}
+      <div
+        ref={hueco}
+        className="overflow-hidden bg-slate-100 p-3"
+        style={{ height: `${String(ALTO_VISIBLE)}px` }}
+      >
+        <iframe
+          ref={iframe}
+          src={src}
+          title="Vista previa de tu web"
+          className="border-0 bg-white transition-transform duration-200"
+          style={{
+            width: `${String(anchoDeseado)}px`,
+            // El alto se divide por la escala para que, ya encogido, siga llenando el recuadro.
+            // Sin esto, en escritorio se vería una franja de un tercio de alto con hueco debajo.
+            height: `${String(Math.round((ALTO_VISIBLE - 24) / escala))}px`,
+            transform: `scale(${String(escala)})`,
+            transformOrigin: 'top left',
+          }}
+          // Sin `sandbox`: el iframe es una ruta de este mismo sitio o la web configurada, y
+          // necesita ejecutar su JavaScript para repintarse. Lo que protege a la nuestra es la
+          // CSP `frame-ancestors 'self'` de §6.2, que impide que nadie la embeba desde fuera.
+        />
+      </div>
     </div>
   );
 }
