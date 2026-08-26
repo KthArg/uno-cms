@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { THROTTLE_MS } from '@/cms/preview/protocolo';
-import { ANCHOS_DE_PANTALLA, PreviewFrame, escalaDeVistaPrevia } from '@/cms/ui/PreviewFrame';
+import { PANTALLAS, PreviewFrame, escalaDeVistaPrevia } from '@/cms/ui/PreviewFrame';
 
 /**
  * T-138-1 … T-138-5: **mirar la vista previa en otro tamaño de pantalla** (SPEC §6.1, #138).
@@ -42,9 +42,10 @@ function elegir(nombre: RegExp) {
   });
 }
 
-/** El ancho al que se está pintando la web de dentro. */
-function anchoPedido(contenedor: HTMLElement) {
-  return contenedor.querySelector('iframe')?.style.width ?? null;
+/** El tamaño de ventana que se le está pidiendo a la web de dentro. */
+function ventanaPedida(contenedor: HTMLElement) {
+  const iframe = contenedor.querySelector('iframe');
+  return { ancho: iframe?.style.width ?? null, alto: iframe?.style.height ?? null };
 }
 
 beforeEach(() => {
@@ -84,31 +85,55 @@ describe('T-138-2 y T-138-3 — los dos tamaños', () => {
     // se vio que en "Escritorio" esa web decía «me creo de 398px, maqueta MÓVIL» — o sea que el
     // control enseñaba móvil en sus dos posiciones. Los siete casos de este fichero estaban en
     // verde. Lo cazó mirarlo, no ejecutarlo.
-    expect(anchoPedido(container)).toBe(`${String(ANCHOS_DE_PANTALLA.escritorio)}px`);
+    expect(ventanaPedida(container)).toEqual({
+      ancho: `${String(PANTALLAS.escritorio.ancho)}px`,
+      alto: `${String(PANTALLAS.escritorio.alto)}px`,
+    });
 
     await elegir(/móvil/i);
-    expect(anchoPedido(container)).toBe(`${String(ANCHOS_DE_PANTALLA.movil)}px`);
+    expect(ventanaPedida(container)).toEqual({
+      ancho: `${String(PANTALLAS.movil.ancho)}px`,
+      alto: `${String(PANTALLAS.movil.alto)}px`,
+    });
 
     await elegir(/escritorio/i);
-    expect(anchoPedido(container)).toBe(`${String(ANCHOS_DE_PANTALLA.escritorio)}px`);
+    expect(ventanaPedida(container).ancho).toBe(`${String(PANTALLAS.escritorio.ancho)}px`);
   });
 
   it('los dos anchos son los de las pantallas que dicen ser', () => {
     // Topes en la dirección que importa en cada uno. Si el "móvil" subiera a 900 o el
     // "escritorio" bajara a 500, el control seguiría cambiando algo y dejaría de contestar la
     // pregunta que se hace quien edita.
-    expect(ANCHOS_DE_PANTALLA.movil).toBeLessThanOrEqual(430);
+    expect(PANTALLAS.movil.ancho).toBeLessThanOrEqual(430);
     // Por encima del corte habitual de escritorio: si no lo supera, la web de dentro seguirá
     // aplicando su maqueta estrecha con la etiqueta puesta al revés.
-    expect(ANCHOS_DE_PANTALLA.escritorio).toBeGreaterThanOrEqual(1024);
+    expect(PANTALLAS.escritorio.ancho).toBeGreaterThanOrEqual(1024);
+
+    // **Y el alto es el de una pantalla de verdad, no el hueco que sobre.** Una portada con
+    // `height: 100vh` mide lo que mida esto: con un alto estirado a la escala del recuadro
+    // ocuparía unos 1780 px en escritorio, que no es lo que ve nadie.
+    expect(PANTALLAS.escritorio.alto).toBeLessThanOrEqual(1000);
+    expect(PANTALLAS.escritorio.alto).toBeGreaterThanOrEqual(600);
+    expect(PANTALLAS.movil.alto).toBeLessThanOrEqual(1000);
   });
 
   it('la escala encoge para caber, y nunca agranda', () => {
     // Encoger es lo que permite meter 1280 px en una columna de 400. Agrandar no enseñaría nada
     // nuevo y mentiría sobre el tamaño de las letras.
-    expect(escalaDeVistaPrevia(400, 1280)).toBeCloseTo(400 / 1280);
-    expect(escalaDeVistaPrevia(2000, 390)).toBe(1);
-    expect(escalaDeVistaPrevia(390, 390)).toBe(1);
+    expect(escalaDeVistaPrevia({ ancho: 400, alto: 2000 }, { ancho: 1280, alto: 800 })).toBeCloseTo(
+      400 / 1280
+    );
+    expect(escalaDeVistaPrevia({ ancho: 2000, alto: 2000 }, { ancho: 390, alto: 844 })).toBe(1);
+  });
+
+  it('manda la dimensión más apretada, para que se vea la pantalla entera', () => {
+    // **El caso que quita la doble barra de desplazamiento.** Encogiendo solo por el ancho, un
+    // móvil de 844 px de alto no cabía en el recuadro y no se veía dónde corta la pantalla, que
+    // es justo lo que se mira en una vista previa de móvil.
+    const hueco = { ancho: 400, alto: 552 };
+
+    expect(escalaDeVistaPrevia(hueco, { ancho: 390, alto: 844 })).toBeCloseTo(552 / 844);
+    expect(escalaDeVistaPrevia(hueco, { ancho: 1280, alto: 800 })).toBeCloseTo(400 / 1280);
   });
 
   it('sin haber medido nada, la escala es 1 y no cero', () => {
@@ -116,7 +141,10 @@ describe('T-138-2 y T-138-3 — los dos tamaños', () => {
     // maqueta: todas las cajas miden cero. Con un cero al dividir, el iframe se quedaría
     // invisible y el fallo parecería del contenido.
     for (const sinMedir of [0, -10, Number.NaN, Number.POSITIVE_INFINITY]) {
-      expect(escalaDeVistaPrevia(sinMedir, 1280), String(sinMedir)).toBe(1);
+      expect(
+        escalaDeVistaPrevia({ ancho: sinMedir, alto: sinMedir }, { ancho: 1280, alto: 800 }),
+        String(sinMedir)
+      ).toBe(1);
     }
   });
 });

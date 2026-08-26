@@ -93,31 +93,63 @@ const LATIDO_MS = 15_000;
  * Los números: 1280 es el escritorio de referencia de casi cualquier maqueta, y 390 los píxeles
  * CSS de un móvil corriente de hoy.
  */
-export const ANCHOS_DE_PANTALLA = {
-  escritorio: 1280,
-  movil: 390,
+export const PANTALLAS = {
+  escritorio: { ancho: 1280, alto: 800 },
+  movil: { ancho: 390, alto: 844 },
 } as const;
 
-export type TamanoDePantalla = keyof typeof ANCHOS_DE_PANTALLA;
-
-/** El alto visible del recuadro, en píxeles. El iframe se estira por dentro para llenarlo. */
-const ALTO_VISIBLE = 576;
+export type TamanoDePantalla = keyof typeof PANTALLAS;
 
 /**
- * Cuánto hay que encoger para que un ancho quepa en el hueco que hay.
+ * **El alto también es del tamaño elegido, y no un hueco que se estira.**
+ *
+ * La primera versión de esto ponía al iframe el alto del recuadro dividido por la escala, o sea
+ * unos 1780 píxeles virtuales en escritorio. Suena inofensivo —"se ve más página"— y no lo es:
+ * una portada con `height: 100vh`, que es de lo más común que hay, ocuparía 1780 píxeles en vez
+ * de 800. La vista previa volvería a enseñar algo que no le pasa a nadie, que es el mismo fallo
+ * que esta pieza acaba de arreglar por el lado del ancho.
+ *
+ * Con un alto fijo por tamaño, `100vh` mide lo que mediría en esa pantalla. Lo que se pierde es
+ * que en escritorio queda hueco debajo del recuadro; a cambio, lo que se ve es cierto.
+ *
+ * 800 es el alto útil de un portátil corriente con su barra de direcciones puesta; 844 es el de
+ * un móvil de hoy.
+ */
+
+/** Lo más alto que se deja crecer al recuadro en el panel, en píxeles. */
+const ALTO_MAXIMO_DEL_RECUADRO = 576;
+
+/** El margen alrededor del recuadro. En una constante porque el alto del iframe la resta. */
+const MARGEN = 12;
+
+/**
+ * Cuánto hay que encoger para que una pantalla entera quepa en el hueco que hay.
+ *
+ * **Manda la dimensión más apretada de las dos**, y eso es lo que hace que se vea la pantalla
+ * completa. Encogiendo solo por el ancho, un móvil de 844 px de alto no cabía en el recuadro:
+ * salían dos barras de desplazamiento —una del móvil y otra del recuadro— y, sobre todo, **no
+ * se veía dónde corta la pantalla**, que es la pregunta que se hace quien mira una vista previa
+ * en móvil.
  *
  * Nunca agranda: `1` es el tope. Estirar una web de 390 px hasta 900 no enseña nada que no se
  * viera antes y engaña sobre el tamaño de las letras.
  *
- * Un hueco de cero o sin medir devuelve `1`, que es "no toques nada". Pasa en el primer pintado,
- * antes de que nadie haya medido, y también en los tests de componentes —jsdom no maqueta, así
- * que todas las cajas miden cero—. Devolver `0` ahí dejaría el iframe invisible.
+ * Una medida de cero o sin tomar devuelve `1`, que es "no toques nada". Pasa en el primer
+ * pintado, antes de que nadie haya medido, y también en los tests de componentes —jsdom no
+ * maqueta, así que todas las cajas miden cero—. Devolver `0` ahí dejaría el iframe invisible.
  */
-export function escalaDeVistaPrevia(anchoDisponible: number, anchoDeseado: number): number {
-  if (!Number.isFinite(anchoDisponible) || anchoDisponible <= 0) return 1;
-  if (!Number.isFinite(anchoDeseado) || anchoDeseado <= 0) return 1;
+export function escalaDeVistaPrevia(
+  hueco: { readonly ancho: number; readonly alto: number },
+  pantalla: { readonly ancho: number; readonly alto: number }
+): number {
+  const cabe = (disponible: number, deseado: number): number => {
+    if (!Number.isFinite(disponible) || disponible <= 0) return 1;
+    if (!Number.isFinite(deseado) || deseado <= 0) return 1;
 
-  return Math.min(1, anchoDisponible / anchoDeseado);
+    return disponible / deseado;
+  };
+
+  return Math.min(1, cabe(hueco.ancho, pantalla.ancho), cabe(hueco.alto, pantalla.alto));
 }
 
 /** El orden en que se ofrecen, y el nombre que lee quien edita. */
@@ -365,8 +397,22 @@ export function PreviewFrame({
     };
   }, []);
 
-  const anchoDeseado = ANCHOS_DE_PANTALLA[tamano];
-  const escala = escalaDeVistaPrevia(anchoDisponible, anchoDeseado);
+  const pantalla = PANTALLAS[tamano];
+  const escala = escalaDeVistaPrevia(
+    { ancho: anchoDisponible, alto: ALTO_MAXIMO_DEL_RECUADRO - MARGEN * 2 },
+    pantalla
+  );
+
+  /**
+   * El recuadro se ajusta a lo que ocupa, con un tope.
+   *
+   * Un escritorio encogido a un tercio ocupa unos 250 px de alto: con el recuadro clavado a 576
+   * quedaba un palmo de gris debajo que parecía que faltaba algo por cargar.
+   */
+  const altoDelRecuadro = Math.min(
+    ALTO_MAXIMO_DEL_RECUADRO,
+    Math.round(pantalla.alto * escala) + MARGEN * 2
+  );
 
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -430,26 +476,45 @@ export function PreviewFrame({
       */}
       <div
         ref={hueco}
-        className="overflow-hidden bg-slate-100 p-3"
-        style={{ height: `${String(ALTO_VISIBLE)}px` }}
+        // `overflow-auto` y no `hidden` por si el hueco se queda muy estrecho: recortar
+        // escondería media pantalla sin decirlo. En la práctica no sale barra, porque la escala
+        // mira también el alto y el marco de dentro mide ya lo que ocupa.
+        className="overflow-auto bg-slate-100"
+        style={{ height: `${String(altoDelRecuadro)}px`, padding: `${String(MARGEN)}px` }}
       >
-        <iframe
-          ref={iframe}
-          src={src}
-          title="Vista previa de tu web"
-          className="border-0 bg-white transition-transform duration-200"
+        {/*
+          El marco mide **lo que ocupa el iframe ya encogido**, y esto no es un detalle de
+          maquetación: `transform` encoge lo que se ve pero **no cambia el sitio que el navegador
+          le reserva**, así que sin este marco el recuadro creía tener 1280 px de ancho dentro y
+          sacaba una barra de desplazamiento horizontal para una web que ya cabía entera.
+
+          Y sigue siendo el mismo nodo de iframe al cambiar de tamaño (T-138-1): la estructura no
+          cambia, solo los números.
+        */}
+        <div
+          className="mx-auto overflow-hidden bg-white shadow-sm"
           style={{
-            width: `${String(anchoDeseado)}px`,
-            // El alto se divide por la escala para que, ya encogido, siga llenando el recuadro.
-            // Sin esto, en escritorio se vería una franja de un tercio de alto con hueco debajo.
-            height: `${String(Math.round((ALTO_VISIBLE - 24) / escala))}px`,
-            transform: `scale(${String(escala)})`,
-            transformOrigin: 'top left',
+            width: `${String(Math.round(pantalla.ancho * escala))}px`,
+            height: `${String(Math.round(pantalla.alto * escala))}px`,
           }}
-          // Sin `sandbox`: el iframe es una ruta de este mismo sitio o la web configurada, y
-          // necesita ejecutar su JavaScript para repintarse. Lo que protege a la nuestra es la
-          // CSP `frame-ancestors 'self'` de §6.2, que impide que nadie la embeba desde fuera.
-        />
+        >
+          <iframe
+            ref={iframe}
+            src={src}
+            title="Vista previa de tu web"
+            className="border-0 bg-white"
+            style={{
+              // Los dos del tamaño elegido: es una ventana de ese tamaño, no un hueco estirado.
+              width: `${String(pantalla.ancho)}px`,
+              height: `${String(pantalla.alto)}px`,
+              transform: `scale(${String(escala)})`,
+              transformOrigin: 'top left',
+            }}
+            // Sin `sandbox`: el iframe es una ruta de este mismo sitio o la web configurada, y
+            // necesita ejecutar su JavaScript para repintarse. Lo que protege a la nuestra es la
+            // CSP `frame-ancestors 'self'` de §6.2, que impide que nadie la embeba desde fuera.
+          />
+        </div>
       </div>
     </div>
   );
