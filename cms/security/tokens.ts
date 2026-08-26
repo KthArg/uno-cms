@@ -31,11 +31,37 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
  * la traza acaba en logs que no controlamos.
  */
 
-export type TokenPurpose = 'preview' | 'setup' | 'password-reset';
+export type TokenPurpose = 'preview' | 'preview-remoto' | 'setup' | 'password-reset';
 
 /** Duraciones de SPEC §5.3 y §6.1, en segundos. */
 export const TOKEN_TTL: Record<TokenPurpose, number> = {
   preview: 2 * 60 * 60, // §6.1: 2 h
+  /**
+   * Quince minutos, contra las dos horas del de al lado (spec 08 §4.2, ADR-701).
+   *
+   * ## Por qué es un propósito nuevo y no el mismo con otra duración
+   *
+   * Porque **este viaja a un tercero**. Aparece en la barra de direcciones de una web que no
+   * es nuestra, y de ahí pasa a su historial y con toda probabilidad a los registros de su
+   * servidor. El de `preview` no sale nunca de nuestro origen.
+   *
+   * Separarlos da dos propiedades sin escribir una línea, porque `verifyToken` ya compara el
+   * propósito: un token remoto **no vale** en `/preview`, y uno de `/preview` no vale en la
+   * ruta remota. Con una sola duración compartida, filtrar el enlace que se le manda a la web
+   * de destino entregaría también la vista previa de este CMS.
+   *
+   * ## Y por qué quince minutos y no dos horas
+   *
+   * Porque un token que viaja a un tercero **se filtra** — no es una hipótesis, es el modo
+   * normal de fallo de algo que acaba escrito en un historial ajeno. Lo que se elige aquí no
+   * es si pasa, es cuánto dura el daño cuando pase.
+   *
+   * Quince minutos solo son aceptables porque se renueva: ver `cms/preview/renovacion.ts`,
+   * que decide cuándo pedir el siguiente. Sin esa parte, esta constante sería un fallo peor
+   * que el que evita — la vista previa se caería a mitad de una sesión de edición larga, o
+   * sea justo cuando alguien lleva rato trabajando.
+   */
+  'preview-remoto': 15 * 60,
   setup: 60 * 60, // §7.3: el bootstrap es de un solo uso; una hora sobra
   'password-reset': 24 * 60 * 60, // §5.3: 24 h
 };

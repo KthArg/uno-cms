@@ -85,6 +85,26 @@ Vale dos horas y enseña el borrador de **una** sección (ADR-501). Quien lo ten
 iniciar sesión: es lo que permite enseñarle un borrador a alguien sin darle cuenta, y también lo
 que hace que compartirlo por error tenga consecuencias.
 
+### Y desde ADR-701 hay un segundo token, que además sale de nuestro origen
+
+El de la vista previa remota **viaja a un tercero**: aparece en la barra de direcciones de la web
+de destino, y de ahí pasa a su historial y con toda probabilidad a los registros de su servidor.
+Asumir que se filtra no es pesimismo, es el modo normal de fallo de algo escrito en un historial
+ajeno.
+
+Lo que se elige, entonces, no es si se filtra: es cuánto dura el daño y hasta dónde llega.
+
+- **Propósito propio, `preview-remoto`.** Un token remoto no vale en `/preview` ni al revés, así
+  que filtrar el que se le manda a la web de destino no entrega además la vista previa completa
+  de este CMS (T-R-9, T-R-10).
+- **Quince minutos, contra las dos horas del otro** (T-R-12), con un tope vigilado por un test
+  para que no crezca sin que nadie lo note.
+- **Y no existe sin `PREVIEW_ORIGINS`**, que además es una variable de entorno y no un ajuste del
+  panel: la lista de quién puede leer borradores solo la cambia quien despliega (T-R-1, T-R-2).
+
+Lo que **no** cubre: quien tenga el token dentro de su ventana de vida ve ese borrador. Es la
+misma propiedad que el enlace de arriba, con quince minutos en vez de dos horas.
+
 ### Publicar todo depende de que la pestaña siga abierta
 
 El bucle que encadena las llamadas vive en el cliente (ADR-600). Cerrar la pestaña a mitad deja
