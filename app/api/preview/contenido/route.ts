@@ -52,6 +52,22 @@ import { origenPermitido, origenesDeVistaPreviaRemota } from '@/cms/vista-previa
  * Si algún día el cliente de §4.6 mandara una cabecera propia, hará falta — y se notará porque
  * el navegador empezará a preguntar.
  *
+ * ## Un 500 sigue siendo un 500, y eso **no** hay que "arreglarlo"
+ *
+ * Si la base de datos no responde, `previewContentConObjetivo` lanza y Next devuelve un 500. No
+ * se captura para convertirlo en 404, y la tentación es real porque este fichero está lleno de
+ * 404: taparlo haría que una caída de la base de datos se pareciera a un token caducado, y quien
+ * mire por qué no va la vista previa remota buscaría el fallo en el sitio equivocado.
+ *
+ * Lo que sí se captura es el `throw` de `verifyToken` por `APP_SECRET`, y por otro motivo: ahí el
+ * mensaje describe nuestra configuración.
+ *
+ * ## Rechazar no dice en qué se falló, y eso incluye la lista de orígenes
+ *
+ * El origen se comprueba antes que el token, así que "origen mal" y "token mal" dan exactamente
+ * la misma respuesta: 404, cuerpo vacío, sin `Access-Control-Allow-Origin`. Sin eso, ir probando
+ * `Origin` hasta ver aparecer la cabecera enumeraría la lista entera sin necesidad de un token.
+ *
  * ## 404 en todos los rechazos
  *
  * Apagada, con el origen mal, sin token, con el token caducado o mal firmado: la misma respuesta

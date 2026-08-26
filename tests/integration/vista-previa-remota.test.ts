@@ -145,7 +145,7 @@ describeIntegration('la ruta que sirve borradores hacia fuera', () => {
     encender();
     const token = signToken('preview-remoto', { key: 'hero' });
 
-    for (const origen of [OTRO, `${ORIGEN}.malo.io`, `https://sub.${'mi-web.example'}`, null]) {
+    for (const origen of [OTRO, `${ORIGEN}.malo.io`, 'https://sub.mi-web.example', null]) {
       const respuesta = await GET(pedir({ origen, token }));
 
       expect(respuesta.status, String(origen)).toBe(404);
