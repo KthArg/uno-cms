@@ -60,7 +60,14 @@ Dos propiedades, las dos gratis porque `verifyToken` ya comprueba el propósito:
 - Un token remoto **no sirve** contra `/preview`, ni al revés.
 - Cuando se filtre —y un token que viaja a un tercero se filtra— caduca en minutos, no en horas.
 
-El panel lo renueva mientras la pestaña está abierta. Que haya que renovarlo es el precio de que dure poco, y es el lado correcto en el que equivocarse.
+**La renovación hay que construirla, no darla por hecha.** Escribí esta sección diciendo que "el panel lo renueva mientras la pestaña está abierta" como si fuera una consecuencia, y no lo es: con quince minutos y sin renovación, la vista previa se cae a mitad de una sesión de edición larga — un fallo peor que el que se quería evitar, porque aparece justo cuando alguien lleva rato trabajando.
+
+Así que es parte del contrato:
+
+- El panel pide un token nuevo **antes** de que caduque el que tiene, sin recargar el iframe.
+- Si la renovación falla, la vista previa **lo dice** y ofrece recargar. No se queda enseñando contenido viejo como si estuviera vivo, que es la forma silenciosa de mentir.
+
+Sus casos son T-R-19 y T-R-20.
 
 ### 4.3 Leer borradores desde fuera
 
@@ -119,6 +126,8 @@ Tres cosas que fija este contrato:
 2. **No re-renderizamos la web de nadie.** El cliente entrega el contenido y avisa cuando cambia; qué hacer con él lo decide esa web. Cualquier otra cosa sería adivinar su arquitectura.
 3. **Es JavaScript a secas.** Se ofrece además un hook para React, pero el contrato base no supone framework.
 
+**Lo que hace falta del lado de la web destino, y conviene saberlo antes de integrar**: si tiene su propia CSP —y debería—, su `script-src` tiene que permitir el origen del CMS, y su `connect-src` también, porque el cliente pide los borradores por `fetch`. No podemos comprobarlo desde aquí ni arreglarlo por ellos; lo que sí podemos es que salga en la documentación en vez de en su consola.
+
 ## 5. Lo que NO cambia, y hay que comprobarlo
 
 Es la mitad del trabajo de esta fase:
@@ -151,12 +160,21 @@ T-R-7 es el que importa de este bloque: comparar orígenes con `includes` o `sta
 
 ### 6.3 El token
 
-| ID     | Caso                                                          |
-| ------ | ------------------------------------------------------------- |
-| T-R-9  | Un token de propósito `preview` **no** vale en la ruta remota |
-| T-R-10 | Un token remoto **no** vale en `/preview`                     |
-| T-R-11 | Caducado, mal firmado y ausente responden **igual**           |
-| T-R-12 | El TTL remoto es de minutos, no de horas                      |
+| ID     | Caso                                                                           |
+| ------ | ------------------------------------------------------------------------------ |
+| T-R-9  | Un token de propósito `preview` **no** vale en la ruta remota                  |
+| T-R-10 | Un token remoto **no** vale en `/preview`                                      |
+| T-R-11 | Caducado, mal firmado y ausente responden **igual**                            |
+| T-R-12 | Un token remoto recién emitido **caduca** al pasar su TTL, con el reloj fijado |
+
+T-R-12 decía antes "el TTL es de minutos, no de horas", que es comprobar una constante contra un rango: pasaría con cualquier número entre uno y cincuenta y nueve, y no ejercita una sola línea de `verifyToken`. Con el reloj fijado se comprueba lo que importa —que caduca— en vez de cómo está escrito.
+
+### 6.3b La renovación
+
+| ID     | Caso                                                                                |
+| ------ | ----------------------------------------------------------------------------------- |
+| T-R-19 | Con la pestaña abierta, el token se renueva antes de caducar y el iframe no recarga |
+| T-R-20 | Si la renovación falla, se dice y se ofrece recargar; no se sigue como si nada      |
 
 ### 6.4 Que no se rompa lo de siempre
 
