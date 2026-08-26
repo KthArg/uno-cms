@@ -659,22 +659,19 @@ pasada de repaso entera. Los tres hallazgos salieron del mismo intento: **subir 
 > Esta sección es la que hay que actualizar al terminar cada pieza. Si dice algo que ya no es
 > cierto, es peor que si no existiera.
 
-**El MVP está cerrado** (M0–M6) y después se han cerrado tres cosas más: los dos arreglos de los
-mensajes de subida (#164, #165) y el almacén local de imágenes (#168, ADR-700).
+**El MVP está cerrado** (M0–M6) y después se han cerrado cuatro cosas más: los dos arreglos de
+los mensajes de subida (#164, #165), el almacén local de imágenes (#168, ADR-700) y **la vista
+previa de una web que vive fuera** (#177 a #181, ADR-701).
 
-### Lo siguiente: la vista previa de una web que vive fuera
+**Lo siguiente es desplegar.** No queda trabajo de producto planificado, y hay tres cosas que
+solo se pueden comprobar con un despliegue delante: el driver de Neon (#43), las capturas de
+`SETUP.md` (#157) y el iframe a `http://localhost` desde una página `https`.
 
-Está **diseñada y empezada**: el interruptor (#177) está cerrado y las otras cuatro piezas
-nacen apagadas gracias a él. El diseño se mezcló en #182:
+### La vista previa de una web que vive fuera ✅
 
-- La contradicción que lo motiva: [#176](https://github.com/KthArg/uno-cms/issues/176)
-- La decisión: **ADR-701** en `docs/DECISIONS.md`, que acota ADR-001
-- Los contratos y los veinte casos: `docs/specs/08-vista-previa-remota.md`
-- `SPEC.md` §0 lleva la enmienda correspondiente
-
-**Empieza por [#177](https://github.com/KthArg/uno-cms/issues/177), y el orden importa**: es el
-interruptor. Cada pieza posterior nace apagada porque él existe. Al revés habría una ventana en
-la que hay un endpoint sirviendo contenido sin publicar y nada que lo apague.
+**Cerrada.** 5 issues, 5 PR, todos con autorevisión escrita y con hallazgos arreglados antes de
+mergear. El diseño se mezcló en #182; la contradicción que lo motiva es
+[#176](https://github.com/KthArg/uno-cms/issues/176) y la decisión, **ADR-701**.
 
 | Pieza                             | Issue                                                | Estado    |
 | --------------------------------- | ---------------------------------------------------- | --------- |
@@ -682,19 +679,73 @@ la que hay un endpoint sirviendo contenido sin publicar y nada que lo apague.
 | El propósito de token propio      | [#178](https://github.com/KthArg/uno-cms/issues/178) | **hecho** |
 | La ruta que sirve borradores      | [#179](https://github.com/KthArg/uno-cms/issues/179) | **hecho** |
 | El iframe remoto y los mensajes   | [#180](https://github.com/KthArg/uno-cms/issues/180) | **hecho** |
-| El cliente para la web de destino | [#181](https://github.com/KthArg/uno-cms/issues/181) | sin hacer |
+| El cliente para la web de destino | [#181](https://github.com/KthArg/uno-cms/issues/181) | **hecho** |
 
-### Lo que hay que verificar antes de prometerlo
+Los veinte casos de la spec, en verde.
 
-Empotrar `http://localhost` desde una página `https` —el caso "CMS desplegado, web en local"—
-tiene reglas propias del navegador que **nadie ha verificado**. Hay que mirarlo con un navegador
-delante, no razonarlo. #177 lo deja permitido por la CSP y ahí acaba lo que puede hacer: quien
-pone el iframe es #180, y ahí es donde hay que comprobarlo. Anotado en `PENDIENTES.md`.
+#### Qué funciona
 
-**Lo que sí se comprobó en #177**, porque tenía la misma pinta de suposición: que
-`process.env.PREVIEW_ORIGINS` llega de verdad al runtime edge donde se construye la CSP. Se
-levantó `next build && next start` con la variable puesta y se leyó la cabecera. Si no llegara,
-la fase quedaría apagada en el despliegue **sin que fallara ni un test**.
+| Área              | Estado                                                                                                                                 |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| El interruptor    | `PREVIEW_ORIGINS` y `PREVIEW_URL` por entorno. Sin la primera, la CSP es byte a byte la de antes y las dos rutas nuevas responden 404  |
+| La CSP            | Solo cambia `frame-src`, comprobado comparando la política entera y no la directiva añadida                                            |
+| El token          | Propósito `preview-remoto`, quince minutos, con techo vigilado. No vale en `/preview` ni al revés                                      |
+| La renovación     | El panel lo releva por `postMessage` sin recargar el iframe; si falla, lo dice y ofrece recargar                                       |
+| La ruta           | Origen exacto en `Access-Control-Allow-Origin` —nunca `*`—, `Vary: Origin` y `no-store`. 404 idéntico en todos los rechazos            |
+| Lo de siempre     | `/api/content/:key` sigue sin borradores y sin CORS **con la fase encendida**, y `/preview` sigue apuntando a este sitio               |
+| El cliente remoto | Se sirve por una ruta con CORS, se prueba importando **los mismos bytes** que se sirven, y descarta lo que no venga del origen del CMS |
+
+#### Qué es frágil
+
+1. **Nadie ha integrado esto en una web de verdad.** Todos los casos son nuestros dos lados
+   hablando entre ellos: el cliente se prueba con `fetch` simulado y el panel con un iframe que
+   jsdom no carga. Lo que no se ha visto nunca es una web ajena, con su CSP, su enrutador y su
+   ciclo de vida. Es la fragilidad principal y no hay test que la cubra.
+2. **El caso «CMS desplegado, web en local» sigue sin verificar.** Empotrar `http://localhost`
+   desde una página `https` tiene reglas propias del navegador. No se puede mirar en local
+   —hace falta un origen `https` de verdad— y va con el primer despliegue.
+3. **El margen de renovación de tres minutos está razonado, no medido.** Sale de que los
+   navegadores estrangulan los temporizadores de las pestañas de fondo hasta ~uno por minuto,
+   que es comportamiento documentado; que tres minutos basten no lo ha medido nadie con una
+   pestaña real.
+4. **`conectar()` saca el origen del CMS de `import.meta.url` y esa línea no la cubre ningún
+   test**: un módulo importado desde una URL `data:` no tiene origen, así que los casos usan
+   `crearCliente(origen)`. Es una línea y se ve a la primera al integrar, pero no está probada.
+5. **La ruta de borradores no tiene límite de peticiones.** No es una exposición nueva
+   —`/preview` tiene la misma forma desde M5, con un token de dos horas— y por eso no se le puso
+   uno solo a ella. Está en `PENDIENTES.md` con ese razonamiento.
+6. **Si se navega dentro del iframe, la vista previa se acaba**: el parámetro `unocms_preview` no
+   viaja solo a la página siguiente. Está documentado, no resuelto.
+
+#### Qué probaría a mano
+
+- **Integrarlo en una web de verdad**, que es lo que cierra la fragilidad 1. Con su CSP puesta,
+  para ver si `docs/DEVELOPER.md` dice lo suficiente o falta algo que solo se descubre fallando.
+- Dejar el panel abierto **más de quince minutos** y comprobar que el relevo ocurre y que el
+  iframe no parpadea. Y luego dormir la pestaña media hora, para ver el aviso.
+- Abrir la vista previa con un token ya caducado en la dirección, para ver si el reintento con
+  el token nuevo la levanta.
+
+#### Lo que enseñó
+
+- **Escribí el interruptor como una comprobación explícita tres veces, y las tres sobraban.**
+  `if (lista.length === 0)` delante de un allowlist no hace nada: una lista vacía no autoriza a
+  nadie. Las tres se descubrieron mutando, ninguna leyendo. Y la lección de verdad es la de
+  después: T-R-1 no puede fallar quitando una línea, pero sí **añadiéndola** —
+  `lista.length === 0 || lista.includes(x)`, o sea «sin configurar, deja pasar»—, que es el
+  error que alguien cometería de verdad.
+- **Todo lo que falla en esta fase falla callado.** El `NaN` que daba un token por sano para
+  siempre, el reloj que se reiniciaba al rearmarse un efecto, el token nuevo que no leía nadie:
+  ninguno rompe un test, ninguno da error, y la pantalla se ve perfecta hasta que deja de verse.
+- **Un test puede dar el resultado correcto por el camino equivocado.** El aviso de "la vista
+  previa dejó de actualizarse" salía aunque se ignorase el fallo de la renovación — llegaba por
+  otra comprobación, quince segundos tarde. Pasaba en verde y no probaba lo que decía.
+- **La mezcla de idiomas produjo su primer fallo.** `{ origin }` es el atajo de `origin: origin`
+  y mi parámetro se llamaba `origen`: el atajo se enganchó al **global del navegador** sin que
+  TypeScript dijera nada, y cuatro casos daban cero con pinta de fallo del componente.
+- **Y un guard tenía un punto ciego que nadie había tocado en seis hitos**: el inventario de
+  accesos de #104 solo miraba `app/api`. La primera ruta fuera de ahí habría entrado sin
+  declararse. Ahora recorre `app/` entero.
 
 ### Lo que está abierto y no bloquea
 
