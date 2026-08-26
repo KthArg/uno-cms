@@ -87,6 +87,8 @@ export function crearCliente(origenDelCms) {
     var ultimoSeq = -1;
     var vivo = true;
     var promesa = Promise.resolve();
+    // El ultimo cambio que llego mientras todavia se pedian los borradores. Ver 'procesar'.
+    var enEspera = null;
 
     function pedirContenido() {
       if (token === null || token === '') {
@@ -114,11 +116,40 @@ export function crearCliente(origenDelCms) {
 
           contenido = cuerpo.contenido;
           objetivo = cuerpo.objetivo;
+
+          // Si mientras llegaba esto el panel mando un cambio, se aplica ahora en vez de
+          // perderse. Ver 'procesar'.
+          if (enEspera !== null && procesar(enEspera)) {
+            enEspera = null;
+            return;
+          }
+
+          enEspera = null;
           alCambiar(contenido);
         })
         .catch(function () {
           alFallar('sin-red');
         });
+    }
+
+    /**
+     * Comprueba un cambio y lo aplica. Devuelve si cambio algo.
+     *
+     * Esta aparte porque se llama desde dos sitios: al recibir el mensaje y al terminar de
+     * cargar los borradores, para el que llego antes de tiempo.
+     */
+    function procesar(datos) {
+      if (objetivo === null || contenido === null) return false;
+      if (typeof datos.key !== 'string' || datos.key !== objetivo.key) return false;
+      if (typeof datos.data !== 'object' || datos.data === null) return false;
+      // 'postMessage' no promete orden entre dos ventanas: sin esto, dos mensajes que se cruzan
+      // dejan la vista previa enseñando lo que se escribio ANTES.
+      if (typeof datos.seq !== 'number' || !(datos.seq > ultimoSeq)) return false;
+
+      ultimoSeq = datos.seq;
+      contenido = aplicar(contenido, objetivo, datos.data);
+      alCambiar(contenido);
+      return true;
     }
 
     function alRecibir(evento) {
@@ -149,16 +180,20 @@ export function crearCliente(origenDelCms) {
 
       // 3. Un cambio en vivo.
       if (datos.type !== TIPO_CAMBIO) return;
-      if (objetivo === null || contenido === null) return;
-      if (typeof datos.key !== 'string' || datos.key !== objetivo.key) return;
-      if (typeof datos.data !== 'object' || datos.data === null) return;
-      // 'postMessage' no promete orden entre dos ventanas: sin esto, dos mensajes que se cruzan
-      // dejan la vista previa enseñando lo que se escribio ANTES.
-      if (typeof datos.seq !== 'number' || !(datos.seq > ultimoSeq)) return;
 
-      ultimoSeq = datos.seq;
-      contenido = aplicar(contenido, objetivo, datos.data);
-      alCambiar(contenido);
+      // Todavia no han llegado los borradores. El aviso de 'listo' sale ANTES de pedirlos —si
+      // esperara, el panel no arrancaria su relevo y el reintento del token nuevo no ocurriria
+      // nunca—, asi que hay una ventana de una peticion en la que puede llegar un cambio.
+      //
+      // Se guarda en vez de descartarlo: el panel manda los valores enteros en cada cambio, asi
+      // que la siguiente tecla lo arreglaria... salvo que quien escribe pare justo ahi. Ese caso
+      // deja la vista previa sin la ultima palabra escrita y sin decir nada.
+      if (contenido === null) {
+        enEspera = datos;
+        return;
+      }
+
+      procesar(datos);
     }
 
     window.addEventListener('message', alRecibir);

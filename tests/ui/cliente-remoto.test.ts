@@ -277,6 +277,71 @@ describe('qué mensajes se aplican', () => {
   });
 });
 
+describe('la carrera del arranque', () => {
+  it('un cambio que llega mientras se piden los borradores no se pierde', async () => {
+    // **El aviso de `cms:ready` sale antes de pedir los borradores, y tiene que ser así**: si
+    // esperara, el panel no arrancaría su relevo de token y el reintento del caso de arriba no
+    // ocurriría nunca. El precio es una ventana de una petición en la que puede llegar un
+    // cambio y no haber dónde aplicarlo.
+    //
+    // Descartarlo casi nunca se nota —el panel manda los valores enteros en cada tecla, así que
+    // la siguiente lo arregla— salvo que quien escribe pare justo ahí. Entonces la vista previa
+    // se queda sin la última palabra y sin decir nada.
+    let resolver: (cuerpo: unknown) => void = () => {};
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          new Promise((cumplir) => {
+            resolver = cumplir;
+          }),
+      }) as never
+    );
+
+    const alCambiar = vi.fn();
+    crearCliente(CMS)(alCambiar);
+    await asentar();
+
+    // El panel ya recibió `cms:ready` y manda un cambio; los borradores todavía no han llegado.
+    mensaje({ type: 'cms:update', key: 'hero', data: { title: 'ESCRITO ANTES' }, seq: 1 });
+
+    resolver({ contenido: CONTENIDO, objetivo: { key: 'hero' } });
+    await asentar();
+
+    // Y se aplica al llegar, en vez de haberse perdido.
+    expect(alCambiar).toHaveBeenLastCalledWith(
+      expect.objectContaining({ hero: { title: 'ESCRITO ANTES' } })
+    );
+  });
+
+  it('y si ese cambio era para otra clave, no se aplica al llegar', async () => {
+    // Guardarlo no relaja ninguna comprobación: pasa por las mismas que si hubiera llegado
+    // después, solo que más tarde.
+    let resolver: (cuerpo: unknown) => void = () => {};
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          new Promise((cumplir) => {
+            resolver = cumplir;
+          }),
+      }) as never
+    );
+
+    const alCambiar = vi.fn();
+    crearCliente(CMS)(alCambiar);
+    await asentar();
+
+    mensaje({ type: 'cms:update', key: 'about', data: { heading: 'OTRO' }, seq: 1 });
+
+    resolver({ contenido: CONTENIDO, objetivo: { key: 'hero' } });
+    await asentar();
+
+    expect(alCambiar).toHaveBeenCalledWith(CONTENIDO);
+    expect(alCambiar).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('el relevo del token', () => {
   it('si la primera petición falló, el token nuevo la reintenta', async () => {
     // **Este es el caso que hace que el relevo sirva para algo.** El cliente pide una vez al
