@@ -284,7 +284,32 @@ Lo que fija este contrato:
 
 `conectar` devuelve una función para desconectar, por si desmontas la vista.
 
-### 3. Lo que tienes que tocar en TU configuración, y es lo que más falla
+### 3. Lo publicado se pide desde tu servidor, no desde el navegador
+
+**Esto es lo que más tiempo hace perder, y es contraintuitivo.**
+
+`GET /api/content/:key` —la ruta de lo publicado— **no manda cabeceras CORS**, y es deliberado:
+es la ruta pública de siempre y al abrir la vista previa remota no se le añadió nada. Así que un
+`fetch` a esa ruta desde el navegador de quien visita tu web **falla**, con un `Failed to fetch`
+que no explica nada.
+
+Lo desconcertante es que **la vista previa sí funciona desde el navegador**: esa otra ruta sí
+manda CORS, con tu origen exacto y un token. O sea que **lo complicado va y lo sencillo no**.
+
+Qué significa para ti, según cómo esté hecha tu web:
+
+| Cómo está hecha                                                                     | ¿Funciona?                                |
+| ----------------------------------------------------------------------------------- | ----------------------------------------- |
+| Next, Astro, Nuxt, Remix, WordPress, Hugo… — el contenido lo pide **su servidor**   | **Sí, sin tocar nada.** Es la mayoría     |
+| Una SPA o un HTML estático que pide el contenido **desde el navegador** con `fetch` | **No.** El navegador bloquea la respuesta |
+
+Si estás en el segundo caso, la salida es pequeña: que tu web tenga un punto propio —una función
+serverless, una ruta de tu backend— que pida el contenido y se lo pase a tu JavaScript.
+
+Hay un ejemplo completo y desplegable en [`examples/web-remota/`](../examples/web-remota/), con
+tests que lo sostienen.
+
+### 4. Lo que tienes que tocar en TU configuración, y es lo que más falla
 
 Si tu web tiene su propia CSP —y debería—, el navegador va a bloquear esto y el mensaje aparecerá
 en tu consola, no en la nuestra:

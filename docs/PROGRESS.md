@@ -697,10 +697,13 @@ Los veinte casos de la spec, en verde.
 
 #### Qué es frágil
 
-1. **Nadie ha integrado esto en una web de verdad.** Todos los casos son nuestros dos lados
-   hablando entre ellos: el cliente se prueba con `fetch` simulado y el panel con un iframe que
-   jsdom no carga. Lo que no se ha visto nunca es una web ajena, con su CSP, su enrutador y su
-   ciclo de vida. Es la fragilidad principal y no hay test que la cubra.
+1. ~~**Nadie ha integrado esto en una web de verdad.**~~ **Cerrada a medias** (#195). Se integró
+   a mano con una web ajena en otro puerto —y salió un hueco de documentación: lo publicado hay
+   que pedirlo desde el servidor porque esa ruta no manda CORS— y después quedó como
+   `examples/web-remota/`, desplegable y con tests que la sostienen. Lo que **sigue sin verse** es
+   una web con su propia CSP, su enrutador y su ciclo de vida: el ejemplo no tiene ninguna de las
+   tres, a propósito, porque cuanto menos se parezca a una aplicación real menos esconde del
+   contrato.
 2. **El caso «CMS desplegado, web en local» sigue sin verificar.** Empotrar `http://localhost`
    desde una página `https` tiene reglas propias del navegador. No se puede mirar en local
    —hace falta un origen `https` de verdad— y va con el primer despliegue.
