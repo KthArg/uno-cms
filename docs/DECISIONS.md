@@ -951,3 +951,33 @@ O sea: **el acoplamiento no es una consecuencia del diseño, es lo que hizo gana
 - `SPEC.md` §0 queda desactualizado en esa frase. **Se cambia el documento**, no se deja que el código lo contradiga en silencio.
 
 **Qué lo revertiría.** Que la web de destino pueda vivir en el repositorio. Entonces esto sobra, y ADR-001 vuelve a valer entero: es mejor diseño cuando se puede aplicar.
+
+---
+
+## ADR-702 — Las migraciones se aplican al construir el despliegue (resuelve #192)
+
+**Contexto.** No las aplicaba nadie. El workflow de CI ejecuta `pnpm db:migrate` para sus bases de test, y quien desarrolla lo hace a mano; fuera de ahí, ningún camino del código llama a `migrate`. Un despliegue nuevo se quedaba con una base de datos sin tablas.
+
+**Y el `README.md` promete un botón de un clic.** Comprobado contra una base vacía: `/setup` —la pantalla a la que ese botón te manda— respondía **500**, con `relation "settings" does not exist` en el registro. O sea que la promesa del botón era falsa desde el primer día y nadie lo había ejecutado.
+
+**Las salidas evaluadas.**
+
+| Salida                                    | Por qué no                                                                                                                                                                                                                  |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Documentar un paso manual**             | Es lo más barato y deja el botón mintiendo. Quien despliega con un clic no va a leer un paso 3 bis; y el síntoma —un 500 en la primera pantalla— no dice qué falta                                                          |
+| **Migrar al arrancar la aplicación**      | Arrancar pasa muchas veces y **a la vez**: cada arranque en frío de una función serverless. Migrar es una operación con estado que no quiere compañía, y el primer despliegue con tráfico tendría varias corriendo a la vez |
+| **Migrar en un paso aparte del pipeline** | No hay pipeline propio: el despliegue lo hace Vercel desde el repositorio. Añadir uno es montar infraestructura para un proyecto cuyo §0 pide auto-hospedable con un clic                                                   |
+
+**Decisión.** La construcción aplica las migraciones **antes** de `next build`, cuando hay `DATABASE_URL`.
+
+- **La construcción pasa una vez por despliegue**, tiene las variables delante y puede fallar sin dejar nada a medias: si la migración no va, no hay despliegue.
+- **Sin `DATABASE_URL` no se falla: se salta y se avisa.** El job de `build` de CI construye sin base de datos a propósito —`next build` es también el guard de la frontera servidor/cliente de §7.1— y exigirla ahí dejaría el pipeline en rojo por algo que no es un fallo. Es el caso T-192-2, y es el que se rompe sin querer al arreglar el otro.
+
+**Consecuencias, y hay una incómoda.**
+
+- El botón del README hace lo que dice. Comprobado de punta a punta contra una base vacía: antes 500, ahora 200 con la pantalla de instalación.
+- **Una migración que falla tumba el despliegue entero**, no solo la parte que la necesitaba. Es la dirección correcta —desplegar código que no cuadra con su base es peor— pero conviene saberlo antes de que pase.
+- **Las construcciones de vista previa migran la misma base que producción** si comparten `DATABASE_URL`, que es lo que hace Vercel por omisión. Una rama con una migración nueva la aplica a la base de producción al construirse, antes de que nadie la apruebe. **No está resuelto**: se resuelve dando a las vistas previas su propia base, y queda anotado en `docs/PENDIENTES.md`.
+- Dos construcciones a la vez pueden intentar migrar a la vez. Drizzle lleva su tabla de migraciones y la segunda falla en vez de duplicar; falla ruidosamente, que es lo aceptable.
+
+**Qué lo revertiría.** Que el despliegue deje de ser "un repositorio y un botón". Con un pipeline propio, el sitio de esto es un paso suyo, antes de publicar y con permiso para parar.

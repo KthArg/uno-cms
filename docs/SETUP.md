@@ -79,6 +79,33 @@ Cuando termine te dará una dirección del tipo `mi-web.vercel.app`. Ábrela: ve
 dice **«Este sitio todavía no está listo»**. Es lo esperado — todavía no hay nadie que la
 administre.
 
+Al construir, el proyecto **prepara tu base de datos solo** (ADR-702). En el registro de la
+construcción lo verás:
+
+```
+[migraciones] Aplicando las migraciones pendientes…
+[✓] migrations applied successfully!
+```
+
+Si en su lugar pone `Sin DATABASE_URL`, es que el paso 3 no está hecho: vuelve a él y repite el
+despliegue.
+
+### Comprueba que está vivo antes de seguir
+
+Abre `tu-web.vercel.app/api/health`. Tiene que responder algo así:
+
+```json
+{ "ok": true, "dbLatencyMs": 42 }
+```
+
+**Si dice `{"ok": false}`**, la base de datos no responde o no está preparada, y el paso 5 va a
+fallar. No dice cuál de las dos cosas es a propósito —esa dirección la puede abrir cualquiera— y
+el motivo está en Vercel, en **Deployments → el último → Runtime Logs**, en una línea que empieza
+por `[health]`.
+
+Merece la pena mirarlo aquí: es medio minuto, y el fallo que evita se ve tres pasos después como
+una pantalla en blanco que no explica nada.
+
 ## 5. Crea tu cuenta
 
 Pulsa **«Configurar el sitio»**, o entra en `tu-web.vercel.app/setup`.
@@ -117,6 +144,23 @@ Lo que escribes y no publicas **no lo ve nadie**. Puedes dejar algo a medias y v
 
 Y si te arrepientes: **«Ver versiones anteriores»** guarda cada publicación. Volver a una de
 ellas la deja como borrador — tu web no cambia hasta que la publiques.
+
+## Si tu web no vive en este proyecto
+
+Todo lo de arriba supone que la web que se administra es la que trae el proyecto. Si la tuya está
+en otro sitio —hecha con otra cosa, en otro dominio— también se puede, con dos variables más:
+
+```
+PREVIEW_ORIGINS=https://mi-web.com
+PREVIEW_URL=https://mi-web.com/
+```
+
+**Sin `PREVIEW_ORIGINS` no cambia nada**, así que puedes dejarlo para más adelante sin miedo.
+
+Lo que hay que tocar en tu web, y lo que hay que saber antes de intentarlo, está en
+[`DEVELOPER.md`](DEVELOPER.md#alimentar-una-web-que-vive-fuera-de-este-repositorio). Léelo antes
+de poner las variables: **hay que añadir unas líneas a tu web** y ajustar su política de
+seguridad, y eso no se puede hacer desde aquí.
 
 ## Si algo sale mal
 
