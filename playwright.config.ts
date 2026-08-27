@@ -42,6 +42,24 @@ export default defineConfig({
         // creada: en local pasaba desapercibido porque la base arrastra usuarios de la
         // ejecución anterior. Falló en CI, que nace limpia.
         url: `${baseURL}/api/health`,
+        /**
+         * **La vista previa remota se apaga a mano para la suite** (ADR-701, issue #192).
+         *
+         * `next start` carga `.env.local`, que no se versiona y en la máquina de quien
+         * desarrolla puede tener `PREVIEW_ORIGINS` puesta —es lo que hace falta para probar la
+         * fase remota—. Con ella puesta, dos casos se ponen en rojo: T-R-2 comprueba que sin la
+         * variable la CSP no lleva `frame-src`, y los de la vista previa buscan el iframe de
+         * `/preview` cuando el panel ya lo está apuntando fuera.
+         *
+         * Los dos fallos son correctos y el motivo es invisible: **pasa en CI, que nace sin
+         * `.env.local`, y falla en local**. Es la asimetría cara, la que hace perder una tarde
+         * buscando en el sitio equivocado.
+         *
+         * Así que la suite fija el estado que dice comprobar en vez de heredarlo. Lo que se
+         * pierde es poder ejercitar la fase encendida desde e2e; eso está en los unitarios, en
+         * los de integración y en la prueba a mano con una web de verdad.
+         */
+        env: { PREVIEW_ORIGINS: '', PREVIEW_URL: '' },
         // Nunca reutilizar un servidor ajeno: daría verde contra otra aplicación.
         reuseExistingServer: false,
         timeout: 180_000,
