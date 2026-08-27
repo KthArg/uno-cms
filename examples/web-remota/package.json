@@ -1,0 +1,7 @@
+{
+  "name": "uno-cms-ejemplo-web-remota",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Web de ejemplo alimentada por UnoCMS desde fuera de su repositorio",
+  "type": "module"
+}
