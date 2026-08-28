@@ -441,6 +441,15 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 X-Robots-Tag: noindex           # solo en /admin, /preview, /api, /setup
 ```
 
+
+> **Enmienda — ADR-703 (issue #197).** `connect-src` pasa a ser `'self' https://vercel.com`.
+>
+> ADR-005 manda el fichero de la subida **del navegador a Vercel Blob directamente**, y con
+> `'self'` a secas el navegador bloqueaba esa conexión: la subida se quedaba colgada sin un solo
+> error. Las dos decisiones eran incompatibles desde M4 y no se vio hasta el primer despliegue.
+>
+> Es **un origen concreto**, no un comodín, y ninguna otra directiva cambia.
+
 ### 7.3 Bootstrap seguro (primer arranque)
 
 1. El deploy exige `APP_SECRET` y `AUTH_SECRET` (≥ 32 bytes; `.env.example` explica cómo generarlos y el README de Vercel Deploy Button los marca requeridos).

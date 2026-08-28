@@ -981,3 +981,32 @@ O sea: **el acoplamiento no es una consecuencia del diseño, es lo que hizo gana
 - Dos construcciones a la vez pueden intentar migrar a la vez. Drizzle lleva su tabla de migraciones y la segunda falla en vez de duplicar; falla ruidosamente, que es lo aceptable.
 
 **Qué lo revertiría.** Que el despliegue deje de ser "un repositorio y un botón". Con un pipeline propio, el sitio de esto es un paso suyo, antes de publicar y con permiso para parar.
+
+---
+
+## ADR-703 — `connect-src` deja salir las subidas a Vercel Blob (resuelve #197)
+
+**Contexto.** ADR-005 manda el fichero **del navegador a Vercel Blob directamente**, sin pasar por nuestro servidor. `SPEC.md` §7.2 fija `connect-src 'self'`. Las dos decisiones son incompatibles y nadie lo notó en dos hitos.
+
+**Cómo se veía.** En el primer despliegue de verdad, subir una imagen se quedaba en «Subiendo…» indefinidamente: `POST /api/media/upload` respondía **200** —el token se emitía bien—, el almacén de Blob quedaba **vacío** y no había ni un error en el registro del servidor, porque el servidor había hecho su parte. El navegador bloqueaba la conexión antes de que saliera.
+
+**Por qué no lo cazó nada.** En local ese camino **no existe**: sin `BLOB_READ_WRITE_TOKEN` las subidas van al disco (ADR-700), o sea al propio origen, que `'self'` permite. Lo que se despliega —el único camino que usa Vercel Blob— no lo ejercitaba ningún test, ni unitario, ni de integración, ni e2e. Está anotado desde M6 en `docs/PENDIENTES.md`: «lo que se despliega sigue siendo el otro camino».
+
+**Las salidas evaluadas.**
+
+| Salida                                              | Por qué no                                                                                                                                                         |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Que el fichero pase por nuestro servidor**        | Es exactamente lo que ADR-005 evita, y por un motivo que sigue en pie: el límite de cuerpo de una función serverless. Volver atrás cambia el problema por uno peor |
+| **`connect-src 'self' https:`**                     | Deja al navegador del panel hablar con **cualquier** sitio por HTTPS. Resuelve el caso y desarma la directiva: lo que una CSP existe para impedir                  |
+| **Quitar `connect-src` y heredar de `default-src`** | `default-src` es `'self'`: el mismo bloqueo, escrito de otra forma                                                                                                 |
+
+**Decisión.** `connect-src 'self' https://vercel.com`. Un origen concreto, el que usa `getApiUrl()` de `@vercel/blob`, y nada más.
+
+**Consecuencias.**
+
+- Subir imágenes funciona en un despliegue. Es la primera vez.
+- **El navegador del panel puede hablar con `vercel.com`**, y eso es una ampliación real de la superficie: si algún día se colara un script en el panel, tendría un destino más al que hablar. Lo que lo acota es que el panel ya prohíbe todo lo demás —`script-src` con nonce y `strict-dynamic`— y que el origen es uno, no un comodín.
+- **`connect-src` no se toca al encender la vista previa remota.** Son dos permisos distintos: a quién dejamos entrar en un iframe y a dónde dejamos que salga el navegador. Hay un caso que lo comprueba (T-197-3).
+- `SPEC.md` §7.2 queda desactualizado en esa línea. **Se enmienda el documento**, no se deja que el código lo contradiga en silencio.
+
+**Qué lo revertiría.** Que Vercel Blob deje de necesitar una conexión directa desde el navegador, o que el CMS abandone ADR-005. Mientras el fichero vaya del navegador a un tercero, esta directiva tiene que dejarlo salir.

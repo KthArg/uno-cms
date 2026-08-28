@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { construirCsp } from '@/cms/csp';
 
 /**
+ * La política de seguridad de contenido, entera (SPEC §7.2).
+ *
  * T-R-2 y T-R-3: **encender la vista previa remota añade una directiva y no toca ninguna otra**
- * (spec 08 §4.4 y §6.1).
+ * (spec 08 §4.4 y §6.1). T-197-1 a T-197-3: **la subida de imágenes necesita salir del origen**
+ * (ADR-703).
  *
  * ## Por qué la política se compara entera y no por trozos
  *
@@ -36,7 +39,7 @@ const CSP_DE_HOY =
   `script-src 'self' 'nonce-${NONCE}' 'strict-dynamic'; ` +
   "style-src 'self' 'unsafe-inline'; " +
   "img-src 'self' blob: data: https://*.public.blob.vercel-storage.com; " +
-  "connect-src 'self'; " +
+  "connect-src 'self' https://vercel.com; " +
   "frame-ancestors 'self'; " +
   "base-uri 'self'; " +
   "form-action 'self'; " +
@@ -120,15 +123,59 @@ describe('T-R-3 — con la variable, solo cambia frame-src', () => {
     }
   });
 
-  it('connect-src sigue siendo solo nuestro', () => {
-    // La web de destino nos pide datos a nosotros, no al revés (spec 08 §4.4). Lo que hay que
-    // relajar está en la CSP de esa web.
+  it('T-197-3: `connect-src` no gana los orígenes de la vista previa remota', () => {
+    // La web de destino nos pide datos a nosotros, no al revés (spec 08 §4.4). Son dos permisos
+    // distintos —a quién dejamos entrar en un iframe, y a dónde dejamos que salga el navegador—
+    // y confundirlos abriría la salida de datos a una lista pensada para otra cosa.
     const conFase = construirCsp({
       nonce: NONCE,
       desarrollo: false,
       origenesEmpotrables: ORIGENES,
     });
+    const connect = conFase.split('; ').find((d) => d.startsWith('connect-src ')) ?? '';
 
-    expect(conFase).toContain("connect-src 'self';");
+    for (const origen of ORIGENES) {
+      expect(connect, `connect-src no debe listar ${origen}`).not.toContain(origen);
+    }
+  });
+});
+
+describe('T-197-1 y T-197-2 — la subida de imágenes puede salir del origen', () => {
+  /**
+   * El fallo que esto arregla no daba error en ninguna parte.
+   *
+   * ADR-005 manda el fichero del navegador a Vercel directamente. Con `connect-src 'self'` a
+   * secas, el navegador bloqueaba esa conexión: nuestra ruta respondía 200 al emitir el token,
+   * el fichero no llegaba a ningún sitio, y la pantalla se quedaba en «Subiendo…» para siempre.
+   * Ni un error en el registro del servidor, porque el servidor había hecho su parte.
+   *
+   * Y no lo cazó nada en dos hitos porque **en local ese camino no existe**: sin token de Blob
+   * las subidas van al disco (ADR-700), o sea al propio origen, que `'self'` permite. El camino
+   * que se despliega no lo ejercitaba nadie.
+   */
+
+  const connectSrc = (csp: string): string =>
+    csp.split('; ').find((directiva) => directiva.startsWith('connect-src ')) ?? '';
+
+  it('T-197-1: permite el punto de subida de Vercel Blob', () => {
+    const connect = connectSrc(construirCsp({ nonce: NONCE, desarrollo: false }));
+
+    expect(connect).toContain("'self'");
+    expect(connect).toContain('https://vercel.com');
+  });
+
+  it('T-197-2: y no se ha aflojado nada más por el camino', () => {
+    // El mismo criterio que T-R-2: la forma de romper esto sin enterarse es aflojar la política
+    // entera mientras se abre un hueco concreto. Se compara la cadena completa.
+    expect(construirCsp({ nonce: NONCE, desarrollo: false })).toBe(CSP_DE_HOY);
+  });
+
+  it('T-197-2: es un origen concreto, no un comodín', () => {
+    // `connect-src 'self' *` o `https:` a secas dejaría al navegador del panel hablar con
+    // cualquier sitio, que es lo que una CSP existe para impedir. Hace falta una dirección.
+    const connect = connectSrc(construirCsp({ nonce: NONCE, desarrollo: false }));
+
+    expect(connect).not.toContain('*');
+    expect(connect.split(' ').filter((f) => f === 'https:')).toEqual([]);
   });
 });

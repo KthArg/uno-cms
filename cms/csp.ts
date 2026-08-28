@@ -19,6 +19,15 @@
  * Lo mismo que `cms/routes.ts` y `cms/vista-previa-remota.ts`: el middleware corre en edge.
  */
 
+/**
+ * A dónde sube el navegador las imágenes (ADR-703).
+ *
+ * Sale de `getApiUrl()` de `@vercel/blob`, que por omisión apunta aquí. Está escrito como
+ * constante y no dentro de la cadena para que se vea que es **un** origen concreto, y para que
+ * el día que el SDK cambie de dirección se toque un sitio.
+ */
+const DESTINO_DE_SUBIDAS = 'https://vercel.com';
+
 export interface OpcionesDeCsp {
   /** El nonce de esta petición. Uno por petición, nunca reutilizado. */
   readonly nonce: string;
@@ -57,10 +66,25 @@ export function construirCsp({
     // estática, pero Next inyecta estilos en línea durante la hidratación.
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' blob: data: https://*.public.blob.vercel-storage.com",
-    // **No se toca al encender la vista previa remota**, y es deliberado: la web de destino
-    // nos pide datos a nosotros, no al revés (spec 08 §4.4). Lo que hace falta relajar está
-    // en la CSP de esa web, no en la nuestra.
-    "connect-src 'self'",
+    // `'self'` **más el punto de subida de Vercel Blob**, y solo ese (ADR-703, issue #197).
+    //
+    // ADR-005 manda el fichero del navegador a Vercel directamente, sin pasar por nuestro
+    // servidor. Con `connect-src 'self'` a secas, el navegador bloqueaba esa conexión: el token
+    // se emitía —200 en nuestra ruta—, el fichero no llegaba a ningún sitio y la pantalla se
+    // quedaba en «Subiendo…» para siempre. Sin error en ninguna parte, porque el servidor había
+    // hecho su trabajo.
+    //
+    // **No lo cazó nada en dos hitos** porque en local no existe ese camino: sin token de Blob
+    // las subidas van al disco (ADR-700), o sea al propio origen, que `'self'` permite. El
+    // camino que se despliega no lo ejercitaba nadie.
+    //
+    // Es un origen concreto y no un comodín: `https://vercel.com` es a donde sube el SDK
+    // —`getApiUrl()` en `@vercel/blob`— y nada más.
+    //
+    // **No se toca al encender la vista previa remota**, y eso sigue igual: la web de destino
+    // nos pide datos a nosotros, no al revés (spec 08 §4.4). Lo que hace falta relajar para eso
+    // está en la CSP de esa web.
+    `connect-src 'self' ${DESTINO_DE_SUBIDAS}`,
     // Quién puede vivir dentro de nuestros iframes. La única directiva que cambia al
     // encender la vista previa remota, y solo si hay orígenes configurados.
     ...(origenesEmpotrables.length > 0
