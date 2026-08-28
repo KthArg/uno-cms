@@ -59,7 +59,17 @@ export default defineConfig({
          * pierde es poder ejercitar la fase encendida desde e2e; eso está en los unitarios, en
          * los de integración y en la prueba a mano con una web de verdad.
          */
-        env: { PREVIEW_ORIGINS: '', PREVIEW_URL: '' },
+        /**
+         * Y el almacén de imágenes, por el mismo motivo y con más consecuencia.
+         *
+         * `vercel env pull` deja `BLOB_READ_WRITE_TOKEN` en `.env.local` en cuanto alguien
+         * trabaja con el proyecto desplegado. Con esa variable puesta, la suite deja de
+         * ejercitar el caso que dice comprobar —«sin almacén conectado, el fallo no se cuenta en
+         * inglés»— y, peor, **empieza a escribir en el almacén de verdad**.
+         *
+         * Los tests no deben tocar nada que exista fuera de su máquina.
+         */
+        env: { PREVIEW_ORIGINS: '', PREVIEW_URL: '', BLOB_READ_WRITE_TOKEN: '' },
         // Nunca reutilizar un servidor ajeno: daría verde contra otra aplicación.
         reuseExistingServer: false,
         timeout: 180_000,
