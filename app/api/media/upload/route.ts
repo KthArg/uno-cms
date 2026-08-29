@@ -49,16 +49,35 @@ import { decidirSubida, nombreLegible, TIPOS_PERMITIDOS } from '@/cms/security/u
  */
 export const runtime = 'nodejs';
 
-export async function POST(request: Request): Promise<Response> {
-  const session = await auth();
+/**
+ * Esta ruta tiene **dos caminos con dos credenciales distintas**, y confundirlos costó una
+ * función entera (issue #201).
+ *
+ * 1. `blob.generate-client-token` — lo pide el navegador de quien edita. Lo autoriza **la
+ *    sesión**: es un permiso de escritura en el almacén y sin sesión sería un almacén de
+ *    cualquiera.
+ * 2. `blob.upload-completed` — lo manda **Vercel desde sus servidores** cuando el fichero ya
+ *    está subido. No lleva cookie porque no viene de un navegador, y exigirle sesión lo
+ *    rechazaba con 401: el fichero quedaba en el almacén y el CMS no se enteraba nunca.
+ *
+ * Lo que autentica el segundo es la cabecera `x-vercel-signature`, que `handleUpload` verifica
+ * con HMAC contra el token del almacén antes de llamar a `onUploadCompleted`. **Es la credencial
+ * correcta para servidor a servidor**, y la sesión es la equivocada.
+ */
+function exigeSesion(cuerpo: HandleUploadBody): boolean {
+  return cuerpo.type !== 'blob.upload-completed';
+}
 
-  // Sin sesión no se emite token, y se responde igual que a un cuerpo inválido: quien prueba
-  // no aprende si la ruta existe ni qué espera.
-  if (session === null) {
+export async function POST(request: Request): Promise<Response> {
+  const cuerpo = (await request.json()) as HandleUploadBody;
+
+  // La sesión, solo donde es la credencial que toca. Se responde igual que a un cuerpo
+  // inválido: quien prueba no aprende si la ruta existe ni qué espera.
+  const session = exigeSesion(cuerpo) ? await auth() : null;
+
+  if (exigeSesion(cuerpo) && session === null) {
     return Response.json({ error: 'no_autorizado' }, { status: 401 });
   }
-
-  const cuerpo = (await request.json()) as HandleUploadBody;
 
   // La decisión, antes de que ningún tercero entre en juego.
   const rechazo = comprobarAntesDeDelegar(cuerpo);
@@ -99,7 +118,7 @@ export async function POST(request: Request): Promise<Response> {
           // Viaja firmado hasta el callback de abajo, que es quien escribe en la base de
           // datos: sin esto habría que fiarse de lo que el cliente diga entonces.
           tokenPayload: JSON.stringify({
-            userId: session.user.id,
+            userId: session?.user.id ?? '',
             filename: nombreLegible(datos.filename),
           }),
         };
