@@ -70,8 +70,14 @@ export const ACCESO_DECLARADO: Record<string, { nivel: NivelDeAcceso; motivo: st
   '/api/media/upload': {
     nivel: 'con-sesion',
     motivo:
-      'Emite un permiso de escritura en el almacén de imágenes. Sin sesión sería un almacén ' +
-      'de cualquiera.',
+      'Tiene dos caminos con dos credenciales distintas (issue #201). Emitir el permiso de ' +
+      'escritura en el almacén exige **sesión**: sin ella sería un almacén de cualquiera. El ' +
+      'aviso de que la subida terminó lo manda Vercel desde sus servidores, sin cookie, y lo ' +
+      'autentica la cabecera `x-vercel-signature` que `handleUpload` verifica con HMAC contra ' +
+      'el token del almacén. Exigirle sesión a ese segundo camino lo rechazaba con 401 y la ' +
+      'imagen no llegaba a la biblioteca nunca. Se declara "con-sesion" porque es lo que ' +
+      'protege lo que se puede pedir desde fuera; el otro camino no lo puede provocar nadie ' +
+      'sin el token.',
   },
   '/api/media/local': {
     nivel: 'con-sesion',
