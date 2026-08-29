@@ -1010,3 +1010,41 @@ O sea: **el acoplamiento no es una consecuencia del diseño, es lo que hizo gana
 - `SPEC.md` §7.2 queda desactualizado en esa línea. **Se enmienda el documento**, no se deja que el código lo contradiga en silencio.
 
 **Qué lo revertiría.** Que Vercel Blob deje de necesitar una conexión directa desde el navegador, o que el CMS abandone ADR-005. Mientras el fichero vaya del navegador a un tercero, esta directiva tiene que dejarlo salir.
+
+---
+
+## ADR-704 — El nombre lo propone el cliente y lo acepta el servidor (resuelve #199)
+
+**Contexto.** `app/api/media/upload/route.ts` devolvía `pathname` desde `onBeforeGenerateToken`, con un comentario encima: _«El nombre generado. Lo que pidiera el cliente se ignora por completo»_.
+
+**Era falso.** El tipo de `@vercel/blob@2.8.0` deja claro qué admite de vuelta esa función:
+
+```
+allowedContentTypes | maximumSizeInBytes | validUntil | addRandomSuffix
+| allowOverwrite | cacheControlMaxAge | ifMatch   (+ tokenPayload, callbackUrl)
+```
+
+`pathname` no está. Lo devolvíamos y el SDK lo descartaba en silencio; el nombre real era el que el cliente pasaba a `upload(fichero.name, …)`, o sea el del fichero del usuario con sus espacios. `generarPathname()` se calculaba en cada subida y se tiraba.
+
+**Cómo se descubrió.** Subiendo dos veces la misma imagen en el primer despliegue: `This blob already exists`. Con el UUID no podía pasar. El síntoma era una colisión; la causa, que la invariante no existía.
+
+**Las salidas evaluadas.**
+
+| Salida                                         | Por qué no                                                                                                                                                          |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`addRandomSuffix: true`**                    | El SDK sí lo admite y arregla la colisión en una línea. Pero deja el nombre del fichero de quien edita dentro de una URL pública, y la invariante sigue sin existir |
+| **Que el fichero pase por el servidor**        | Es lo que ADR-005 evita por el límite de cuerpo de una función serverless. Cambiaría un problema por otro mayor                                                     |
+| **Pedir el nombre al servidor antes de subir** | Una vuelta más de red antes de cada subida, para acabar en el mismo sitio: el cliente sigue siendo quien se lo pasa al SDK                                          |
+
+**Decisión.** El cliente compone el nombre con la forma de siempre —`media/AAAA-MM/<uuid>.<extensión>`— y **el servidor lo comprueba antes de emitir el token**. La forma vive en `cms/nombres-de-subida.ts`, fuera de la frontera `server-only` porque hacen falta los dos lados.
+
+**La invariante cambia de enunciado, y conviene decirlo con precisión.** Ya no es «el servidor escribe el nombre» —el SDK no lo permite— sino **«nada que el servidor no acepte llega al almacén»**. Es más débil en la letra y equivalente en la práctica: sin token no hay subida, y el token no se emite si el nombre no encaja.
+
+**Consecuencias.**
+
+- Subir dos veces el mismo fichero funciona.
+- El nombre del fichero de quien edita **deja de aparecer en una URL pública**. Se sigue guardando como etiqueta para la biblioteca, que es para lo que servía.
+- La comprobación del UUID es estricta a propósito: cinco grupos con sus guiones. Una laxa —«algo hexadecimal»— aceptaría un nombre elegido a mano parecido, y entonces volvería a no comprobar nada.
+- **El camino local de ADR-700 no cambia**: allí el fichero pasa por el servidor y el nombre lo sigue generando él.
+
+**Qué lo revertiría.** Que `@vercel/blob` admita fijar el `pathname` desde el servidor. Entonces esto sobra y la invariante vuelve a su forma fuerte.

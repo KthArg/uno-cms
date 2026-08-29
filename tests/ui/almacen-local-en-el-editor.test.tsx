@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SUBIDA_FALLIDA } from '@/cms/mensajes-de-subida';
+import { esPathnameGenerado } from '@/cms/nombres-de-subida';
 import { MediaPicker } from '@/cms/ui/MediaPicker';
 
 /**
@@ -94,7 +95,11 @@ describe('a dónde sube el selector de imágenes', () => {
       File,
       { handleUploadUrl: string },
     ];
-    expect(nombre).toBe('foto.png');
+    // **Este caso decía `toBe('foto.png')` y estaba fijando un fallo como si fuera el contrato**
+    // (issue #199). El nombre del fichero de quien edita acababa siendo el del objeto en el
+    // almacén, con espacios y todo, y dos subidas del mismo fichero chocaban. Ahora el cliente
+    // propone un nombre nuestro y el servidor lo comprueba antes de emitir el token.
+    expect(esPathnameGenerado(nombre, 'image/png')).toBe(true);
     expect(fichero).toBe(FICHERO);
     expect(opciones.handleUploadUrl).toBe('/api/media/upload');
   });

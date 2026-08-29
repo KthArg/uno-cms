@@ -1,5 +1,7 @@
 'use client';
 
+import { generarPathname } from '@/cms/nombres-de-subida';
+
 import { upload } from '@vercel/blob/client';
 import { useState } from 'react';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
@@ -195,7 +197,14 @@ export function MediaPicker({
  * este código: está en `docs/PENDIENTES.md` y sigue siendo así.
  */
 async function subirABlob(fichero: File): Promise<ImagenDeBiblioteca> {
-  const blob = await upload(fichero.name, fichero, {
+  // **El nombre lo propone el cliente porque el SDK no deja otra cosa** (issue #199): lo que
+  // devuelva el servidor en `onBeforeGenerateToken` se descarta. Antes se mandaba
+  // `fichero.name` tal cual, así que el nombre del fichero de quien edita acababa en una URL
+  // pública y dos subidas del mismo fichero chocaban.
+  //
+  // Que lo proponga el cliente solo vale porque el servidor lo comprueba antes de emitir el
+  // token, y rechaza cualquier cosa que no tenga esta forma exacta.
+  const blob = await upload(generarPathname(fichero.type), fichero, {
     access: 'public',
     handleUploadUrl: '/api/media/upload',
     // Lo que el servidor necesita para decidir. Va aparte del fichero porque la decisión

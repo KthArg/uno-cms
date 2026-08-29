@@ -1,5 +1,6 @@
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { auth } from '@/cms/auth';
+import { esPathnameGenerado } from '@/cms/nombres-de-subida';
 import { getDb, media } from '@/cms/db';
 import { audit } from '@/cms/security/audit';
 import { mensajeNuestro, SUBIDA_FALLIDA } from '@/cms/mensajes-de-subida';
@@ -80,10 +81,21 @@ export async function POST(request: Request): Promise<Response> {
         // `handleUpload`. El mensaje es el de `decidirSubida`, ya en español llano.
         if (!decision.ok) throw new Error(decision.mensaje);
 
+        // **Aquí estaba el fallo, y duró dos hitos.** Esta función devolvía `pathname` con el
+        // nombre que generaba el servidor, y un comentario encima decía «lo que pidiera el
+        // cliente se ignora por completo». El SDK **no admite `pathname` de vuelta**: lo
+        // descartaba en silencio y guardaba el nombre del fichero del usuario, con espacios y
+        // todo. Se descubrió porque subir dos veces la misma imagen chocaba.
+        //
+        // Ahora el nombre lo propone el cliente con nuestra forma y se comprueba aquí, que es lo
+        // único que el SDK permite. La invariante no es «el servidor lo escribe», es **«nada que
+        // el servidor no acepte llega al almacén»**, y esa sí se sostiene.
+        if (!esPathnameGenerado(pathnameSolicitado, datos.contentType)) {
+          throw new Error(SUBIDA_FALLIDA);
+        }
+
         return {
           allowedContentTypes: [...TIPOS_PERMITIDOS],
-          // El nombre generado. Lo que pidiera el cliente se ignora por completo.
-          pathname: decision.pathname,
           // Viaja firmado hasta el callback de abajo, que es quien escribe en la base de
           // datos: sin esto habría que fiarse de lo que el cliente diga entonces.
           tokenPayload: JSON.stringify({

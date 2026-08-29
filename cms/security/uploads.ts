@@ -1,4 +1,5 @@
 import 'server-only';
+import { generarPathname } from '@/cms/nombres-de-subida';
 import { MENSAJES_DE_SUBIDA, type MotivoDeRechazo } from '@/cms/mensajes-de-subida';
 
 /**
@@ -39,15 +40,6 @@ export const TIPOS_PERMITIDOS = [
 /** SPEC §5.3: "tamaño ≤ 10 MB". */
 export const TAMANO_MAXIMO_BYTES = 10 * 1024 * 1024;
 
-/** Las extensiones que corresponden a cada tipo aceptado. */
-const EXTENSIONES: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/avif': 'avif',
-  'image/gif': 'gif',
-};
-
 // El tipo vive con los mensajes: son la misma decisión, y tenerlo aquí obligaría a mantener dos
 // listas de motivos en dos ficheros.
 export type { MotivoDeRechazo };
@@ -73,13 +65,6 @@ const MENSAJES = MENSAJES_DE_SUBIDA;
  * Lo único que se conserva del original es la extensión, y tampoco esa: se deriva del tipo que
  * ya ha pasado la allowlist, así que un `.php` en el nombre no llega a ninguna parte.
  */
-export function generarPathname(contentType: string): string {
-  const extension = EXTENSIONES[contentType] ?? 'bin';
-  const ahora = new Date();
-  const carpeta = `${String(ahora.getUTCFullYear())}-${String(ahora.getUTCMonth() + 1).padStart(2, '0')}`;
-
-  return `media/${carpeta}/${crypto.randomUUID()}.${extension}`;
-}
 
 /**
  * Decide si una subida se acepta, **en el servidor**.
