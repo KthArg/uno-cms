@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { generarPathname } from '@/cms/nombres-de-subida';
 import {
   decidirSubida,
-  generarPathname,
   nombreLegible,
   TAMANO_MAXIMO_BYTES,
   TIPOS_PERMITIDOS,
