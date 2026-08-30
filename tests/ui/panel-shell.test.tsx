@@ -1,16 +1,19 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import { entradasVisibles, PanelShell } from '@/cms/ui/PanelShell';
 import { SectionCard } from '@/cms/ui/SectionCard';
 
 /** T-A-1 y T-A-3: armazón del panel y tarjetas de sección (SPEC §3, §9). */
 
-function montarShell(rol: 'admin' | 'editor', rutaActual = '/admin') {
+function montarShell(rol: 'admin' | 'editor', rutaActual = '/admin', onSalir = vi.fn()) {
   render(
-    <PanelShell rol={rol} nombreDeUsuario="Ana" rutaActual={rutaActual}>
+    <PanelShell rol={rol} nombreDeUsuario="Ana" rutaActual={rutaActual} onSalir={onSalir}>
       <p>contenido</p>
     </PanelShell>
   );
+
+  return onSalir;
 }
 
 describe('armazón del panel', () => {
@@ -110,5 +113,45 @@ describe('tarjeta de sección', () => {
 
     render(<SectionCard nombre="Preguntas" href="/y" estado="publicado" elementos={4} />);
     expect(screen.getByText('4 elementos')).toBeInTheDocument();
+  });
+});
+
+describe('T-208-1 y T-208-4 — salir del panel (issue #211)', () => {
+  it('el botón está, y en las pantallas de los dos roles', () => {
+    // En la cabecera y no en una pantalla concreta: el momento en que hace falta es al
+    // terminar, y eso pasa estés donde estés. Antes de #211 **no existía en ninguna parte**,
+    // y `SPEC.md` no lo menciona: no faltaba un test, faltaba la pregunta.
+    for (const rol of ['admin', 'editor'] as const) {
+      const { unmount } = render(
+        <PanelShell rol={rol} nombreDeUsuario="Ana" rutaActual="/admin/media" onSalir={vi.fn()}>
+          <p>contenido</p>
+        </PanelShell>
+      );
+
+      expect(screen.getByRole('button', { name: 'Salir' }), rol).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('al pulsarlo se cierra la sesión', async () => {
+    const salir = montarShell('admin');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Salir' }));
+
+    expect(salir).toHaveBeenCalledOnce();
+  });
+
+  it('T-208-4: es un envío de formulario, no un enlace', () => {
+    montarShell('admin');
+
+    const boton = screen.getByRole('button', { name: 'Salir' });
+
+    // **Con un enlace, cerrar la sesión lo dispara cualquier cosa que precargue direcciones**
+    // —el prefetch del navegador, un antivirus, un chat que despliega vistas previas— y quien
+    // administra se encuentra fuera sin haber pulsado nada. Un `GET` no puede mutar.
+    expect(boton.tagName).toBe('BUTTON');
+    expect(boton.getAttribute('type')).toBe('submit');
+    expect(boton.closest('form')).not.toBeNull();
+    expect(screen.queryByRole('link', { name: 'Salir' })).toBeNull();
   });
 });

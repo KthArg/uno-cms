@@ -40,3 +40,31 @@ test('T-A-2: publicar todo dice qué se quedó fuera', async ({ page }) => {
   // editor a casa creyendo que su sitio está al día.
   await expect(page.locator('[aria-live="polite"]')).not.toBeEmpty();
 });
+
+/**
+ * T-208-2 y T-208-3: **salir del panel** (issue #211).
+ *
+ * Hasta #211 no había forma de cerrar sesión desde ninguna pantalla. No lo cazó nada porque
+ * `SPEC.md` no lo menciona —sin caso en la spec no hay caso en la suite— y porque **ningún e2e
+ * termina de usar el panel**: cada uno abre un contexto limpio, entra, y se acaba ahí.
+ *
+ * Por eso este va al final del recorrido y no comprueba solo que se llega al acceso: comprueba
+ * que la cookie **dejó de valer**. Con un `signOut` que no invalidara nada, lo primero pasaría
+ * igual y lo segundo no.
+ */
+test('T-208-2 y T-208-3: al salir se cierra la sesión, y la cookie deja de valer', async ({
+  page,
+}) => {
+  await crearYEntrar(page, { email: 'panel-salir@ejemplo.com', role: 'editor' });
+
+  await page.getByRole('button', { name: 'Salir' }).click();
+
+  // A la pantalla de acceso, no a la landing: quien sale del panel tiene que ver que salió.
+  await expect(page).toHaveURL(/\/admin\/login/);
+
+  // Y lo que de verdad decide. Volver a `/admin` con la misma pestaña: si la sesión siguiera
+  // viva, entraría.
+  await page.goto('/admin');
+  await expect(page).toHaveURL(/\/admin\/login/);
+  await expect(page.getByRole('heading', { name: 'Contenido', level: 1 })).toHaveCount(0);
+});
