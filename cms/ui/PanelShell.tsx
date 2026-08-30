@@ -21,6 +21,13 @@ export interface PanelShellProps {
   readonly nombreDeUsuario: string;
   /** Para marcar la entrada activa. Es el `pathname`. */
   readonly rutaActual: string;
+  /**
+   * Cierra la sesión (issue #211).
+   *
+   * Baja como acción de servidor desde el layout, por lo mismo que bajan el rol y el nombre:
+   * este componente es presentación isomorfa y no puede arrastrar `cms/auth` al navegador.
+   */
+  readonly onSalir: () => Promise<void>;
   /** Si esta pantalla usa el ancho de la ventana en vez del techo de lectura (issue #190). */
   readonly anchoCompleto?: boolean;
 }
@@ -60,6 +67,7 @@ export function PanelShell({
   rol,
   nombreDeUsuario,
   rutaActual,
+  onSalir,
   anchoCompleto = false,
 }: PanelShellProps) {
   const entradas = entradasVisibles(rol);
@@ -95,6 +103,22 @@ export function PanelShell({
             >
               {nombreDeUsuario}
             </Link>
+
+            {/* **Un `form`, no un enlace** (issue #211). Cerrar sesión es una mutación: con un
+                `GET` lo dispara cualquier cosa que precargue enlaces —un antivirus, el
+                prefetch del navegador, un chat que despliega vistas previas— y quien
+                administra se encuentra fuera sin haber pulsado nada.
+
+                Y va en la cabecera, en todas las pantallas, porque el momento en que hace
+                falta es al terminar: estés donde estés. */}
+            <form action={onSalir}>
+              <button
+                type="submit"
+                className="text-slate-600 underline-offset-4 hover:text-slate-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              >
+                Salir
+              </button>
+            </form>
           </div>
         </div>
       </header>

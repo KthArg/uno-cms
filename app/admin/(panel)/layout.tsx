@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { auth } from '@/cms/auth';
+import { auth, signOut } from '@/cms/auth';
 import { esPantallaDeAnchoCompleto } from '@/cms/routes';
 import { PanelShell } from '@/cms/ui/PanelShell';
 
@@ -33,11 +33,25 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   // sería descargar el panel entero en el navegador para pintar un fondo gris.
   const rutaActual = (await headers()).get('x-pathname') ?? '/admin';
 
+  /**
+   * Cerrar sesión (issue #211).
+   *
+   * `redirectTo` y no dejar que Auth.js decida: sin él vuelve a `/`, que es la landing
+   * pública, y quien acaba de salir del panel se queda mirando su propia web sin señal de
+   * que la sesión se cerró. A la pantalla de acceso sí se ve.
+   */
+  async function salir(): Promise<void> {
+    'use server';
+
+    await signOut({ redirectTo: '/admin/login' });
+  }
+
   return (
     <PanelShell
       rol={session.user.role}
       nombreDeUsuario={session.user.name || session.user.email}
       rutaActual={rutaActual}
+      onSalir={salir}
       // El editor de una entrada usa el ancho de la ventana: media pantalla es una vista previa
       // de una web de verdad, y el techo de lectura la dejaba al tercio (issue #190).
       anchoCompleto={esPantallaDeAnchoCompleto(rutaActual)}
