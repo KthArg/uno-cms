@@ -794,6 +794,13 @@ Estaba anotado desde M6 como «el driver de producción nunca ha hablado con Neo
 ve ahora es que el hueco es **bastante más ancho que el driver**, y está abierto como
 [#207](https://github.com/KthArg/uno-cms/issues/207) con las tres formas de cerrarlo comparadas.
 
+Desde #207 hay una suite que lo mira desde fuera: `pnpm test:humo`, contra el despliegue que se le
+diga. Entra, sube una imagen, comprueba que sigue ahí **al recargar** y borra lo que ha subido.
+Ejecutada en verde contra `uno-cms.vercel.app`. De los cinco fallos de arriba habría cazado cuatro;
+el cuarto no se le escapa por descuido —desde ADR-705 un aviso perdido ya no tiene consecuencia
+observable, y eso es [#206](https://github.com/KthArg/uno-cms/issues/206)—. **Y hay que lanzarla a
+mano**, que es lo que sigue vivo del hueco.
+
 ### Lo que enseñó
 
 - **Desplegar es una pasada de pruebas, no un trámite.** Encontró en una sesión más que la última
