@@ -79,7 +79,7 @@ async function hayFichero(ruta: string): Promise<boolean> {
 }
 
 describeIntegration('el almacén local de imágenes', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     sesion.mockReset();
     borrarEnBlob.mockReset();
     resetBucketsForTests();
@@ -87,6 +87,16 @@ describeIntegration('el almacén local de imágenes', () => {
     // Se deja explícito porque de lo contrario media suite dependería de una variable que
     // nadie ve en este fichero.
     delete process.env['BLOB_READ_WRITE_TOKEN'];
+    // **Antes y no solo después** (issue #213). T-A-5 comprueba que el directorio no existe, y
+    // esa propiedad la garantizaba únicamente el `afterEach` — o sea, solo si nadie lo creaba
+    // desde fuera de la suite. Crearlo es lo normal: `pnpm dev` con el almacén local (ADR-700)
+    // escribe ahí en cuanto alguien sube una imagen.
+    //
+    // El rojo que salía no apuntaba a su causa: un caso de sesión en rojo por algo que pasó en
+    // otra pantalla, en la máquina de una persona y nunca en CI, que nace limpia. Y pasaba a la
+    // segunda ejecución, porque el propio `afterEach` había dejado el disco en su sitio — así
+    // que se leía como un flake. Estuve a punto de anotarlo como tal.
+    await rm(RAIZ, { recursive: true, force: true });
   });
 
   afterEach(async () => {
