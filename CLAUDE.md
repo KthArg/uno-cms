@@ -118,7 +118,13 @@ pnpm typecheck
 pnpm vitest run --project unit --project ui # rápidos, sin base de datos
 pnpm vitest run --project integration       # necesita DATABASE_URL
 pnpm test:e2e                               # Playwright; construye y arranca `next start`
+pnpm test:humo                              # Playwright contra un DESPLIEGUE de verdad
 ```
+
+`pnpm test:humo` es la única que **no** arranca nada: corre contra el despliegue que le digas en
+`HUMO_URL`, con la cuenta de `HUMO_EMAIL`/`HUMO_PASSWORD`, y **escribe allí** — sube una imagen y
+la borra. Sin esas tres variables se salta con un aviso. Es lo único que ejercita Vercel Blob,
+Neon y la CSP de verdad; está en `docs/specs/09-humo-contra-el-despliegue.md`.
 
 Las bases de datos en Docker (`unocms-db`), con `unocms:unocms`:
 

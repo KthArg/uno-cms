@@ -31,6 +31,7 @@
     "test:ui": "vitest run --project ui",
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test",
+    "test:humo": "playwright test --config playwright.humo.config.ts",
     "presupuesto:js": "node scripts/presupuesto-js.mjs",
     "seed:demo": "node scripts/seed-demo.mjs",
     "test:coverage": "vitest run --coverage",
