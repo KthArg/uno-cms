@@ -3,6 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SUBIDA_FALLIDA } from '@/cms/mensajes-de-subida';
 import { esPathnameGenerado } from '@/cms/nombres-de-subida';
+
+/**
+ * `router.refresh` espiado: es lo que le dice a Next que los datos del servidor han cambiado.
+ *
+ * Sin él, la imagen se veía al subirla y desaparecía al cambiar de pantalla y volver — la caché
+ * del enrutador servía la respuesta anterior, con la biblioteca de antes (issue #203).
+ */
+const refrescar = vi.hoisted(() => vi.fn());
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: refrescar, push: vi.fn() }) }));
 import { MediaPicker } from '@/cms/ui/MediaPicker';
 
 /**
@@ -137,5 +146,54 @@ describe('a dónde sube el selector de imágenes', () => {
 
     // Taparlo con el genérico le quitaría a quien sube la única pista de qué arreglar.
     expect(await screen.findByText(/pesa demasiado/)).toBeInTheDocument();
+  });
+});
+
+describe('T-203-1 y T-203-2 — la biblioteca no espera a que recargues', () => {
+  /**
+   * El fallo: la imagen aparecía al subirla y **desaparecía al cambiar de pantalla y volver**,
+   * hasta recargar el sitio entero.
+   *
+   * Estas pantallas son `force-dynamic`, así que no hay caché de servidor. Lo que servía lo
+   * viejo era la **caché del enrutador del cliente**: al volver a una ruta ya visitada, Next
+   * reutiliza la respuesta que guardó. El estado local hacía que se viera aquí y nada le decía
+   * al enrutador que lo de fuera había cambiado.
+   */
+
+  beforeEach(() => {
+    // El montaje del otro bloque no llega hasta aquí: sin esto, la subida simulada devuelve
+    // `undefined`, el componente se va por el `catch` y los casos medirían el camino del fallo.
+    subirABlob.mockReset();
+    subirABlob.mockResolvedValue({ pathname: 'media/2026-01/x.png', url: 'https://blob/x.png' });
+    refrescar.mockClear();
+    PROPS.onElegir.mockClear();
+  });
+
+  it('T-203-1: tras subir, se le pide a Next rehacer los datos del servidor', async () => {
+    render(<MediaPicker {...PROPS} />);
+    await elegirFichero();
+
+    expect(refrescar).toHaveBeenCalled();
+  });
+
+  it('T-203-2: si la subida falla, no se refresca', async () => {
+    // No hay nada nuevo que traer, y refrescar borraría de la pantalla el aviso de que ha
+    // fallado — que es lo único que quien sube tiene para saber qué ha pasado.
+    subirABlob.mockRejectedValueOnce(new Error('sin almacén'));
+
+    render(<MediaPicker {...PROPS} />);
+    await elegirFichero();
+
+    expect(refrescar).not.toHaveBeenCalled();
+  });
+
+  it('T-203-4: y lo local se queda, que es lo que hace que se vea al instante', async () => {
+    // El arreglo obvio —quitar el estado local y confiar en el refresco— cambiaría una espera
+    // de cero por una de red en cada subida.
+    render(<MediaPicker {...PROPS} />);
+    await elegirFichero();
+
+    // La imagen elegida se entrega al formulario sin haber esperado a ningún servidor.
+    expect(PROPS.onElegir).toHaveBeenCalled();
   });
 });

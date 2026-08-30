@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { generarPathname } from '@/cms/nombres-de-subida';
 
 import { upload } from '@vercel/blob/client';
@@ -47,6 +48,7 @@ export function MediaPicker({
   tamanoMaximoBytes,
   almacenLocal = false,
 }: MediaPickerProps) {
+  const router = useRouter();
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recienSubidas, setRecienSubidas] = useState<ImagenDeBiblioteca[]>([]);
@@ -73,8 +75,22 @@ export function MediaPicker({
       // #165 cubre este camino sin repetirse ni una línea.
       const subida = almacenLocal ? await subirAlDisco(fichero) : await subirABlob(fichero);
 
+      // El estado local es lo que hace que la imagen se vea **al instante**, sin esperar a la
+      // vuelta del servidor. Se queda.
       setRecienSubidas((previas) => [subida, ...previas]);
       onElegir(subida);
+
+      // Y esto le dice a Next que los datos del servidor han cambiado (issue #203).
+      //
+      // Sin ello, la imagen se veía aquí y desaparecía al cambiar de pantalla y volver: estas
+      // pantallas son `force-dynamic`, así que no hay caché de servidor, pero la **caché del
+      // enrutador del cliente** reutiliza la respuesta que guardó de la ruta anterior, con la
+      // biblioteca de antes. Recargar el sitio entero la tiraba, y por eso parecía funcionar
+      // «al recargar».
+      //
+      // Va después de `onElegir` a propósito: primero lo que ve quien acaba de subir, después
+      // lo que confirma el servidor.
+      router.refresh();
     } catch (fallo) {
       // El texto original al registro: es lo único que le sirve a quien puede arreglar un
       // almacén sin conectar o un token caducado.
