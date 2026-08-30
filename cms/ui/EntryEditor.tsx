@@ -18,7 +18,7 @@ import { FALLO_DE_RED } from './fallo-de-red';
 import { PreviewFrame, type RelevoDeToken } from './PreviewFrame';
 import { EntryForm, type ValoresDeEntrada } from './EntryForm';
 import { EstadoGuardado } from './EstadoGuardado';
-import { MediaPicker } from './MediaPicker';
+import { MediaPicker, type MediaPickerProps } from './MediaPicker';
 import { useAutosave, type ResultadoGuardado } from './useAutosave';
 
 /**
@@ -72,6 +72,8 @@ export interface EntryEditorProps {
   readonly tiposAceptados?: readonly string[];
   readonly tamanoMaximoBytes?: number;
   readonly almacenLocal?: boolean;
+  /** Anota una imagen recién subida, sin esperar al aviso de Vercel (issue #205). */
+  readonly registrarImagen?: MediaPickerProps['registrar'];
   /** Solo para tests: acorta la espera del autosave. */
   readonly esperaMs?: number;
 }
@@ -94,6 +96,7 @@ export function EntryEditor({
   tiposAceptados = [],
   tamanoMaximoBytes = 0,
   almacenLocal,
+  registrarImagen,
   esperaMs,
 }: EntryEditorProps) {
   const [valores, setValores] = useState<ValoresDeEntrada>(valoresIniciales);
@@ -333,6 +336,7 @@ export function EntryEditor({
           tiposAceptados={tiposAceptados}
           tamanoMaximoBytes={tamanoMaximoBytes}
           almacenLocal={almacenLocal}
+          {...(registrarImagen === undefined ? {} : { registrar: registrarImagen })}
           onElegir={(imagen) => {
             // El `alt` que ya tenga la imagen se hereda como punto de partida; el editor puede
             // cambiarlo para esta sección sin tocar la biblioteca, porque una misma foto se

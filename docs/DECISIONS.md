@@ -1048,3 +1048,45 @@ allowedContentTypes | maximumSizeInBytes | validUntil | addRandomSuffix
 - **El camino local de ADR-700 no cambia**: allí el fichero pasa por el servidor y el nombre lo sigue generando él.
 
 **Qué lo revertiría.** Que `@vercel/blob` admita fijar el `pathname` desde el servidor. Entonces esto sobra y la invariante vuelve a su forma fuerte.
+
+---
+
+## ADR-705 — La fila la escribe quien sube, no el aviso de Vercel (resuelve #205)
+
+**Contexto.** Desde M6, la fila de una imagen en la biblioteca la escribía **`onUploadCompleted`**: el aviso que Vercel manda a `/api/media/upload` cuando el objeto ya está en el almacén. Es lo que documenta el SDK y parecía lo correcto — el servidor confirmando lo que el servidor sabe.
+
+**El síntoma.** Se subía una imagen y la biblioteca no la enseñaba. Recargando tampoco. Aparecía sola un rato después, o al salir de la pantalla y volver, lo que hizo que pareciera tres fallos distintos: primero caché de servidor, luego caché del enrutador (#203, real y arreglado), y aun así seguía.
+
+**Lo que lo cerró fue medirlo**, no razonarlo. Un despliegue instrumentado con la cuenta de filas en cada render:
+
+```
+09:27:30  POST /api/media/upload            (token)
+09:27:32  biblioteca renderizada · filas = 2   <- el router.refresh() del cliente
+09:27:33  POST /api/media/upload            (el aviso escribe la fila 3)
+09:28:13  biblioteca renderizada · filas = 3
+```
+
+Un segundo. El refresco salía **antes** que la escritura, así que refrescaba a la biblioteca de antes. Ninguna caché estaba implicada en esta última parte.
+
+**Y hay algo peor que la carrera.** Ese aviso viaja por internet desde los servidores de Vercel hasta el nuestro. Si se pierde —despliegue en marcha, función fría que expira, un 500 nuestro— el fichero **se queda en el almacén y el CMS no se entera nunca**. No hay reintento que lo arregle desde aquí, y no había forma de detectarlo: para el CMS esa imagen no existió.
+
+**Las salidas evaluadas.**
+
+| Salida                                            | Por qué no                                                                                                                                                                     |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Esperar al aviso antes de refrescar**           | No hay a qué esperar: el aviso no pasa por el cliente. Habría que sondear la biblioteca hasta que aparezca, y seguir sin saber cuándo rendirse                                 |
+| **Sondear tras el refresco**                      | Tapa la carrera y no el aviso perdido. Y convierte una subida en varias peticiones, en el peor momento para el móvil de quien está subiendo                                    |
+| **Reconciliar el almacén con la base cada tanto** | Arregla los dos casos y cuesta un trabajo periódico, permisos de listado del almacén y una decisión sobre qué hacer con lo huérfano. Es lo correcto **si esto vuelve a pasar** |
+
+**Decisión.** La escribe **el cliente**, en cuanto `upload()` devuelve, con la action `media.register` — y el aviso de Vercel sigue llegando y sigue escribiendo. Los dos escriben lo mismo, `pathname` es único y la inserción es `onConflictDoNothing`: el segundo en llegar no hace nada ni falla.
+
+**Lo que hace aceptable mover una escritura al cliente es que el servidor no se fíe de él.** La action exige sesión y comprueba, antes de insertar, que el `pathname` sea de los que genera el CMS y coherente con el tipo, y que la URL sea `https`, de nuestro almacén **por sufijo de host ya analizado** y termine en ese mismo `pathname`. Sin eso, cualquiera con sesión mete en la biblioteca una fila que apunta a donde quiera — y esa fila es la que el panel enseña y la que la landing sirve. Es la misma lección de ADR-704, en el mismo camino, que es lo que la hace preocupante.
+
+**Consecuencias.**
+
+- La imagen aparece al instante y sigue ahí al recargar.
+- Una subida que llegue al almacén y no se pueda anotar **lo dice**, con un mensaje distinto del de «no se ha podido subir»: repetir la subida solo acumularía copias del mismo fichero.
+- `sizeBytes` se guarda a 0 en esta fila. El tamaño lo sabe el aviso y aquí no se pide al cliente, porque sería un dato suyo sin contrastar en una fila que se enseña. Queda anotado en `docs/PENDIENTES.md`.
+- **El camino local de ADR-700 no cambia**: allí el fichero pasa por nuestro servidor y la fila la escribe la misma petición.
+
+**Qué lo revertiría.** Que el aviso deje de ser el único mecanismo por otra vía: una reconciliación periódica del almacén contra la base haría innecesaria esta escritura, y de paso resolvería lo huérfano que ya existe.

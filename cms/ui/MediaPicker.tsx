@@ -1,12 +1,18 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+
 import { generarPathname } from '@/cms/nombres-de-subida';
 
 import { upload } from '@vercel/blob/client';
 import { useState } from 'react';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
-import { MENSAJES_DE_SUBIDA, mensajeNuestro, SUBIDA_FALLIDA } from '@/cms/mensajes-de-subida';
+import {
+  MENSAJES_DE_SUBIDA,
+  mensajeNuestro,
+  REGISTRO_FALLIDO,
+  SUBIDA_FALLIDA,
+} from '@/cms/mensajes-de-subida';
 import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
@@ -38,6 +44,18 @@ export interface MediaPickerProps {
    * navegador subiría a un sitio y el servidor esperaría el otro.
    */
   readonly almacenLocal?: boolean;
+  /**
+   * Deja constancia de la imagen recién subida, sin esperar al aviso de Vercel (issue #205).
+   *
+   * Opcional porque el camino del disco (ADR-700) ya escribe la fila en su propia ruta: allí el
+   * fichero pasa por el servidor y no hay nada que esperar.
+   */
+  readonly registrar?: (imagen: {
+    url: string;
+    pathname: string;
+    filename: string;
+    mimeType: string;
+  }) => Promise<{ ok: boolean }>;
 }
 
 export function MediaPicker({
@@ -47,6 +65,7 @@ export function MediaPicker({
   tiposAceptados,
   tamanoMaximoBytes,
   almacenLocal = false,
+  registrar,
 }: MediaPickerProps) {
   const router = useRouter();
   const [subiendo, setSubiendo] = useState(false);
@@ -74,6 +93,28 @@ export function MediaPicker({
       // se enseña y el `finally` son los mismos para los dos, así que lo aprendido en #164 y
       // #165 cubre este camino sin repetirse ni una línea.
       const subida = almacenLocal ? await subirAlDisco(fichero) : await subirABlob(fichero);
+
+      // **Se anota antes de nada, sin esperar al aviso de Vercel** (issue #205).
+      //
+      // Ese aviso llega desde los servidores de Vercel y llega tarde: medido en el despliegue,
+      // el refresco de abajo salía un segundo **antes** que la fila, así que la biblioteca se
+      // pintaba sin la imagen. Y era el único que la escribía: si no llegara, el fichero se
+      // quedaría en el almacén sin que el CMS lo supiera nunca.
+      //
+      // Los dos escriben lo mismo y el segundo no hace nada: la fila lleva `pathname` único.
+      if (!almacenLocal && registrar !== undefined) {
+        const registro = await registrar({
+          url: subida.url,
+          pathname: subida.id,
+          filename: fichero.name,
+          mimeType: fichero.type,
+        });
+
+        // Si esto falla, el fichero **está subido** y el CMS no lo tiene. No se puede seguir
+        // como si nada: se dice, y con un mensaje distinto del de «no se ha podido subir»,
+        // porque repetir la subida solo acumularía copias.
+        if (!registro.ok) throw new Error(REGISTRO_FALLIDO);
+      }
 
       // El estado local es lo que hace que la imagen se vea **al instante**, sin esperar a la
       // vuelta del servidor. Se queda.

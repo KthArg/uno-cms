@@ -46,4 +46,4 @@ export {
   updateSettings,
 } from './settings.actions';
 
-export { deleteMedia, updateMediaAlt } from './media.actions';
+export { deleteMedia, registrarImagen, updateMediaAlt } from './media.actions';
