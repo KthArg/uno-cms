@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
 import { MediaPicker } from './MediaPicker';
@@ -30,6 +31,7 @@ export function MediaLibrary({
   puedeBorrar,
   onBorrar,
 }: MediaLibraryProps) {
+  const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [aConfirmar, setAConfirmar] = useState<ImagenDeBiblioteca | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -49,8 +51,12 @@ export function MediaLibrary({
     }
 
     if (resultado.ok) {
+      // Lo local hace que desaparezca al instante; el refresco le dice a Next que los datos
+      // del servidor han cambiado, para que no reaparezca al cambiar de pantalla y volver
+      // (issue #203). Son las dos cosas, no una en vez de la otra.
       setBorradas((previas) => [...previas, imagen.id]);
       setAviso(`Se ha eliminado «${imagen.filename}».`);
+      router.refresh();
       return;
     }
 
