@@ -1,5 +1,5 @@
 import { auth } from '@/cms/auth';
-import { deleteMedia } from '@/cms/actions';
+import { deleteMedia, registrarImagen } from '@/cms/actions';
 import { listMedia } from '@/cms/core/media';
 import { MediaLibrary } from '@/cms/ui/MediaLibrary';
 import { usarAlmacenLocal } from '@/cms/security/almacen-local';
@@ -16,6 +16,18 @@ export default async function BibliotecaDeImagenes() {
   const session = await auth();
   const imagenes = await listMedia();
 
+  /** Anota una imagen recién subida sin esperar al aviso de Vercel (issue #205, ADR-705). */
+  async function registrar(imagen: {
+    url: string;
+    pathname: string;
+    filename: string;
+    mimeType: string;
+  }): Promise<{ ok: boolean }> {
+    'use server';
+
+    return { ok: (await registrarImagen(imagen)).ok };
+  }
+
   async function borrar(id: string): Promise<{ ok: boolean; message?: string }> {
     'use server';
 
@@ -27,6 +39,7 @@ export default async function BibliotecaDeImagenes() {
   return (
     <MediaLibrary
       imagenes={imagenes}
+      registrar={registrar}
       tiposAceptados={[...TIPOS_PERMITIDOS]}
       tamanoMaximoBytes={TAMANO_MAXIMO_BYTES}
       almacenLocal={usarAlmacenLocal()}

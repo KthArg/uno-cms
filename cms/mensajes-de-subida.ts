@@ -28,6 +28,17 @@ export const MENSAJES_DE_SUBIDA: Record<MotivoDeRechazo, string> = {
 };
 
 /**
+ * Cuando la imagen **sí** llegó al almacén y el CMS no pudo anotarla (issue #205).
+ *
+ * Se distingue del fallo general a propósito: decir «no se ha podido subir» cuando el fichero
+ * está subido manda a quien edita a repetir una subida que ya funcionó, y a acumular copias.
+ * Lo que hay que hacer es reintentar más tarde o avisar, y eso es lo que dice.
+ */
+export const REGISTRO_FALLIDO =
+  'La imagen se ha subido, pero no se ha podido añadir a tu biblioteca. Vuelve a intentarlo en ' +
+  'un momento; si sigue fallando, avisa a quien administra el sitio.';
+
+/**
  * Lo que se enseña cuando el fallo **no** es uno de los nuestros.
  *
  * Un token mal configurado, el almacén sin conectar, la librería quejándose de algo suyo: nada
@@ -41,6 +52,17 @@ export const SUBIDA_FALLIDA =
   'No se ha podido subir la imagen. Vuelve a intentarlo; si sigue fallando, avisa a quien administra el sitio.';
 
 /**
+ * Todo lo que hemos escrito nosotros: los rechazos del servidor y el fallo al anotar.
+ *
+ * `REGISTRO_FALLIDO` **tiene que estar aquí**, y esa es la parte que se me olvidó. Se lanza como
+ * un `Error` desde el propio selector, así que pasa por el mismo filtro que un error de la
+ * librería — y lo que no esté en esta lista se sustituye por el mensaje genérico. El texto
+ * existía, estaba bien escrito, y quien subiera una imagen habría leído «no se ha podido subir»
+ * justo cuando sí se había subido. Lo cazó el caso de `tests/ui/registrar-al-subir.test.tsx`.
+ */
+const LOS_NUESTROS: readonly string[] = [...Object.values(MENSAJES_DE_SUBIDA), REGISTRO_FALLIDO];
+
+/**
  * Si un texto de error es **uno de los nuestros**, y cuál.
  *
  * La regla que usan los dos lados: se enseña únicamente lo que hemos escrito. Todo lo demás
@@ -51,5 +73,5 @@ export const SUBIDA_FALLIDA =
  * —"la imagen pesa demasiado"— acabara enseñándose como un fallo genérico.
  */
 export function mensajeNuestro(texto: string): string | null {
-  return Object.values(MENSAJES_DE_SUBIDA).find((mensaje) => texto.includes(mensaje)) ?? null;
+  return LOS_NUESTROS.find((mensaje) => texto.includes(mensaje)) ?? null;
 }

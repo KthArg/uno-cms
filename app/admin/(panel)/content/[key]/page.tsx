@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import {
   crearTokenDeVistaPreviaRemota,
   createPreviewToken,
+  registrarImagen,
   publish,
   revertDraft,
   saveDraft,
@@ -122,6 +123,18 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
    * para escribir y publicar: la vista previa es lo que distingue a este CMS, no lo que lo
    * sostiene.
    */
+  /** Anota una imagen recién subida sin esperar al aviso de Vercel (issue #205, ADR-705). */
+  async function registrar(imagen: {
+    url: string;
+    pathname: string;
+    filename: string;
+    mimeType: string;
+  }): Promise<{ ok: boolean }> {
+    'use server';
+
+    return { ok: (await registrarImagen(imagen)).ok };
+  }
+
   const urlRemota = urlDeVistaPreviaRemota();
 
   const enlaceDeVistaPrevia =
@@ -167,6 +180,7 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
       sePuedeDeshacer={entrada.estado !== 'sin-publicar'}
       {...vistaPrevia}
       imagenes={imagenes}
+      registrarImagen={registrar}
       tiposAceptados={[...TIPOS_PERMITIDOS]}
       tamanoMaximoBytes={TAMANO_MAXIMO_BYTES}
       // Lo decide el servidor y viaja como dato. El navegador no mira ninguna variable de

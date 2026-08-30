@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
-import { MediaPicker } from './MediaPicker';
+import { MediaPicker, type MediaPickerProps } from './MediaPicker';
 import { FALLO_DE_RED } from './fallo-de-red';
 
 /**
@@ -15,6 +15,8 @@ import { FALLO_DE_RED } from './fallo-de-red';
 
 export interface MediaLibraryProps {
   readonly imagenes: readonly ImagenDeBiblioteca[];
+  /** Anota una imagen recién subida, sin esperar al aviso de Vercel (issue #205). */
+  readonly registrar?: MediaPickerProps['registrar'];
   readonly tiposAceptados: readonly string[];
   readonly tamanoMaximoBytes: number;
   readonly almacenLocal?: boolean;
@@ -25,6 +27,7 @@ export interface MediaLibraryProps {
 
 export function MediaLibrary({
   imagenes,
+  registrar,
   tiposAceptados,
   tamanoMaximoBytes,
   almacenLocal,
@@ -119,6 +122,7 @@ export function MediaLibrary({
       {abierto && (
         <MediaPicker
           imagenes={visibles}
+          {...(registrar === undefined ? {} : { registrar })}
           tiposAceptados={tiposAceptados}
           tamanoMaximoBytes={tamanoMaximoBytes}
           almacenLocal={almacenLocal}

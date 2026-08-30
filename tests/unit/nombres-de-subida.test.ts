@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { esPathnameGenerado, generarPathname } from '@/cms/nombres-de-subida';
+import { TIPOS_PERMITIDOS } from '@/cms/security/uploads';
 
 /**
  * T-199-1 a T-199-4: **el nombre con el que se guarda una imagen** (issue #199, ADR-704).
@@ -103,6 +104,27 @@ describe('T-199-3 — la extensión concuerda con el tipo', () => {
 
     for (const tipo of ['image/svg+xml', 'text/html', 'application/octet-stream', '']) {
       expect(esPathnameGenerado(nombre, tipo), tipo).toBe(false);
+    }
+  });
+});
+
+describe('las dos listas de tipos no pueden separarse', () => {
+  it('lo que el servidor acepta es exactamente lo que sabe nombrar', () => {
+    // **No es simetría por gusto.** `registrarImagen` dejó de comprobar el tipo por su cuenta
+    // (issue #205): su comprobación era inalcanzable, porque `esPathnameGenerado` ya rechaza
+    // cualquier tipo sin extensión asignada. Eso vale mientras las dos listas digan lo mismo.
+    //
+    // Si alguien añadiera una extensión sin añadir el tipo, la action empezaría a aceptar algo
+    // que la ruta de subida rechaza; al revés, las subidas de ese tipo se caerían al generar el
+    // nombre. Este caso es el sitio donde se entera.
+    for (const tipo of TIPOS_PERMITIDOS) {
+      expect(esPathnameGenerado(generarPathname(tipo), tipo), tipo).toBe(true);
+    }
+
+    // Y a la inversa: nada que sepamos nombrar puede estar fuera de la lista de aceptados.
+    for (const tipo of ['image/svg+xml', 'image/bmp', 'image/tiff']) {
+      expect(generarPathname(tipo).endsWith('.bin'), tipo).toBe(true);
+      expect(TIPOS_PERMITIDOS as readonly string[]).not.toContain(tipo);
     }
   });
 });
