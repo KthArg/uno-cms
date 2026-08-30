@@ -759,7 +759,61 @@ Los veinte casos de la spec, en verde.
 - [#167](https://github.com/KthArg/uno-cms/issues/167) — un test falló una vez y no se reproduce
 - Nueve issues `post-mvp`, **sin código por diseño**
 
-### Lo que nadie ha hecho todavía
+### El primer despliegue en línea
 
-**Desplegar.** El `v0.1.0` no está etiquetado, y dos criterios de §11 siguen marcados como no
-verificados en este documento por eso mismo.
+Hecho, y en `uno-cms.vercel.app` funciona el recorrido entero: entrar, editar, publicar, subir
+una imagen y verla en la biblioteca. Con base de datos Neon y almacén Vercel Blob de verdad.
+
+**Salieron cinco fallos, todos del mismo camino: subir una imagen.** Y cada uno tapaba al
+siguiente, lo que hizo que durante un rato pareciera un solo fallo intermitente.
+
+1. **La CSP bloqueaba la subida.** `connect-src` no dejaba salir a `https://vercel.com`, que es a
+   donde el navegador sube directamente por ADR-005. En local nunca se vio: allí las imágenes van
+   al disco. → ADR-703.
+2. **El almacén estaba privado, y el token no era el que mandaba.** `@vercel/blob@2.8.0` da
+   preferencia a `VERCEL_OIDC_TOKEN` + `BLOB_STORE_ID` sobre `BLOB_READ_WRITE_TOKEN`, así que
+   apuntaba a un almacén distinto del configurado. Ninguna documentación nuestra lo decía porque
+   nadie lo había ejecutado.
+3. **El nombre del objeto lo ponía el cliente sin que nadie lo mirara** (#199). El comentario
+   encima afirmaba lo contrario: el SDK descartaba en silencio el `pathname` que devolvía el
+   servidor. Se vio al subir dos veces la misma foto. → ADR-704.
+4. **El aviso de subida completada llegaba con 401**, porque la ruta le exigía sesión y ese aviso
+   viene de los servidores de Vercel, no de un navegador con cookie (#201).
+5. **Y la fila la escribía solo ese aviso, que llega tarde** (#205). Medido: el refresco del
+   cliente salía un segundo **antes** que la escritura. → ADR-705.
+
+### Por qué ninguna suite los detectaba
+
+Porque **el camino que se despliega no lo ejercita ningún test**, y no es un descuido puntual:
+
+- En local las imágenes van al disco (ADR-700), así que Vercel Blob no corre en ninguna suite.
+- La base de datos de los tests es Postgres a secas con `node-postgres`; Neon usa otro driver.
+- Un aviso de un tercero no lo manda nadie en local.
+
+Estaba anotado desde M6 como «el driver de producción nunca ha hablado con Neon» (#43). Lo que se
+ve ahora es que el hueco es **bastante más ancho que el driver**, y está abierto como
+[#207](https://github.com/KthArg/uno-cms/issues/207) con las tres formas de cerrarlo comparadas.
+
+### Lo que enseñó
+
+- **Desplegar es una pasada de pruebas, no un trámite.** Encontró en una sesión más que la última
+  auditoría entera, y todo en el camino que menos test tenía.
+- **Un fallo tapa al siguiente.** Los cinco eran del mismo clic. Cada arreglo destapaba el
+  posterior, y hasta el tercero pareció razonable pensar que ya estaba.
+- **Y hay que medir antes de explicar.** Los dos últimos se cerraron con razonamientos plausibles
+  —«será la caché»— que eran ciertos a medias. Lo que lo cerró fue desplegar una versión con la
+  cuenta de filas en cada render y leer las marcas de tiempo. Es la lección de #134 otra vez.
+- **La mutación volvió a cazar un test que se probaba a sí mismo** (#205, el sexto). Reproducía
+  el criterio de la action en vez de llamarla: cinco casos en verde con las comprobaciones
+  quitadas.
+
+### Lo que sigue sin hacerse
+
+- **No hay etiqueta `v0.1.0`.** Sigue sin etiquetar.
+- **Los criterios §11.1 y §11.4 siguen marcados como no verificados** más arriba en este mismo
+  documento. Lo que hay es un despliegue de prueba con datos de prueba; nadie ha hecho el
+  recorrido de §11 sobre él con la lista delante.
+- **Las capturas de `SETUP.md`** ([#157](https://github.com/KthArg/uno-cms/issues/157)), que
+  ahora sí se pueden hacer.
+- **Tres objetos huérfanos en el almacén**, de depurar todo esto
+  ([#206](https://github.com/KthArg/uno-cms/issues/206)).
