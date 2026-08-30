@@ -187,7 +187,27 @@ export async function completeSetup(input: SetupInput): Promise<SetupResult> {
   const userId = await getDb().transaction(async (tx) => {
     const [created] = await tx
       .insert(users)
-      .values({ email, name: input.name.trim(), passwordHash, role: 'admin' })
+      .values({
+        email,
+        name: input.name.trim(),
+        passwordHash,
+        role: 'admin',
+        // **`1` y no el `0` por defecto, y no es cosmético** (issue #212).
+        //
+        // `password_version` arrancando en 0 significa «esta cuenta tiene una contraseña que no
+        // conoce nadie»: es lo que deja `inviteUser`, y canjear la invitación lo sube a 1. La
+        // pantalla de Personas lee justo eso para decir «todavía no ha entrado».
+        //
+        // Aquí la contraseña **la acaba de elegir quien la va a usar**, así que la cuenta nace
+        // estrenada. Sin esto, el dueño del sitio aparece como pendiente de un enlace de
+        // invitación que nunca existió, en todos los despliegues y para siempre.
+        //
+        // El valor viaja en el claim `pwdV` de la sesión y se compara en cada petición
+        // (ADR-301). Empezar en 1 no rompe nada porque la sesión se crea **después** de esta
+        // fila y lee el valor que haya; lo que no se puede es cambiarlo por debajo de una
+        // sesión viva, y aquí no hay ninguna todavía.
+        passwordVersion: 1,
+      })
       .returning({ id: users.id });
 
     await tx.insert(settings).values({
