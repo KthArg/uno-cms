@@ -43,17 +43,18 @@ Dos cosas que conviene saber:
 
 ## Comandos
 
-| Comando                             | Qué hace                                                                                                                                                     |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `pnpm dev`                          | Servidor de desarrollo. `PORT=3100 pnpm dev` si el 3000 está ocupado                                                                                         |
-| `pnpm build`                        | Build de producción. **También es el guard de seguridad** de la frontera servidor/cliente: falla si algo de `cms/{core,db,auth,security}` alcanza el cliente |
-| `pnpm typecheck`                    | `next typegen` y luego `tsc --noEmit`                                                                                                                        |
-| `pnpm lint`                         | ESLint con `--max-warnings=0`                                                                                                                                |
-| `pnpm format` / `pnpm format:check` | Prettier                                                                                                                                                     |
-| `pnpm test:unit`                    | Vitest, proyecto `unit`, con tests de tipos                                                                                                                  |
-| `pnpm test:integration`             | Vitest contra Postgres. **Sin `DATABASE_URL` se salta con aviso**, no falla                                                                                  |
-| `pnpm test:e2e`                     | Playwright contra el build de producción. Antes: `pnpm exec playwright install chromium`                                                                     |
-| `pnpm test:coverage`                | Cobertura. El umbral de SPEC §11.4 solo se aplica con `COVERAGE_ENFORCE=1`                                                                                   |
+| Comando                             | Qué hace                                                                                                                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm dev`                          | Servidor de desarrollo. `PORT=3100 pnpm dev` si el 3000 está ocupado                                                                                                     |
+| `pnpm build`                        | Build de producción. **También es el guard de seguridad** de la frontera servidor/cliente: falla si algo de `cms/{core,db,auth,security}` alcanza el cliente             |
+| `pnpm typecheck`                    | `next typegen` y luego `tsc --noEmit`                                                                                                                                    |
+| `pnpm lint`                         | ESLint con `--max-warnings=0`                                                                                                                                            |
+| `pnpm format` / `pnpm format:check` | Prettier                                                                                                                                                                 |
+| `pnpm test:unit`                    | Vitest, proyecto `unit`, con tests de tipos                                                                                                                              |
+| `pnpm test:integration`             | Vitest contra Postgres. **Sin `DATABASE_URL` se salta con aviso**, no falla                                                                                              |
+| `pnpm test:e2e`                     | Playwright contra el build de producción. Antes: `pnpm exec playwright install chromium`                                                                                 |
+| `pnpm test:humo`                    | Playwright contra un **despliegue de verdad**. Necesita `HUMO_URL`, `HUMO_EMAIL` y `HUMO_PASSWORD`; sin ellas se salta. Escribe en ese sitio: sube una imagen y la borra |
+| `pnpm test:coverage`                | Cobertura. El umbral de SPEC §11.4 solo se aplica con `COVERAGE_ENFORCE=1`                                                                                               |
 
 ## Antes de subir una rama
 
