@@ -41,9 +41,7 @@ const CampoTextoRico = dynamic(
   async () => (await import('./fields/RichTextField')).CampoTextoRico,
   {
     ssr: false,
-    loading: () => (
-      <div className="h-32 animate-pulse rounded-md border border-slate-200 bg-slate-50" />
-    ),
+    loading: () => <div className="h-32 animate-pulse rounded-md border border-linea bg-papel" />,
   }
 );
 

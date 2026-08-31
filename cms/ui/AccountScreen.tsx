@@ -59,13 +59,13 @@ export function AccountScreen({ correo, onCambiar }: AccountScreenProps) {
   return (
     <div className="max-w-md space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Tu cuenta</h1>
-        <p className="mt-1 text-slate-600">Entras como {correo}.</p>
+        <h1 className="text-2xl font-semibold text-tinta">Tu cuenta</h1>
+        <p className="mt-1 text-tinta-suave">Entras como {correo}.</p>
       </div>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <h2 className="text-lg font-medium text-slate-900">Cambiar tu contraseña</h2>
-        <p className="mt-1 text-sm text-slate-600">
+      <section className="rounded-lg border border-linea bg-superficie p-5">
+        <h2 className="text-lg font-medium text-tinta">Cambiar tu contraseña</h2>
+        <p className="mt-1 text-sm text-tinta-suave">
           Al cambiarla se cierran todas las sesiones abiertas, también esta:{' '}
           <strong>tendrás que volver a entrar</strong>. Si has cambiado la contraseña porque
           sospechas que alguien más ha entrado, eso es justo lo que quieres.
@@ -78,13 +78,13 @@ export function AccountScreen({ correo, onCambiar }: AccountScreenProps) {
           className="mt-4 space-y-4"
         >
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-slate-800">Tu contraseña actual</span>
+            <span className="text-sm font-medium text-tinta">Tu contraseña actual</span>
             <input
               name="actual"
               type="password"
               required
               autoComplete="current-password"
-              className="rounded-md border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
             />
           </label>
 
@@ -93,29 +93,29 @@ export function AccountScreen({ correo, onCambiar }: AccountScreenProps) {
               "La nueva Al menos 12 caracteres..." como si fuese el nombre. */}
           <div className="flex flex-col gap-1">
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-slate-800">La nueva</span>
+              <span className="text-sm font-medium text-tinta">La nueva</span>
               <input
                 name="nueva"
                 type="password"
                 required
                 autoComplete="new-password"
                 aria-describedby="ayuda-nueva"
-                className="rounded-md border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
               />
             </label>
-            <span id="ayuda-nueva" className="text-sm text-slate-500">
+            <span id="ayuda-nueva" className="text-sm text-tinta-tenue">
               Al menos 12 caracteres. Una frase que recuerdes vale más que algo corto y raro.
             </span>
           </div>
 
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-slate-800">Repite la nueva</span>
+            <span className="text-sm font-medium text-tinta">Repite la nueva</span>
             <input
               name="repetida"
               type="password"
               required
               autoComplete="new-password"
-              className="rounded-md border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
             />
           </label>
 
@@ -123,11 +123,11 @@ export function AccountScreen({ correo, onCambiar }: AccountScreenProps) {
             <button
               type="submit"
               disabled={ocupado}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
             >
               Cambiar la contraseña
             </button>
-            <p aria-live="polite" className="text-sm text-red-700">
+            <p aria-live="polite" className="text-sm text-alarma">
               {aviso}
             </p>
           </div>

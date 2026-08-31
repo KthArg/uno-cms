@@ -40,12 +40,12 @@ export function idsDeCampo(id: string, help?: string, error?: string) {
 export function FieldShell({ id, label, help, error, required, children }: FieldShellProps) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="block text-sm font-medium text-slate-900">
+      <label htmlFor={id} className="block text-sm font-medium text-tinta">
         {label}
         {/* El asterisco es decorativo: `aria-hidden` porque la obligatoriedad ya viaja en el
             `required` del control, y anunciarla dos veces es ruido. */}
         {required && (
-          <span aria-hidden="true" className="ml-0.5 text-slate-500">
+          <span aria-hidden="true" className="ml-0.5 text-tinta-tenue">
             *
           </span>
         )}
@@ -54,13 +54,13 @@ export function FieldShell({ id, label, help, error, required, children }: Field
       {children}
 
       {help !== undefined && (
-        <p id={`${id}-ayuda`} className="text-xs text-slate-500">
+        <p id={`${id}-ayuda`} className="text-xs text-tinta-tenue">
           {help}
         </p>
       )}
 
       {error !== undefined && (
-        <p id={`${id}-error`} className="text-sm text-red-700">
+        <p id={`${id}-error`} className="text-sm text-alarma">
           {error}
         </p>
       )}
@@ -70,7 +70,7 @@ export function FieldShell({ id, label, help, error, required, children }: Field
 
 /** Las clases del control, con el borde rojo cuando hay error. */
 export function claseControl(error?: string): string {
-  return `w-full rounded-md border px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${
-    error === undefined ? 'border-slate-300' : 'border-red-500'
+  return `w-full rounded-md border px-3 py-2 text-sm text-tinta shadow-sm focus:outline-none focus:ring-2 focus:ring-acento ${
+    error === undefined ? 'border-linea' : 'border-alarma'
   }`;
 }

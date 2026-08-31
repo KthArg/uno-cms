@@ -46,22 +46,22 @@ export function ConfirmarAccion({
       role="alertdialog"
       aria-modal="true"
       aria-label={titulo}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/40 p-4"
       onKeyDown={(evento) => {
         // `Escape` cierra. Sin ello, quien navega con teclado se queda encerrado en un cuadro
         // que ha abierto sin querer.
         if (evento.key === 'Escape') onCancelar();
       }}
     >
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-slate-900">{titulo}</h2>
-        <p className="mt-2 text-sm text-slate-700">{descripcion}</p>
+      <div className="w-full max-w-md rounded-lg bg-superficie p-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-tinta">{titulo}</h2>
+        <p className="mt-2 text-sm text-tinta-suave">{descripcion}</p>
 
         <div className="mt-5 flex gap-2">
           <button
             type="button"
             onClick={onConfirmar}
-            className="rounded-md bg-red-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+            className="rounded-md bg-alarma-accion px-3 py-1.5 text-sm font-medium text-sobre-alarma hover:bg-alarma-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alarma"
           >
             {textoConfirmar}
           </button>
@@ -69,7 +69,7 @@ export function ConfirmarAccion({
             ref={cancelar}
             type="button"
             onClick={onCancelar}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            className="rounded-md border border-linea bg-superficie px-3 py-1.5 text-sm font-medium text-tinta hover:bg-papel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
           >
             Cancelar
           </button>

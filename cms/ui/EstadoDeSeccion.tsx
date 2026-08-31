@@ -12,15 +12,15 @@ import type { SectionState } from '@/cms/core/content';
 const ETIQUETAS: Record<SectionState, { texto: string; clase: string }> = {
   publicado: {
     texto: 'Publicado',
-    clase: 'bg-emerald-50 text-emerald-800 ring-emerald-600/20',
+    clase: 'bg-publicado-fondo text-publicado-tinta ring-publicado-linea',
   },
   'con-cambios': {
     texto: 'Cambios sin publicar',
-    clase: 'bg-amber-50 text-amber-800 ring-amber-600/30',
+    clase: 'bg-pendiente-fondo text-pendiente-tinta ring-pendiente-linea',
   },
   'sin-publicar': {
     texto: 'Sin publicar todavía',
-    clase: 'bg-slate-100 text-slate-700 ring-slate-500/20',
+    clase: 'bg-superficie-suave text-tinta-suave ring-linea-fuerte/20',
   },
 };
 

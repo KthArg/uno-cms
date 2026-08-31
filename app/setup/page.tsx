@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { completeSetup, isSetupCompleted } from '@/cms/auth/setup';
 import { SETTINGS_TAG } from '@/cms/core/settings';
+import { EnvoltorioDeTema } from '@/app/envoltorio-de-tema';
 
 /**
  * Configuración inicial (SPEC §7.3).
@@ -49,68 +50,70 @@ export default async function SetupPage({
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Configura tu sitio</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Crea la cuenta con la que administrarás la web. Solo se hace una vez.
-        </p>
-      </div>
+    <EnvoltorioDeTema>
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6">
+        <div>
+          <h1 className="text-2xl font-semibold">Configura tu sitio</h1>
+          <p className="mt-2 text-sm text-tinta-suave">
+            Crea la cuenta con la que administrarás la web. Solo se hace una vez.
+          </p>
+        </div>
 
-      <form action={crear} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm">Código de instalación</span>
-          <input
-            name="token"
-            required
-            autoComplete="off"
-            className="rounded border border-slate-300 px-3 py-2"
-          />
-          <span className="text-xs text-slate-500">
-            Es el valor que pusiste en SETUP_TOKEN al desplegar.
-          </span>
-        </label>
+        <form action={crear} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">Código de instalación</span>
+            <input
+              name="token"
+              required
+              autoComplete="off"
+              className="rounded border border-linea px-3 py-2"
+            />
+            <span className="text-xs text-tinta-tenue">
+              Es el valor que pusiste en SETUP_TOKEN al desplegar.
+            </span>
+          </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm">Tu nombre</span>
-          <input name="name" required className="rounded border border-slate-300 px-3 py-2" />
-        </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">Tu nombre</span>
+            <input name="name" required className="rounded border border-linea px-3 py-2" />
+          </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm">Tu correo</span>
-          <input
-            name="email"
-            type="email"
-            required
-            autoComplete="username"
-            className="rounded border border-slate-300 px-3 py-2"
-          />
-        </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">Tu correo</span>
+            <input
+              name="email"
+              type="email"
+              required
+              autoComplete="username"
+              className="rounded border border-linea px-3 py-2"
+            />
+          </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm">Contraseña</span>
-          <input
-            name="password"
-            type="password"
-            required
-            autoComplete="new-password"
-            className="rounded border border-slate-300 px-3 py-2"
-          />
-          <span className="text-xs text-slate-500">Al menos 12 caracteres.</span>
-        </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">Contraseña</span>
+            <input
+              name="password"
+              type="password"
+              required
+              autoComplete="new-password"
+              className="rounded border border-linea px-3 py-2"
+            />
+            <span className="text-xs text-tinta-tenue">Al menos 12 caracteres.</span>
+          </label>
 
-        <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white">
-          Crear mi cuenta
-        </button>
-      </form>
+          <button type="submit" className="rounded bg-accion px-4 py-2 text-sobre-accion">
+            Crear mi cuenta
+          </button>
+        </form>
 
-      {params.error !== undefined && (
-        <p role="alert" className="text-sm text-red-700">
-          {params.error === 'password'
-            ? 'Esa contraseña no vale: debe tener al menos 12 caracteres y no aparecer en listas públicas.'
-            : 'El código de instalación no es correcto.'}
-        </p>
-      )}
-    </main>
+        {params.error !== undefined && (
+          <p role="alert" className="text-sm text-alarma">
+            {params.error === 'password'
+              ? 'Esa contraseña no vale: debe tener al menos 12 caracteres y no aparecer en listas públicas.'
+              : 'El código de instalación no es correcto.'}
+          </p>
+        )}
+      </main>
+    </EnvoltorioDeTema>
   );
 }

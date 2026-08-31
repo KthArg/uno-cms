@@ -38,8 +38,8 @@ export function SettingsScreen({ nombreDelSitio, seo, onGuardar }: SettingsScree
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Ajustes</h1>
-        <p className="mt-1 text-slate-600">
+        <h1 className="text-2xl font-semibold text-tinta">Ajustes</h1>
+        <p className="mt-1 text-tinta-suave">
           Estos cambios se aplican a tu web en cuanto los guardas. No hay que publicarlos.
         </p>
       </div>
@@ -145,9 +145,9 @@ function Bloque({
   };
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5">
-      <h2 className="text-lg font-medium text-slate-900">{titulo}</h2>
-      <p className="mt-1 text-sm text-slate-600">{descripcion}</p>
+    <section className="rounded-lg border border-linea bg-superficie p-5">
+      <h2 className="text-lg font-medium text-tinta">{titulo}</h2>
+      <p className="mt-1 text-sm text-tinta-suave">{descripcion}</p>
 
       <form
         action={(formData) => {
@@ -177,13 +177,13 @@ function Bloque({
             'aria-describedby': descrito === '' ? undefined : descrito,
             'aria-invalid': error === undefined ? undefined : (true as const),
             className:
-              'rounded-md border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900',
+              'rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento',
           };
 
           return (
             <div key={campo.nombre} className="flex flex-col gap-1">
               <label className="flex flex-col gap-1">
-                <span className="text-sm font-medium text-slate-800">{campo.etiqueta}</span>
+                <span className="text-sm font-medium text-tinta">{campo.etiqueta}</span>
                 {campo.largo === true ? (
                   <textarea {...atributos} rows={3} />
                 ) : (
@@ -191,12 +191,12 @@ function Bloque({
                 )}
               </label>
               {campo.ayuda !== undefined && (
-                <span id={idAyuda} className="text-sm text-slate-500">
+                <span id={idAyuda} className="text-sm text-tinta-tenue">
                   {campo.ayuda}
                 </span>
               )}
               {error !== undefined && (
-                <span id={idError} className="text-sm text-red-700">
+                <span id={idError} className="text-sm text-alarma">
                   {error.message}
                 </span>
               )}
@@ -208,11 +208,11 @@ function Bloque({
           <button
             type="submit"
             disabled={ocupado}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
           >
             Guardar
           </button>
-          <p aria-live="polite" className="text-sm text-slate-600">
+          <p aria-live="polite" className="text-sm text-tinta-suave">
             {aviso}
           </p>
         </div>

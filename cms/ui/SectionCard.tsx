@@ -31,15 +31,15 @@ export function SectionCard({ nombre, href, estado, elementos }: SectionCardProp
   return (
     <Link
       href={href}
-      className="group block rounded-lg border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+      className="group block rounded-lg border border-linea bg-superficie p-5 transition hover:border-linea hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
     >
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-medium text-slate-900 group-hover:underline">{nombre}</h3>
+        <h3 className="font-medium text-tinta group-hover:underline">{nombre}</h3>
         <EstadoDeSeccion estado={estado} />
       </div>
 
       {elementos !== undefined && (
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="mt-2 text-sm text-tinta-suave">
           {elementos === 1 ? '1 elemento' : `${String(elementos)} elementos`}
         </p>
       )}

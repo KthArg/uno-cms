@@ -88,8 +88,8 @@ export function CampoTextoRico({ id, field, value, onChange, error }: RichTextFi
     editorProps: {
       attributes: {
         id,
-        class: `prose prose-sm max-w-none min-h-32 rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900 ${
-          error === undefined ? 'border-slate-300' : 'border-red-500'
+        class: `prose prose-sm max-w-none min-h-32 rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-acento ${
+          error === undefined ? 'border-linea' : 'border-alarma'
         }`,
         ...(field.help === undefined ? {} : { 'aria-describedby': `${id}-ayuda` }),
       },
@@ -187,10 +187,10 @@ function BarraDeFormato({ editor }: { editor: Editor | null }) {
           onClick={() => {
             boton.aplicar(editor);
           }}
-          className={`rounded px-2 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${
+          className={`rounded px-2 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento ${
             editor.isActive(boton.activo)
-              ? 'bg-slate-900 text-white'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              ? 'bg-accion text-sobre-accion'
+              : 'bg-superficie-suave text-tinta-suave hover:bg-superficie-suave'
           }`}
         >
           {boton.nombre}

@@ -149,27 +149,27 @@ export function MediaPicker({
       role="dialog"
       aria-modal="true"
       aria-label="Elegir una imagen"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/40 p-4"
       onKeyDown={(evento) => {
         // `Escape` cierra: es lo que espera cualquiera que abra algo encima de lo que estaba
         // haciendo, y sin ello quien navega con teclado se queda atrapado.
         if (evento.key === 'Escape') onCerrar();
       }}
     >
-      <div className="max-h-[80vh] w-full max-w-3xl overflow-auto rounded-lg bg-white p-6 shadow-xl">
+      <div className="max-h-[80vh] w-full max-w-3xl overflow-auto rounded-lg bg-superficie p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4">
-          <h2 className="text-lg font-semibold text-slate-900">Elegir una imagen</h2>
+          <h2 className="text-lg font-semibold text-tinta">Elegir una imagen</h2>
           <button
             type="button"
             onClick={onCerrar}
-            className="text-sm text-slate-600 underline underline-offset-4 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            className="text-sm text-tinta-suave underline underline-offset-4 hover:text-tinta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
           >
             Cerrar
           </button>
         </div>
 
         <div className="mt-4">
-          <label className="block text-sm font-medium text-slate-900" htmlFor="subir-imagen">
+          <label className="block text-sm font-medium text-tinta" htmlFor="subir-imagen">
             Subir una imagen nueva
           </label>
           <input
@@ -184,13 +184,13 @@ export function MediaPicker({
             className="mt-1 block w-full text-sm"
           />
           <p aria-live="polite" className="mt-2 text-sm">
-            {subiendo && <span className="text-slate-600">Subiendo…</span>}
-            {error !== null && <span className="text-red-700">{error}</span>}
+            {subiendo && <span className="text-tinta-suave">Subiendo…</span>}
+            {error !== null && <span className="text-alarma">{error}</span>}
           </p>
         </div>
 
         {todas.length === 0 ? (
-          <p className="mt-6 text-sm text-slate-500">
+          <p className="mt-6 text-sm text-tinta-tenue">
             Todavía no hay imágenes. Sube la primera con el botón de arriba.
           </p>
         ) : (
@@ -202,7 +202,7 @@ export function MediaPicker({
                   onClick={() => {
                     onElegir(imagen);
                   }}
-                  className="block w-full overflow-hidden rounded border border-slate-200 hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                  className="block w-full overflow-hidden rounded border border-linea hover:border-linea-fuerte focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
                 >
                   {/* `img` y no `next/image`: la biblioteca enseña miniaturas de imágenes que
                       acaban de subirse, y optimizarlas aquí no aporta nada. El `alt` es el
@@ -211,7 +211,7 @@ export function MediaPicker({
                   <img
                     src={imagen.url}
                     alt={imagen.filename}
-                    className="h-24 w-full bg-slate-50 object-cover"
+                    className="h-24 w-full bg-papel object-cover"
                   />
                 </button>
               </li>

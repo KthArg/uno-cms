@@ -147,21 +147,21 @@ export function UsersScreen({
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Personas</h1>
-        <p className="mt-1 text-slate-600">
+        <h1 className="text-2xl font-semibold text-tinta">Personas</h1>
+        <p className="mt-1 text-tinta-suave">
           Quién puede entrar a administrar tu web y qué puede hacer cada uno.
         </p>
       </div>
 
-      <p aria-live="polite" className="text-sm text-red-700">
+      <p aria-live="polite" className="text-sm text-alarma">
         {aviso}
       </p>
 
       {enlace !== null && <EnlaceDeInvitacion enlace={enlace} />}
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <h2 className="text-lg font-medium text-slate-900">Invitar a alguien</h2>
-        <p className="mt-1 text-sm text-slate-600">
+      <section className="rounded-lg border border-linea bg-superficie p-5">
+        <h2 className="text-lg font-medium text-tinta">Invitar a alguien</h2>
+        <p className="mt-1 text-sm text-tinta-suave">
           Se crea su cuenta y obtendrás un enlace para que elija su contraseña.
         </p>
 
@@ -172,32 +172,32 @@ export function UsersScreen({
           className="mt-4 grid gap-4 sm:grid-cols-2"
         >
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-slate-800">Nombre</span>
+            <span className="text-sm font-medium text-tinta">Nombre</span>
             <input
               name="nombre"
               required
               maxLength={120}
-              className="rounded-md border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
             />
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-slate-800">Correo</span>
+            <span className="text-sm font-medium text-tinta">Correo</span>
             <input
               name="correo"
               type="email"
               required
               maxLength={254}
-              className="rounded-md border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
             />
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-slate-800">Qué podrá hacer</span>
+            <span className="text-sm font-medium text-tinta">Qué podrá hacer</span>
             <select
               name="rol"
               defaultValue="editor"
-              className="rounded-md border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
             >
               <option value="editor">{NOMBRE_DEL_ROL.editor}</option>
               <option value="admin">{NOMBRE_DEL_ROL.admin}</option>
@@ -208,7 +208,7 @@ export function UsersScreen({
             <button
               type="submit"
               disabled={ocupado}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
             >
               Invitar
             </button>
@@ -220,21 +220,21 @@ export function UsersScreen({
         {lista.map((persona) => (
           <li
             key={persona.id}
-            className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-4"
+            className="flex flex-wrap items-center gap-3 rounded-lg border border-linea bg-superficie p-4"
           >
             <div className="min-w-0 flex-1">
-              <p className="font-medium text-slate-900">{persona.nombre}</p>
-              <p className="truncate text-sm text-slate-500">{persona.correo}</p>
+              <p className="font-medium text-tinta">{persona.nombre}</p>
+              <p className="truncate text-sm text-tinta-tenue">{persona.correo}</p>
             </div>
 
             {!persona.activa && (
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+              <span className="rounded-full bg-superficie-suave px-2.5 py-1 text-xs font-medium text-tinta-suave">
                 Sin acceso
               </span>
             )}
 
             {persona.activa && persona.sinEstrenar && (
-              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+              <span className="rounded-full bg-pendiente-fondo px-2.5 py-1 text-xs font-medium text-pendiente-tinta">
                 Todavía no ha entrado
               </span>
             )}
@@ -243,7 +243,7 @@ export function UsersScreen({
               // La propia fila no ofrece nada. Quitarse a uno mismo el acceso o el rol es un
               // error que no tiene deshacer desde dentro, y la action ya lo rechaza: enseñar
               // los controles sería ofrecer algo que va a fallar.
-              <span className="text-sm text-slate-500">Eres tú</span>
+              <span className="text-sm text-tinta-tenue">Eres tú</span>
             ) : (
               <>
                 <label className="flex items-center gap-2 text-sm">
@@ -257,7 +257,7 @@ export function UsersScreen({
                         evento.currentTarget.value === 'admin' ? 'admin' : 'editor'
                       );
                     }}
-                    className="rounded-md border border-slate-300 px-2 py-1 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                    className="rounded-md border border-linea px-2 py-1 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
                   >
                     <option value="editor">{NOMBRE_DEL_ROL.editor}</option>
                     <option value="admin">{NOMBRE_DEL_ROL.admin}</option>
@@ -271,7 +271,7 @@ export function UsersScreen({
                     onClick={() => {
                       setADesactivar(persona);
                     }}
-                    className="text-sm text-red-700 underline underline-offset-4 hover:text-red-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+                    className="text-sm text-alarma underline underline-offset-4 hover:text-alarma focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alarma"
                   >
                     Quitar acceso
                   </button>
@@ -311,13 +311,18 @@ function EnlaceDeInvitacion({ enlace }: { enlace: string }) {
   const [copiado, setCopiado] = useState(false);
 
   return (
-    <section className="rounded-lg border border-emerald-300 bg-emerald-50 p-5" aria-live="polite">
-      <h2 className="text-lg font-medium text-emerald-900">Ya está. Ahora pásale este enlace</h2>
-      <p className="mt-1 text-sm text-emerald-900">
+    <section
+      className="rounded-lg border border-publicado-linea bg-publicado-fondo p-5"
+      aria-live="polite"
+    >
+      <h2 className="text-lg font-medium text-publicado-tinta">
+        Ya está. Ahora pásale este enlace
+      </h2>
+      <p className="mt-1 text-sm text-publicado-tinta">
         Con él elegirá su contraseña y podrá entrar. <strong>Caduca en 24 horas</strong> y solo
         sirve una vez. No se lo enviamos nosotros: mándaselo tú por donde habléis.
       </p>
-      <p className="mt-1 text-sm text-emerald-900">
+      <p className="mt-1 text-sm text-publicado-tinta">
         Guárdalo antes de salir de esta página, porque no vas a poder volver a verlo.
       </p>
 
@@ -330,7 +335,7 @@ function EnlaceDeInvitacion({ enlace }: { enlace: string }) {
             onFocus={(evento) => {
               evento.currentTarget.select();
             }}
-            className="w-full rounded-md border border-emerald-300 bg-white px-3 py-2 font-mono text-sm"
+            className="w-full rounded-md border border-publicado-linea bg-superficie px-3 py-2 font-mono text-sm"
           />
         </label>
         <button
@@ -340,7 +345,7 @@ function EnlaceDeInvitacion({ enlace }: { enlace: string }) {
               setCopiado(true);
             });
           }}
-          className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+          className="rounded-md bg-publicado-tinta px-4 py-2 text-sm font-medium text-sobre-publicado hover:bg-publicado-tinta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-publicado-tinta"
         >
           {copiado ? 'Copiado' : 'Copiar'}
         </button>

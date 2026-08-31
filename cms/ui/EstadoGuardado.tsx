@@ -33,10 +33,10 @@ export function EstadoGuardado({ estado }: { estado: EstadoAutosave }) {
       aria-live="polite"
       className={`text-sm ${
         estado.tipo === 'guardado'
-          ? 'text-emerald-700'
+          ? 'text-publicado-tinta'
           : estado.tipo === 'error' || estado.tipo === 'conflicto'
-            ? 'text-red-700'
-            : 'text-slate-500'
+            ? 'text-alarma'
+            : 'text-tinta-tenue'
       }`}
     >
       {texto}
