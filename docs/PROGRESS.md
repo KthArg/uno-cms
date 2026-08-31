@@ -814,6 +814,22 @@ mano**, que es lo que sigue vivo del hueco.
   el criterio de la action en vez de llamarla: cinco casos en verde con las comprobaciones
   quitadas.
 
+### Lo que CI confirmó después, y por qué importa decirlo
+
+Cinco PR de esta tanda —#200, #202, #204, #208, #210, #214, #215 y #216— se mergearon con
+`--admin` y **verificación solo local**, porque GitHub Actions estaba parado por facturación. En
+cada uno quedó escrito que nadie los había reejecutado en una máquina limpia.
+
+El 31 de agosto de 2026 el repositorio pasó a público y CI volvió a correr. **Los nueve jobs
+pasan sobre `main`**: lint, typecheck, unit, ui, integration, e2e, build, presupuesto de
+JavaScript y auditoría. Eso valida a posteriori toda la tanda, y es lo que convierte «pasa en mi
+máquina» en el criterio §11.4 de verdad.
+
+Antes de hacerlo público se barrió el historial entero buscando secretos —ficheros de entorno
+versionados, tokens de Blob, cadenas de conexión con credenciales, claves privadas— y no había
+ninguno. Lo único que aparecía eran literales falsos de tests y el hash señuelo de
+`cms/auth/passwords.ts`, que está documentado como no secreto.
+
 ### Lo que sigue sin hacerse
 
 - **No hay etiqueta `v0.1.0`.** Sigue sin etiquetar.
