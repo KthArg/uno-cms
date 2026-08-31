@@ -61,8 +61,8 @@ export default async function PanelContenido() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Contenido</h1>
-          <p className="mt-1 text-slate-600">
+          <h1 className="text-2xl font-semibold text-tinta">Contenido</h1>
+          <p className="mt-1 text-tinta-suave">
             {pendientes === 0
               ? 'Todo está publicado.'
               : pendientes === 1
@@ -91,7 +91,7 @@ export default async function PanelContenido() {
         ))}
       </ul>
 
-      <p className="text-sm text-slate-500">Sesión iniciada como {session?.user.email}.</p>
+      <p className="text-sm text-tinta-tenue">Sesión iniciada como {session?.user.email}.</p>
     </div>
   );
 }

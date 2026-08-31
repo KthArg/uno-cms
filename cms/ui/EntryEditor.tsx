@@ -293,10 +293,10 @@ export function EntryEditor({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">{nombreSeccion}</h1>
+          <h1 className="text-2xl font-semibold text-tinta">{nombreSeccion}</h1>
           <Link
             href={`/admin/history/${entryKey}`}
-            className="text-sm text-slate-600 underline underline-offset-4 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            className="text-sm text-tinta-suave underline underline-offset-4 hover:text-tinta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
           >
             Ver versiones anteriores
           </Link>
@@ -398,9 +398,9 @@ export function EntryEditor({
           tabIndex={0}
           onPointerDown={alAgarrar}
           onKeyDown={alTeclear}
-          className="group hidden cursor-col-resize items-center justify-center px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 lg:flex"
+          className="group hidden cursor-col-resize items-center justify-center px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento lg:flex"
         >
-          <span className="h-16 w-1 rounded-full bg-slate-300 transition group-hover:bg-slate-500" />
+          <span className="h-16 w-1 rounded-full bg-linea-fuerte transition group-hover:bg-tinta-tenue" />
         </div>
 
         {urlDeVistaPrevia === undefined ? (
@@ -421,14 +421,14 @@ export function EntryEditor({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-4">
+      <div className="flex flex-wrap items-center gap-3 border-t border-linea pt-4">
         <button
           type="button"
           onClick={() => {
             void alPublicar();
           }}
           disabled={autosave.estado.tipo === 'conflicto'}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+          className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
         >
           Publicar cambios
         </button>
@@ -439,7 +439,7 @@ export function EntryEditor({
             onClick={() => {
               setConfirmandoDeshacer(true);
             }}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            className="rounded-md border border-linea bg-superficie px-4 py-2 text-sm font-medium text-tinta transition hover:bg-papel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
           >
             Deshacer cambios
           </button>
@@ -449,7 +449,7 @@ export function EntryEditor({
           <p
             aria-live="polite"
             className={
-              erroresDePublicar.length > 0 ? 'text-sm text-red-700' : 'text-sm text-emerald-800'
+              erroresDePublicar.length > 0 ? 'text-sm text-alarma' : 'text-sm text-publicado-tinta'
             }
           >
             {avisoDePublicar}
@@ -468,8 +468,8 @@ function RecuperarBorrador({
   onDescartar: () => void;
 }) {
   return (
-    <div className="rounded-md border border-amber-300 bg-amber-50 p-4">
-      <p className="text-sm text-amber-900">
+    <div className="rounded-md border border-pendiente-linea bg-pendiente-fondo p-4">
+      <p className="text-sm text-pendiente-tinta">
         Tienes cambios sin guardar de la última vez, quizá porque se cortó la conexión. ¿Quieres
         recuperarlos?
       </p>
@@ -477,14 +477,14 @@ function RecuperarBorrador({
         <button
           type="button"
           onClick={onRecuperar}
-          className="rounded-md bg-amber-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-900"
+          className="rounded-md bg-pendiente-accion px-3 py-1.5 text-sm font-medium text-sobre-pendiente hover:bg-pendiente-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta"
         >
           Recuperar
         </button>
         <button
           type="button"
           onClick={onDescartar}
-          className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-900"
+          className="rounded-md border border-pendiente-linea bg-superficie px-3 py-1.5 text-sm font-medium text-pendiente-tinta hover:bg-pendiente-fondo focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta"
         >
           Descartar
         </button>
@@ -495,8 +495,8 @@ function RecuperarBorrador({
 
 function AvisoDeConflicto() {
   return (
-    <div role="alert" className="rounded-md border border-red-300 bg-red-50 p-4">
-      <p className="text-sm text-red-900">
+    <div role="alert" className="rounded-md border border-alarma-linea bg-alarma-fondo p-4">
+      <p className="text-sm text-alarma">
         Otra persona ha guardado cambios en esta sección mientras editabas. Para no pisar su
         trabajo, hemos dejado de guardar. Vuelve a cargar la página para ver lo último.
       </p>
@@ -505,7 +505,7 @@ function AvisoDeConflicto() {
         onClick={() => {
           window.location.reload();
         }}
-        className="mt-3 rounded-md bg-red-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-900"
+        className="mt-3 rounded-md bg-alarma-accion-hover px-3 py-1.5 text-sm font-medium text-sobre-alarma hover:bg-alarma-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alarma"
       >
         Volver a cargar
       </button>
@@ -522,9 +522,11 @@ function AvisoDeConflicto() {
  */
 function HuecoDeVistaPrevia() {
   return (
-    <div className="hidden rounded-md border border-dashed border-slate-300 bg-slate-50 p-6 lg:block">
-      <p className="text-sm font-medium text-slate-700">La vista previa no está disponible ahora</p>
-      <p className="mt-1 text-sm text-slate-500">
+    <div className="hidden rounded-md border border-dashed border-linea bg-papel p-6 lg:block">
+      <p className="text-sm font-medium text-tinta-suave">
+        La vista previa no está disponible ahora
+      </p>
+      <p className="mt-1 text-sm text-tinta-tenue">
         Puedes seguir escribiendo y publicando con normalidad. Vuelve a cargar la página para
         intentarlo otra vez.
       </p>

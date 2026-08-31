@@ -1,1 +1,195 @@
 @import 'tailwindcss';
+
+/**
+ * Las fichas de color del panel (spec 10, issue #219).
+ *
+ * ## Por qué fichas y no variantes `dark:`
+ *
+ * Porque el color estaba en ~250 clases literales repartidas por los componentes. Un modo
+ * oscuro con `dark:` habría duplicado cada una: el doble de sitios donde equivocarse, y
+ * ninguna forma de comprobar que los dos modos dicen lo mismo.
+ *
+ * Aquí cada ficha nombra **el papel que cumple un color**, no el color. Los componentes
+ * escriben `bg-papel`, `text-tinta`, `border-linea`, y no saben en qué modo están. El modo
+ * oscuro es otro juego de valores para las mismas fichas, así que no se pueden desincronizar.
+ *
+ * ## Cómo se elige el modo
+ *
+ * Sin cookie manda el sistema operativo; con cookie manda ella. El servidor pinta `data-tema`
+ * en el `<html>` desde el primer byte, así que **no hay parpadeo ni un solo byte de
+ * JavaScript** — está contado en la spec, §4.
+ *
+ * ## El bloque oscuro está dos veces, y es a propósito
+ *
+ * Uno para `prefers-color-scheme` (sin preferencia guardada) y otro para `data-tema="oscuro"`
+ * (con ella). CSS no deja compartir un bloque entre un `@media` y un selector de atributo sin
+ * indirecciones peores que la repetición.
+ *
+ * Lo que evita que se separen no es la disciplina: es `tests/unit/fichas-de-color.test.ts`,
+ * que exige que los dos bloques oscuros sean **idénticos** y que ninguna ficha del claro se
+ * quede sin pareja.
+ */
+
+@theme {
+  /* El papel y lo que se levanta de él. */
+  --color-papel: #faf8f4;
+  --color-superficie: #ffffff;
+  --color-superficie-suave: #f1ede5;
+
+  /* La tinta, en sus tres pesos. */
+  --color-tinta: #1a1714;
+  --color-tinta-suave: #57514a;
+  --color-tinta-tenue: #665f55;
+
+  /* Los trazos. Finos: en este idioma visual separan más las líneas que las cajas. */
+  --color-linea: #e5ded2;
+  --color-linea-fuerte: #c2b8a6;
+
+  /* La acción principal. En claro es tinta sobre papel; en oscuro se invierte sola. */
+  --color-accion: #232019;
+  --color-accion-hover: #3d372d;
+  --color-sobre-accion: #faf8f4;
+
+  /* El único color con carácter, usado con avaricia. */
+  --color-acento: #4b6640;
+  --color-acento-hover: #3c5333;
+  --color-sobre-acento: #faf8f4;
+
+  /* Lo destructivo y los errores. */
+  --color-alarma: #9c2b20;
+  --color-alarma-fondo: #fbeeeb;
+  --color-alarma-linea: #e3bdb6;
+  --color-alarma-accion: #9c2b20;
+  --color-alarma-accion-hover: #7f2119;
+  --color-sobre-alarma: #ffffff;
+
+  /* Publicado. */
+  --color-publicado-fondo: #e7efe3;
+  --color-publicado-tinta: #2f4b26;
+  --color-publicado-linea: #bdd2b3;
+  --color-sobre-publicado: #ffffff;
+
+  /* Con cambios sin publicar. */
+  --color-pendiente-fondo: #fbf0da;
+  --color-pendiente-tinta: #5f450f;
+  --color-pendiente-linea: #e0c894;
+  --color-pendiente-accion: #5f450f;
+  --color-pendiente-accion-hover: #4b360b;
+  --color-sobre-pendiente: #ffffff;
+
+  /* El serif de los titulares se inyecta desde `next/font` (issue #221). */
+  --font-serif: var(--fuente-titulares), Georgia, 'Times New Roman', serif;
+}
+
+/* Sin preferencia guardada, manda el sistema.
+ *
+ * El selector es de atributo **a secas**, no `:root[...]`, y esa diferencia costó encontrarla
+ * mirando la pantalla: Tailwind emite las fichas en `:root`, pero el atributo lo pinta el panel
+ * en su propio contenedor —no en el `<html>`, que comparte con la landing—. Con `:root[...]` el
+ * interruptor cambiaba de etiqueta y no cambiaba ni un color.
+ *
+ * Y los tres estados son explícitos: `sistema` existe como valor en vez de ser la ausencia del
+ * atributo. Una ausencia no se puede seleccionar dentro de un `@media` sin negaciones que se
+ * leen al revés de lo que hacen. */
+@media (prefers-color-scheme: dark) {
+  [data-tema='sistema'] {
+    --color-papel: #15130f;
+    --color-superficie: #1e1b16;
+    --color-superficie-suave: #292520;
+
+    --color-tinta: #ede7dc;
+    --color-tinta-suave: #b8b0a2;
+    --color-tinta-tenue: #a29a8c;
+
+    --color-linea: #332e26;
+    --color-linea-fuerte: #4d4539;
+
+    --color-accion: #ede7dc;
+    --color-accion-hover: #cfc8ba;
+    --color-sobre-accion: #15130f;
+
+    --color-acento: #a9c79a;
+    --color-acento-hover: #bcd6af;
+    --color-sobre-acento: #15130f;
+
+    --color-alarma: #f0a094;
+    --color-alarma-fondo: #2c1814;
+    --color-alarma-linea: #5c2f27;
+    --color-alarma-accion: #f0a094;
+    --color-alarma-accion-hover: #f5b8ae;
+    --color-sobre-alarma: #15130f;
+
+    --color-publicado-fondo: #1a2716;
+    --color-publicado-tinta: #a9c79a;
+    --color-publicado-linea: #2f4b26;
+    --color-sobre-publicado: #15130f;
+
+    --color-pendiente-fondo: #2a2210;
+    --color-pendiente-tinta: #e2c98d;
+    --color-pendiente-linea: #55441c;
+    --color-pendiente-accion: #e2c98d;
+    --color-pendiente-accion-hover: #ecd9a8;
+    --color-sobre-pendiente: #15130f;
+  }
+}
+
+/* Con preferencia guardada, manda ella. Idéntico al bloque de arriba — hay un test que lo exige. */
+[data-tema='oscuro'] {
+  --color-papel: #15130f;
+  --color-superficie: #1e1b16;
+  --color-superficie-suave: #292520;
+
+  --color-tinta: #ede7dc;
+  --color-tinta-suave: #b8b0a2;
+  --color-tinta-tenue: #a29a8c;
+
+  --color-linea: #332e26;
+  --color-linea-fuerte: #4d4539;
+
+  --color-accion: #ede7dc;
+  --color-accion-hover: #cfc8ba;
+  --color-sobre-accion: #15130f;
+
+  --color-acento: #a9c79a;
+  --color-acento-hover: #bcd6af;
+  --color-sobre-acento: #15130f;
+
+  --color-alarma: #f0a094;
+  --color-alarma-fondo: #2c1814;
+  --color-alarma-linea: #5c2f27;
+  --color-alarma-accion: #f0a094;
+  --color-alarma-accion-hover: #f5b8ae;
+  --color-sobre-alarma: #15130f;
+
+  --color-publicado-fondo: #1a2716;
+  --color-publicado-tinta: #a9c79a;
+  --color-publicado-linea: #2f4b26;
+  --color-sobre-publicado: #15130f;
+
+  --color-pendiente-fondo: #2a2210;
+  --color-pendiente-tinta: #e2c98d;
+  --color-pendiente-linea: #55441c;
+  --color-pendiente-accion: #e2c98d;
+  --color-pendiente-accion-hover: #ecd9a8;
+  --color-sobre-pendiente: #15130f;
+}
+
+/* Lo que pinta el navegador —barras de desplazamiento, cursor de texto, controles nativos—
+   necesita saber en qué modo está. Sin esto, el modo oscuro lleva una barra blanca al lado. */
+:root {
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-tema='sistema'] {
+    color-scheme: dark;
+  }
+}
+
+[data-tema='oscuro'] {
+  color-scheme: dark;
+}
+
+[data-tema='claro'] {
+  color-scheme: light;
+}

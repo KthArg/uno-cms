@@ -51,7 +51,7 @@ export function CampoImagen({ id, field, value, onChange, error, onElegir }: Ima
     >
       <div className="space-y-3">
         {value === undefined ? (
-          <p className="text-sm text-slate-500">No hay ninguna imagen elegida.</p>
+          <p className="text-sm text-tinta-tenue">No hay ninguna imagen elegida.</p>
         ) : (
           <div className="flex items-start gap-3">
             {/* `img` y no `next/image`: aquí la URL viene del contenido y puede ser de
@@ -62,7 +62,7 @@ export function CampoImagen({ id, field, value, onChange, error, onElegir }: Ima
             <img
               src={value.url}
               alt={value.alt}
-              className="h-20 w-20 rounded border border-slate-200 object-cover"
+              className="h-20 w-20 rounded border border-linea object-cover"
             />
 
             <button
@@ -70,7 +70,7 @@ export function CampoImagen({ id, field, value, onChange, error, onElegir }: Ima
               onClick={() => {
                 onChange(undefined);
               }}
-              className="text-sm text-slate-700 underline underline-offset-4 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              className="text-sm text-tinta-suave underline underline-offset-4 hover:text-tinta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
             >
               Quitar imagen
             </button>
@@ -81,7 +81,7 @@ export function CampoImagen({ id, field, value, onChange, error, onElegir }: Ima
           <button
             type="button"
             onClick={onElegir}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            className="rounded-md border border-linea bg-superficie px-3 py-1.5 text-sm font-medium text-tinta hover:bg-papel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
           >
             {value === undefined ? 'Elegir imagen' : 'Cambiar imagen'}
           </button>
@@ -89,7 +89,7 @@ export function CampoImagen({ id, field, value, onChange, error, onElegir }: Ima
 
         {value !== undefined && altObligatorio && (
           <div className="space-y-1.5">
-            <label htmlFor={`${id}-alt`} className="block text-sm font-medium text-slate-900">
+            <label htmlFor={`${id}-alt`} className="block text-sm font-medium text-tinta">
               Descripción de la imagen
             </label>
             <input
@@ -102,11 +102,11 @@ export function CampoImagen({ id, field, value, onChange, error, onElegir }: Ima
               className={claseControl(mensajeDeAlt ?? error)}
               {...idsDeCampo(`${id}-alt`, undefined, mensajeDeAlt)}
             />
-            <p id={`${id}-alt-ayuda`} className="text-xs text-slate-500">
+            <p id={`${id}-alt-ayuda`} className="text-xs text-tinta-tenue">
               Para quien no puede verla. Describe lo que se ve, no la palabra «imagen».
             </p>
             {mensajeDeAlt !== undefined && (
-              <p id={`${id}-alt-error`} className="text-sm text-red-700">
+              <p id={`${id}-alt-error`} className="text-sm text-alarma">
                 {mensajeDeAlt}
               </p>
             )}

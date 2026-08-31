@@ -6,14 +6,27 @@ import { SectionCard } from '@/cms/ui/SectionCard';
 
 /** T-A-1 y T-A-3: armazón del panel y tarjetas de sección (SPEC §3, §9). */
 
-function montarShell(rol: 'admin' | 'editor', rutaActual = '/admin', onSalir = vi.fn()) {
+function montarShell(
+  rol: 'admin' | 'editor',
+  rutaActual = '/admin',
+  onSalir = vi.fn(),
+  tema: 'claro' | 'oscuro' | null = null,
+  onCambiarDeTema = vi.fn()
+) {
   render(
-    <PanelShell rol={rol} nombreDeUsuario="Ana" rutaActual={rutaActual} onSalir={onSalir}>
+    <PanelShell
+      rol={rol}
+      nombreDeUsuario="Ana"
+      rutaActual={rutaActual}
+      onSalir={onSalir}
+      tema={tema}
+      onCambiarDeTema={onCambiarDeTema}
+    >
       <p>contenido</p>
     </PanelShell>
   );
 
-  return onSalir;
+  return { onSalir, onCambiarDeTema };
 }
 
 describe('armazón del panel', () => {
@@ -123,7 +136,14 @@ describe('T-208-1 y T-208-4 — salir del panel (issue #211)', () => {
     // y `SPEC.md` no lo menciona: no faltaba un test, faltaba la pregunta.
     for (const rol of ['admin', 'editor'] as const) {
       const { unmount } = render(
-        <PanelShell rol={rol} nombreDeUsuario="Ana" rutaActual="/admin/media" onSalir={vi.fn()}>
+        <PanelShell
+          rol={rol}
+          nombreDeUsuario="Ana"
+          rutaActual="/admin/media"
+          onSalir={vi.fn()}
+          tema={null}
+          onCambiarDeTema={vi.fn()}
+        >
           <p>contenido</p>
         </PanelShell>
       );
@@ -134,11 +154,11 @@ describe('T-208-1 y T-208-4 — salir del panel (issue #211)', () => {
   });
 
   it('al pulsarlo se cierra la sesión', async () => {
-    const salir = montarShell('admin');
+    const { onSalir } = montarShell('admin');
 
     await userEvent.click(screen.getByRole('button', { name: 'Salir' }));
 
-    expect(salir).toHaveBeenCalledOnce();
+    expect(onSalir).toHaveBeenCalledOnce();
   });
 
   it('T-208-4: es un envío de formulario, no un enlace', () => {
@@ -153,5 +173,68 @@ describe('T-208-1 y T-208-4 — salir del panel (issue #211)', () => {
     expect(boton.getAttribute('type')).toBe('submit');
     expect(boton.closest('form')).not.toBeNull();
     expect(screen.queryByRole('link', { name: 'Salir' })).toBeNull();
+  });
+});
+
+describe('T-212-5 y T-212-6 — el interruptor de modo (issue #219)', () => {
+  it('sin preferencia guardada el contenedor dice «sistema»', () => {
+    // **`null` no es «claro»**, y esta es la diferencia que decide si el ajuste del sistema
+    // operativo de alguien se respeta o se ignora. Pintar `data-tema="claro"` por defecto
+    // dejaría en claro a todo el que nunca haya tocado el interruptor, tenga el sistema como
+    // lo tenga — que es casi todo el mundo.
+    montarShell('admin');
+
+    expect(document.querySelector('[data-tema="sistema"]')).not.toBeNull();
+    expect(document.querySelector('[data-tema="claro"]')).toBeNull();
+  });
+
+  it('con preferencia guardada, el contenedor la lleva puesta', () => {
+    for (const tema of ['claro', 'oscuro'] as const) {
+      const { unmount } = render(
+        <PanelShell
+          rol="admin"
+          nombreDeUsuario="Ana"
+          rutaActual="/admin"
+          onSalir={vi.fn()}
+          tema={tema}
+          onCambiarDeTema={vi.fn()}
+        >
+          <p>contenido</p>
+        </PanelShell>
+      );
+
+      expect(document.querySelector(`[data-tema="${tema}"]`), tema).not.toBeNull();
+      unmount();
+    }
+  });
+
+  it('el botón dice a dónde lleva, no dónde estás', () => {
+    // Estando en oscuro, el botón ofrece «Modo claro». Al revés obliga a adivinar si la etiqueta
+    // describe el estado o la acción, y se adivina mal la mitad de las veces.
+    const { unmount } = render(
+      <PanelShell
+        rol="admin"
+        nombreDeUsuario="Ana"
+        rutaActual="/admin"
+        onSalir={vi.fn()}
+        tema="oscuro"
+        onCambiarDeTema={vi.fn()}
+      >
+        <p>contenido</p>
+      </PanelShell>
+    );
+    expect(screen.getByRole('button', { name: 'Modo claro' })).toBeInTheDocument();
+    unmount();
+
+    montarShell('admin', '/admin', vi.fn(), 'claro');
+    expect(screen.getByRole('button', { name: 'Modo oscuro' })).toBeInTheDocument();
+  });
+
+  it('y al pulsarlo se guarda la preferencia', async () => {
+    const { onCambiarDeTema } = montarShell('admin');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Modo oscuro' }));
+
+    expect(onCambiarDeTema).toHaveBeenCalledOnce();
   });
 });

@@ -68,27 +68,27 @@ export function HistoryScreen({
       <div>
         <Link
           href={`/admin/content/${entryKey}`}
-          className="text-sm text-slate-600 underline underline-offset-4 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+          className="text-sm text-tinta-suave underline underline-offset-4 hover:text-tinta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
         >
           ← Volver a {nombreSeccion}
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900">
+        <h1 className="mt-2 text-2xl font-semibold text-tinta">
           Versiones anteriores de {nombreSeccion}
         </h1>
-        <p className="mt-1 text-slate-600">
+        <p className="mt-1 text-tinta-suave">
           Cada vez que publicas, se guarda la versión que había antes. Puedes recuperar cualquiera
           de estas.
         </p>
       </div>
 
-      <p aria-live="polite" className="text-sm text-red-700">
+      <p aria-live="polite" className="text-sm text-alarma">
         {aviso}
       </p>
 
       {revisiones.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 p-8">
-          <p className="text-slate-700">Todavía no hay versiones anteriores.</p>
-          <p className="mt-1 text-sm text-slate-500">
+        <div className="rounded-lg border border-dashed border-linea p-8">
+          <p className="text-tinta-suave">Todavía no hay versiones anteriores.</p>
+          <p className="mt-1 text-sm text-tinta-tenue">
             Aparecerán aquí a partir de la segunda vez que publiques esta sección: la primera no
             sustituye nada.
           </p>
@@ -98,11 +98,11 @@ export function HistoryScreen({
           {revisiones.map((revision) => (
             <li
               key={revision.id}
-              className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-4"
+              className="flex flex-wrap items-center gap-3 rounded-lg border border-linea bg-superficie p-4"
             >
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-slate-900">{revision.resumen}</p>
-                <p className="mt-0.5 text-sm text-slate-500">
+                <p className="truncate font-medium text-tinta">{revision.resumen}</p>
+                <p className="mt-0.5 text-sm text-tinta-tenue">
                   <FechaLegible fecha={revision.publishedAt} />
                   {revision.autor !== null && ` · ${revision.autor}`}
                 </p>
@@ -114,7 +114,7 @@ export function HistoryScreen({
                 onClick={() => {
                   setARestaurar(revision);
                 }}
-                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                className="rounded-md border border-linea bg-superficie px-3 py-1.5 text-sm font-medium text-tinta hover:bg-papel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
               >
                 Volver a esta versión
               </button>

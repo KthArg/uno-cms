@@ -69,24 +69,24 @@ export function MediaLibrary({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-slate-900">Imágenes</h1>
+        <h1 className="text-2xl font-semibold text-tinta">Imágenes</h1>
         <button
           type="button"
           onClick={() => {
             setAbierto(true);
           }}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+          className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion hover:bg-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
         >
           Subir una imagen
         </button>
       </div>
 
-      <p aria-live="polite" className="text-sm text-slate-600">
+      <p aria-live="polite" className="text-sm text-tinta-suave">
         {aviso}
       </p>
 
       {visibles.length === 0 ? (
-        <p className="text-slate-600">
+        <p className="text-tinta-suave">
           Todavía no hay imágenes. Sube la primera y podrás usarla en cualquier sección.
         </p>
       ) : (
@@ -97,9 +97,9 @@ export function MediaLibrary({
               <img
                 src={imagen.url}
                 alt={imagen.alt === '' ? imagen.filename : imagen.alt}
-                className="h-32 w-full rounded border border-slate-200 bg-slate-50 object-cover"
+                className="h-32 w-full rounded border border-linea bg-papel object-cover"
               />
-              <p className="truncate text-xs text-slate-600" title={imagen.filename}>
+              <p className="truncate text-xs text-tinta-suave" title={imagen.filename}>
                 {imagen.filename}
               </p>
 
@@ -109,7 +109,7 @@ export function MediaLibrary({
                   onClick={() => {
                     setAConfirmar(imagen);
                   }}
-                  className="text-xs text-red-700 underline underline-offset-4 hover:text-red-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+                  className="text-xs text-alarma underline underline-offset-4 hover:text-alarma focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alarma"
                 >
                   Eliminar
                 </button>
@@ -170,22 +170,22 @@ function ConfirmarBorrado({
       role="alertdialog"
       aria-modal="true"
       aria-label={`Eliminar ${imagen.filename}`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/40 p-4"
       onKeyDown={(evento) => {
         if (evento.key === 'Escape') onCancelar();
       }}
     >
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-slate-900">¿Eliminar «{imagen.filename}»?</h2>
+      <div className="w-full max-w-md rounded-lg bg-superficie p-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-tinta">¿Eliminar «{imagen.filename}»?</h2>
 
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imagen.url}
           alt={imagen.filename}
-          className="mt-3 h-32 w-full rounded border border-slate-200 object-contain"
+          className="mt-3 h-32 w-full rounded border border-linea object-contain"
         />
 
-        <p className="mt-3 text-sm text-slate-700">
+        <p className="mt-3 text-sm text-tinta-suave">
           Se borra del almacén y no se puede recuperar. Si alguna sección la está usando, ahí dejará
           de verse.
         </p>
@@ -194,14 +194,14 @@ function ConfirmarBorrado({
           <button
             type="button"
             onClick={onConfirmar}
-            className="rounded-md bg-red-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+            className="rounded-md bg-alarma-accion px-3 py-1.5 text-sm font-medium text-sobre-alarma hover:bg-alarma-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alarma"
           >
             Sí, eliminar
           </button>
           <button
             type="button"
             onClick={onCancelar}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            className="rounded-md border border-linea bg-superficie px-3 py-1.5 text-sm font-medium text-tinta hover:bg-papel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
           >
             Cancelar
           </button>

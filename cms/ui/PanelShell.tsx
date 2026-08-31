@@ -1,6 +1,7 @@
 // isomorphic: solo presentación. El rol llega como prop desde el layout, que es quien tiene
 // la sesión — así este componente no arrastra `cms/auth` a ningún sitio.
 import Link from 'next/link';
+import type { Tema } from '@/cms/tema';
 
 /**
  * El armazón del panel (SPEC §3): barra lateral, cabecera y contenido.
@@ -28,6 +29,15 @@ export interface PanelShellProps {
    * este componente es presentación isomorfa y no puede arrastrar `cms/auth` al navegador.
    */
   readonly onSalir: () => Promise<void>;
+  /**
+   * El modo guardado, o `null` si no hay preferencia (spec 10 §4).
+   *
+   * `null` no significa claro: significa **que manda el sistema operativo**, y se pinta como
+   * `data-tema="sistema"`. Pintar `claro` por defecto ignoraría el ajuste de quien nunca ha
+   * tocado el interruptor, que es casi todo el mundo.
+   */
+  readonly tema: Tema | null;
+  readonly onCambiarDeTema: () => Promise<void>;
   /** Si esta pantalla usa el ancho de la ventana en vez del techo de lectura (issue #190). */
   readonly anchoCompleto?: boolean;
 }
@@ -68,6 +78,8 @@ export function PanelShell({
   nombreDeUsuario,
   rutaActual,
   onSalir,
+  tema,
+  onCambiarDeTema,
   anchoCompleto = false,
 }: PanelShellProps) {
   const entradas = entradasVisibles(rol);
@@ -82,12 +94,18 @@ export function PanelShell({
   const ancho = anchoCompleto ? 'max-w-none' : 'max-w-6xl';
 
   return (
-    <div className="flex min-h-dvh flex-col bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
+    <div
+      // El atributo va aquí y no en el `<html>` porque la raíz es compartida con la landing
+      // pública, que no entra en esta fase: un `color-scheme: dark` allí le pondría barras de
+      // desplazamiento oscuras a una página clara. Está contado en `cms/tema.ts`.
+      data-tema={tema ?? 'sistema'}
+      className="flex min-h-dvh flex-col bg-papel"
+    >
+      <header className="border-b border-linea bg-superficie">
         <div className={`mx-auto flex ${ancho} items-center justify-between gap-4 px-6 py-3`}>
           <Link
             href="/admin"
-            className="font-semibold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+            className="font-semibold text-tinta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
           >
             Tu sitio
           </Link>
@@ -99,7 +117,7 @@ export function PanelShell({
             <Link
               href="/admin/account"
               aria-current={rutaActual.startsWith('/admin/account') ? 'page' : undefined}
-              className="text-slate-600 underline-offset-4 hover:text-slate-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              className="text-tinta-suave underline-offset-4 hover:text-tinta hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
             >
               {nombreDeUsuario}
             </Link>
@@ -111,10 +129,22 @@ export function PanelShell({
 
                 Y va en la cabecera, en todas las pantallas, porque el momento en que hace
                 falta es al terminar: estés donde estés. */}
+            {/* El interruptor dice **a dónde lleva**, no dónde estás: «Modo oscuro» cuando
+                estás en claro. Un icono de luna a secas obliga a adivinar cuál de las dos
+                cosas significa, y se adivina mal la mitad de las veces. */}
+            <form action={onCambiarDeTema}>
+              <button
+                type="submit"
+                className="text-tinta-suave underline-offset-4 hover:text-tinta hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+              >
+                {tema === 'oscuro' ? 'Modo claro' : 'Modo oscuro'}
+              </button>
+            </form>
+
             <form action={onSalir}>
               <button
                 type="submit"
-                className="text-slate-600 underline-offset-4 hover:text-slate-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                className="text-tinta-suave underline-offset-4 hover:text-tinta hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
               >
                 Salir
               </button>
@@ -141,10 +171,10 @@ export function PanelShell({
                     // `aria-current` y no solo un color: quien navega con lector de pantalla
                     // no ve el fondo gris.
                     aria-current={activa ? 'page' : undefined}
-                    className={`block rounded-md px-3 py-2 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${
+                    className={`block rounded-md px-3 py-2 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento ${
                       activa
-                        ? 'bg-slate-900 font-medium text-white'
-                        : 'text-slate-700 hover:bg-slate-200'
+                        ? 'bg-accion font-medium text-sobre-accion'
+                        : 'text-tinta-suave hover:bg-superficie-suave'
                     }`}
                   >
                     {entrada.texto}

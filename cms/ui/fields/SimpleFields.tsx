@@ -130,21 +130,21 @@ export function CampoBooleano({
           onChange={(evento) => {
             onChange(evento.target.checked);
           }}
-          className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-2 focus:ring-slate-900"
+          className="h-4 w-4 rounded border-linea text-tinta focus:ring-2 focus:ring-acento"
           {...idsDeCampo(id, field.help, error)}
         />
-        <label htmlFor={id} className="text-sm font-medium text-slate-900">
+        <label htmlFor={id} className="text-sm font-medium text-tinta">
           {field.label}
         </label>
       </div>
 
       {field.help !== undefined && (
-        <p id={`${id}-ayuda`} className="text-xs text-slate-500">
+        <p id={`${id}-ayuda`} className="text-xs text-tinta-tenue">
           {field.help}
         </p>
       )}
       {error !== undefined && (
-        <p id={`${id}-error`} className="text-sm text-red-700">
+        <p id={`${id}-error`} className="text-sm text-alarma">
           {error}
         </p>
       )}
@@ -239,7 +239,7 @@ export function CampoColor({ id, field, value, onChange, error }: CampoProps<Col
           onChange={(evento) => {
             onChange(evento.target.value);
           }}
-          className="h-9 w-12 cursor-pointer rounded border border-slate-300"
+          className="h-9 w-12 cursor-pointer rounded border border-linea"
           {...idsDeCampo(id, field.help, error)}
         />
         {/* Y el campo de texto al lado, porque un color de marca se copia y se pega, no se

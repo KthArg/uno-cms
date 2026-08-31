@@ -120,7 +120,7 @@ export function PublishAllButton({ action }: { action: PublishAllAction }) {
           void publicarTodo();
         }}
         disabled={pendiente}
-        className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+        className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
       >
         {pendiente ? 'Publicando…' : 'Publicar todo'}
       </button>
@@ -146,7 +146,7 @@ function Resumen({ resultado, pendiente }: { resultado: PublishAllResult; pendie
     resultado.restantes === 0;
 
   if (nadaQuePublicar) {
-    return <p className="text-slate-600">No había cambios sin publicar.</p>;
+    return <p className="text-tinta-suave">No había cambios sin publicar.</p>;
   }
 
   return (
@@ -155,10 +155,10 @@ function Resumen({ resultado, pendiente }: { resultado: PublishAllResult; pendie
           devolvía solo el mensaje, y eso se traga la lista de lo que sí se publicó: decirle a
           alguien que no se publicó nada cuando se publicaron cuarenta es peor que el fallo que
           se está contando. Lo publicado está confirmado, cada entrada en su transacción. */}
-      {resultado.error !== undefined && <p className="text-red-700">{resultado.error}</p>}
+      {resultado.error !== undefined && <p className="text-alarma">{resultado.error}</p>}
 
       {resultado.publicadas.length > 0 && (
-        <p className="text-emerald-800">
+        <p className="text-publicado-tinta">
           {resultado.publicadas.length === 1
             ? 'Se ha publicado 1 sección.'
             : `Se han publicado ${String(resultado.publicadas.length)} secciones.`}
@@ -166,9 +166,9 @@ function Resumen({ resultado, pendiente }: { resultado: PublishAllResult; pendie
       )}
 
       {resultado.fallidas.length > 0 && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
-          <p className="font-medium text-amber-900">Estas secciones no se han publicado:</p>
-          <ul className="mt-1 space-y-1 text-amber-900">
+        <div className="rounded-md border border-pendiente-linea bg-pendiente-fondo p-3">
+          <p className="font-medium text-pendiente-tinta">Estas secciones no se han publicado:</p>
+          <ul className="mt-1 space-y-1 text-pendiente-tinta">
             {resultado.fallidas.map((fallida) => (
               <li key={fallida.nombre}>
                 <strong className="font-medium">{fallida.nombre}</strong>: {fallida.motivo}
@@ -179,7 +179,7 @@ function Resumen({ resultado, pendiente }: { resultado: PublishAllResult; pendie
       )}
 
       {resultado.restantes > 0 && (
-        <p className="text-slate-600">
+        <p className="text-tinta-suave">
           {pendiente
             ? `Quedan ${String(resultado.restantes)} por publicar…`
             : // Sin `pendiente` esto significa que el bucle se paró sin avanzar. Decir "vuelve

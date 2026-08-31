@@ -452,9 +452,9 @@ export function PreviewFrame({
   const altoDelRecuadro = Math.min(altoDisponible, Math.round(pantalla.alto * escala) + MARGEN * 2);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
-        <p className="text-sm text-slate-600">
+    <div className="overflow-hidden rounded-lg border border-linea bg-superficie">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-linea bg-papel px-3 py-2">
+        <p className="text-sm text-tinta-suave">
           Así se ve tu web con lo que llevas escrito. Todavía no está publicado.
         </p>
         <div role="group" aria-label="Tamaño de pantalla" className="flex gap-1">
@@ -471,8 +471,8 @@ export function PreviewFrame({
               }}
               className={
                 tamano === valor
-                  ? 'rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white'
-                  : 'rounded-md px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-200'
+                  ? 'rounded-md bg-accion px-2.5 py-1 text-xs font-medium text-sobre-accion'
+                  : 'rounded-md px-2.5 py-1 text-xs font-medium text-tinta-suave transition hover:bg-superficie-suave'
               }
             >
               {nombre}
@@ -486,7 +486,7 @@ export function PreviewFrame({
         // el servidor al pintar esta pantalla.
         <p
           role="status"
-          className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          className="border-b border-pendiente-linea bg-pendiente-fondo px-3 py-2 text-sm text-pendiente-tinta"
         >
           La vista previa ha dejado de actualizarse. Lo que ves puede no ser lo último que has
           escrito.{' '}
@@ -516,7 +516,7 @@ export function PreviewFrame({
         // `overflow-auto` y no `hidden` por si el hueco se queda muy estrecho: recortar
         // escondería media pantalla sin decirlo. En la práctica no sale barra, porque la escala
         // mira también el alto y el marco de dentro mide ya lo que ocupa.
-        className="overflow-auto bg-slate-100"
+        className="overflow-auto bg-superficie-suave"
         style={{ height: `${String(altoDelRecuadro)}px`, padding: `${String(MARGEN)}px` }}
       >
         {/*
@@ -529,7 +529,7 @@ export function PreviewFrame({
           cambia, solo los números.
         */}
         <div
-          className="mx-auto overflow-hidden bg-white shadow-sm"
+          className="mx-auto overflow-hidden bg-superficie shadow-sm"
           style={{
             width: `${String(Math.round(pantalla.ancho * escala))}px`,
             height: `${String(Math.round(pantalla.alto * escala))}px`,
@@ -539,7 +539,7 @@ export function PreviewFrame({
             ref={iframe}
             src={src}
             title="Vista previa de tu web"
-            className="border-0 bg-white"
+            className="border-0 bg-superficie"
             style={{
               // Los dos del tamaño elegido: es una ventana de ese tamaño, no un hueco estirado.
               width: `${String(pantalla.ancho)}px`,

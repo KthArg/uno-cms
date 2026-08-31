@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { auth, signIn } from '@/cms/auth';
+import { EnvoltorioDeTema } from '@/app/envoltorio-de-tema';
 
 /**
  * Página de acceso (SPEC §3).
@@ -33,59 +34,61 @@ export default async function LoginPage({
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
-      <h1 className="text-2xl font-semibold">Entrar</h1>
+    <EnvoltorioDeTema>
+      <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
+        <h1 className="text-2xl font-semibold">Entrar</h1>
 
-      {/* Quien llega aquí desde poner su contraseña —por invitación o por cambiarla— no viene a
+        {/* Quien llega aquí desde poner su contraseña —por invitación o por cambiarla— no viene a
           "entrar": viene de terminar algo. Sin este aviso se encuentra un formulario mudo y no
           sabe si lo suyo se guardó. Es el mismo motivo por el que cambiar la contraseña avisa
           antes de cerrar la sesión. */}
-      {params.lista !== undefined && (
-        <p className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-          Tu contraseña ya está puesta. Entra con ella y tu correo.
-        </p>
-      )}
+        {params.lista !== undefined && (
+          <p className="rounded-md border border-publicado-linea bg-publicado-fondo px-3 py-2 text-sm text-publicado-tinta">
+            Tu contraseña ya está puesta. Entra con ella y tu correo.
+          </p>
+        )}
 
-      {params.cambiada !== undefined && (
-        <p className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-          Contraseña cambiada. Se han cerrado todas las sesiones, así que entra otra vez con la
-          nueva.
-        </p>
-      )}
+        {params.cambiada !== undefined && (
+          <p className="rounded-md border border-publicado-linea bg-publicado-fondo px-3 py-2 text-sm text-publicado-tinta">
+            Contraseña cambiada. Se han cerrado todas las sesiones, así que entra otra vez con la
+            nueva.
+          </p>
+        )}
 
-      <form action={iniciarSesion} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm">Correo</span>
-          <input
-            name="email"
-            type="email"
-            required
-            autoComplete="username"
-            className="rounded border border-slate-300 px-3 py-2"
-          />
-        </label>
+        <form action={iniciarSesion} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">Correo</span>
+            <input
+              name="email"
+              type="email"
+              required
+              autoComplete="username"
+              className="rounded border border-linea px-3 py-2"
+            />
+          </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm">Contraseña</span>
-          <input
-            name="password"
-            type="password"
-            required
-            autoComplete="current-password"
-            className="rounded border border-slate-300 px-3 py-2"
-          />
-        </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">Contraseña</span>
+            <input
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              className="rounded border border-linea px-3 py-2"
+            />
+          </label>
 
-        <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white">
-          Entrar
-        </button>
-      </form>
+          <button type="submit" className="rounded bg-accion px-4 py-2 text-sobre-accion">
+            Entrar
+          </button>
+        </form>
 
-      {params.error !== undefined && (
-        <p role="alert" className="text-sm text-red-700">
-          Revisa el correo y la contraseña.
-        </p>
-      )}
-    </main>
+        {params.error !== undefined && (
+          <p role="alert" className="text-sm text-alarma">
+            Revisa el correo y la contraseña.
+          </p>
+        )}
+      </main>
+    </EnvoltorioDeTema>
   );
 }

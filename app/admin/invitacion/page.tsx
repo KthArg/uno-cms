@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { checkInvitation, redeemInvitation, type DatosDeInvitacion } from '@/cms/auth/invitations';
+import { EnvoltorioDeTema } from '@/app/envoltorio-de-tema';
 
 /**
  * Canje de la invitación (SPEC §5.3, §10.2; issue #95).
@@ -88,56 +89,58 @@ export default async function PantallaDeInvitacion({
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6 py-12">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Te damos la bienvenida</h1>
-        <p className="mt-2 text-slate-600">
-          Hola, {invitacion.name}. Elige una contraseña para tu cuenta ({invitacion.email}) y ya
-          podrás entrar a administrar la web.
-        </p>
-      </div>
+    <EnvoltorioDeTema>
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6 py-12">
+        <div>
+          <h1 className="text-2xl font-semibold text-tinta">Te damos la bienvenida</h1>
+          <p className="mt-2 text-tinta-suave">
+            Hola, {invitacion.name}. Elige una contraseña para tu cuenta ({invitacion.email}) y ya
+            podrás entrar a administrar la web.
+          </p>
+        </div>
 
-      {params.error !== undefined && <Aviso motivo={params.error} />}
+        {params.error !== undefined && <Aviso motivo={params.error} />}
 
-      <form action={establecer} className="flex flex-col gap-4">
-        {/* La ayuda va fuera del `label`: dentro, su texto se sumaría al nombre accesible del
+        <form action={establecer} className="flex flex-col gap-4">
+          {/* La ayuda va fuera del `label`: dentro, su texto se sumaría al nombre accesible del
             campo en vez de quedarse como descripción. */}
-        <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1">
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-tinta">Tu contraseña</span>
+              <input
+                name="password"
+                type="password"
+                required
+                autoComplete="new-password"
+                aria-describedby="ayuda"
+                className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+              />
+            </label>
+            <span id="ayuda" className="text-sm text-tinta-tenue">
+              Al menos 12 caracteres. Una frase que recuerdes vale más que algo corto y raro.
+            </span>
+          </div>
+
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-slate-800">Tu contraseña</span>
+            <span className="text-sm font-medium text-tinta">Repítela</span>
             <input
-              name="password"
+              name="repetida"
               type="password"
               required
               autoComplete="new-password"
-              aria-describedby="ayuda"
-              className="rounded-md border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+              className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
             />
           </label>
-          <span id="ayuda" className="text-sm text-slate-500">
-            Al menos 12 caracteres. Una frase que recuerdes vale más que algo corto y raro.
-          </span>
-        </div>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-slate-800">Repítela</span>
-          <input
-            name="repetida"
-            type="password"
-            required
-            autoComplete="new-password"
-            className="rounded-md border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
-          />
-        </label>
-
-        <button
-          type="submit"
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
-        >
-          Guardar y entrar
-        </button>
-      </form>
-    </main>
+          <button
+            type="submit"
+            className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+          >
+            Guardar y entrar
+          </button>
+        </form>
+      </main>
+    </EnvoltorioDeTema>
   );
 }
 
@@ -153,7 +156,7 @@ function Aviso({ motivo }: { motivo: string }) {
   return (
     <p
       role="alert"
-      className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800"
+      className="rounded-md border border-alarma-linea bg-alarma-fondo px-3 py-2 text-sm text-alarma"
     >
       {texto}
     </p>

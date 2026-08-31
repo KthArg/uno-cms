@@ -136,27 +136,27 @@ export function CollectionScreen({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-slate-900">{nombreColeccion}</h1>
+        <h1 className="text-2xl font-semibold text-tinta">{nombreColeccion}</h1>
         <button
           type="button"
           disabled={ocupado}
           onClick={() => {
             void crear();
           }}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+          className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
         >
           Añadir
         </button>
       </div>
 
-      <p aria-live="polite" className="text-sm text-slate-600">
+      <p aria-live="polite" className="text-sm text-tinta-suave">
         {aviso}
       </p>
 
       {orden.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
-          <p className="text-slate-700">Todavía no hay nada en esta lista.</p>
-          <p className="mt-1 text-sm text-slate-500">
+        <div className="rounded-lg border border-dashed border-linea p-8 text-center">
+          <p className="text-tinta-suave">Todavía no hay nada en esta lista.</p>
+          <p className="mt-1 text-sm text-tinta-tenue">
             Pulsa «Añadir» para crear el primero. No se verá en tu web hasta que lo publiques.
           </p>
         </div>
@@ -165,12 +165,12 @@ export function CollectionScreen({
           {orden.map((elemento, indice) => (
             <li
               key={elemento.key}
-              className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-4"
+              className="flex flex-wrap items-center gap-3 rounded-lg border border-linea bg-superficie p-4"
             >
               <div className="min-w-0 flex-1">
                 <Link
                   href={`/admin/content/${elemento.key}`}
-                  className="font-medium text-slate-900 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                  className="font-medium text-tinta underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
                 >
                   {elemento.titulo}
                 </Link>
@@ -188,7 +188,7 @@ export function CollectionScreen({
                   onClick={() => {
                     void mover(indice, -1);
                   }}
-                  className="rounded border border-slate-300 px-2 py-1 text-sm disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                  className="rounded border border-linea px-2 py-1 text-sm disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
                 >
                   ↑
                 </button>
@@ -199,7 +199,7 @@ export function CollectionScreen({
                   onClick={() => {
                     void mover(indice, 1);
                   }}
-                  className="rounded border border-slate-300 px-2 py-1 text-sm disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                  className="rounded border border-linea px-2 py-1 text-sm disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
                 >
                   ↓
                 </button>
@@ -212,7 +212,7 @@ export function CollectionScreen({
                   onClick={() => {
                     setAEliminar(elemento);
                   }}
-                  className="text-sm text-red-700 underline underline-offset-4 hover:text-red-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+                  className="text-sm text-alarma underline underline-offset-4 hover:text-alarma focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alarma"
                 >
                   Eliminar
                 </button>
@@ -240,7 +240,7 @@ export function CollectionScreen({
         />
       )}
 
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-tinta-tenue">
         El orden se guarda solo. Lo que escribas dentro de cada elemento hay que publicarlo desde su
         pantalla o con «Publicar todo».
       </p>
