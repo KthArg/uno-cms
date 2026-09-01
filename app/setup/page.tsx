@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { completeSetup, isSetupCompleted } from '@/cms/auth/setup';
 import { SETTINGS_TAG } from '@/cms/core/settings';
 import { EnvoltorioDeTema } from '@/app/envoltorio-de-tema';
+import { CAMPO, TITULO } from '@/cms/ui/estilos';
 
 /**
  * Configuración inicial (SPEC §7.3).
@@ -53,7 +54,7 @@ export default async function SetupPage({
     <EnvoltorioDeTema>
       <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6">
         <div>
-          <h1 className="text-2xl font-semibold">Configura tu sitio</h1>
+          <h1 className={TITULO}>Configura tu sitio</h1>
           <p className="mt-2 text-sm text-tinta-suave">
             Crea la cuenta con la que administrarás la web. Solo se hace una vez.
           </p>
@@ -62,12 +63,7 @@ export default async function SetupPage({
         <form action={crear} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1">
             <span className="text-sm">Código de instalación</span>
-            <input
-              name="token"
-              required
-              autoComplete="off"
-              className="rounded border border-linea px-3 py-2"
-            />
+            <input name="token" required autoComplete="off" className={CAMPO} />
             <span className="text-xs text-tinta-tenue">
               Es el valor que pusiste en SETUP_TOKEN al desplegar.
             </span>
@@ -75,18 +71,12 @@ export default async function SetupPage({
 
           <label className="flex flex-col gap-1">
             <span className="text-sm">Tu nombre</span>
-            <input name="name" required className="rounded border border-linea px-3 py-2" />
+            <input name="name" required className={CAMPO} />
           </label>
 
           <label className="flex flex-col gap-1">
             <span className="text-sm">Tu correo</span>
-            <input
-              name="email"
-              type="email"
-              required
-              autoComplete="username"
-              className="rounded border border-linea px-3 py-2"
-            />
+            <input name="email" type="email" required autoComplete="username" className={CAMPO} />
           </label>
 
           <label className="flex flex-col gap-1">
@@ -96,7 +86,7 @@ export default async function SetupPage({
               type="password"
               required
               autoComplete="new-password"
-              className="rounded border border-linea px-3 py-2"
+              className={CAMPO}
             />
             <span className="text-xs text-tinta-tenue">Al menos 12 caracteres.</span>
           </label>

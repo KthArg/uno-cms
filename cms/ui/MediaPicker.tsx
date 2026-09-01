@@ -14,6 +14,8 @@ import {
   SUBIDA_FALLIDA,
 } from '@/cms/mensajes-de-subida';
 import { FALLO_DE_RED } from './fallo-de-red';
+import { Icono } from './iconos';
+import { BOTON_ICONO } from './estilos';
 
 /**
  * El selector de imágenes: subir una nueva o elegir de las que ya hay.
@@ -156,15 +158,11 @@ export function MediaPicker({
         if (evento.key === 'Escape') onCerrar();
       }}
     >
-      <div className="max-h-[80vh] w-full max-w-3xl overflow-auto rounded-lg bg-superficie p-6 shadow-xl">
+      <div className="cristal-flotante max-h-[80vh] w-full max-w-3xl overflow-auto rounded-2xl p-6">
         <div className="flex items-start justify-between gap-4">
           <h2 className="text-lg font-semibold text-tinta">Elegir una imagen</h2>
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="text-sm text-tinta-suave underline underline-offset-4 hover:text-tinta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
-          >
-            Cerrar
+          <button type="button" onClick={onCerrar} aria-label="Cerrar" className={BOTON_ICONO}>
+            <Icono de="cerrar" />
           </button>
         </div>
 

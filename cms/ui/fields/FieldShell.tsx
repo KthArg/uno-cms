@@ -1,5 +1,8 @@
 'use client';
 
+import { Icono } from '../iconos';
+import { CAMPO } from '../estilos';
+
 /**
  * El andamiaje que comparten todos los campos: etiqueta, ayuda y error.
  *
@@ -60,7 +63,8 @@ export function FieldShell({ id, label, help, error, required, children }: Field
       )}
 
       {error !== undefined && (
-        <p id={`${id}-error`} className="text-sm text-alarma">
+        <p id={`${id}-error`} className="flex items-center gap-1.5 text-sm text-alarma">
+          <Icono de="alerta" tamano={14} />
           {error}
         </p>
       )}
@@ -68,9 +72,17 @@ export function FieldShell({ id, label, help, error, required, children }: Field
   );
 }
 
-/** Las clases del control, con el borde rojo cuando hay error. */
+/**
+ * Las clases del control, con el borde rojo cuando hay error.
+ *
+ * Sale del vocabulario común (`CAMPO`), así que un campo de formulario y el buscador de una
+ * lista se ven igual sin que nadie tenga que acordarse. Lo único propio de aquí es el borde de
+ * error, que **se pone después** para ganarle al del estado normal.
+ *
+ * **Sin cristal, y es la regla de la spec 11 §3**: en un campo se lee y se escribe durante
+ * minutos, y una superficie translúcida cambia de contraste con lo que pase por detrás al
+ * desplazar la página.
+ */
 export function claseControl(error?: string): string {
-  return `w-full rounded-md border px-3 py-2 text-sm text-tinta shadow-sm focus:outline-none focus:ring-2 focus:ring-acento ${
-    error === undefined ? 'border-linea' : 'border-alarma'
-  }`;
+  return `${CAMPO} text-sm ${error === undefined ? '' : 'border-alarma hover:border-alarma'}`;
 }

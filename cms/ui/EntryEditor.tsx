@@ -20,6 +20,16 @@ import { EntryForm, type ValoresDeEntrada } from './EntryForm';
 import { EstadoGuardado } from './EstadoGuardado';
 import { MediaPicker, type MediaPickerProps } from './MediaPicker';
 import { useAutosave, type ResultadoGuardado } from './useAutosave';
+import { Icono } from './iconos';
+import {
+  ANILLO_DE_FOCO,
+  AVISO_ALARMA,
+  AVISO_PENDIENTE,
+  BOTON_ALARMA,
+  BOTON_PRINCIPAL,
+  BOTON_SUAVE,
+  TITULO,
+} from './estilos';
 
 /**
  * La pantalla de edición de una entrada (SPEC §6.1, §8, §9).
@@ -104,6 +114,15 @@ export function EntryEditor({
   const [confirmandoDeshacer, setConfirmandoDeshacer] = useState(false);
   const [erroresDePublicar, setErroresDePublicar] = useState<readonly ActionFieldError[]>([]);
   const [avisoDePublicar, setAvisoDePublicar] = useState<string | null>(null);
+
+  /**
+   * Qué mitad se ve en una pantalla estrecha (spec 10 §5, issue #220).
+   *
+   * Por encima del ancho de dos columnas **no se usa para nada**: ahí se ven las dos a la vez y
+   * este control no se pinta. Así que no es «pestañas en móvil y otra cosa en escritorio»: es
+   * una sola maqueta cuyo repartidor cambia de forma.
+   */
+  const [mitadVisible, setMitadVisible] = useState<'formulario' | 'vista'>('formulario');
 
   /**
    * El reparto de la pantalla entre el formulario y la vista previa (issue #190).
@@ -293,11 +312,12 @@ export function EntryEditor({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-tinta">{nombreSeccion}</h1>
+          <h1 className={TITULO}>{nombreSeccion}</h1>
           <Link
             href={`/admin/history/${entryKey}`}
-            className="text-sm text-tinta-suave underline underline-offset-4 hover:text-tinta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+            className={`mt-1 inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave transition hover:text-tinta ${ANILLO_DE_FOCO}`}
           >
+            <Icono de="historial" tamano={16} />
             Ver versiones anteriores
           </Link>
         </div>
@@ -357,6 +377,54 @@ export function EntryEditor({
         />
       )}
 
+      {/**
+       * El repartidor de pantalla estrecha (issue #220).
+       *
+       * Debajo del ancho de dos columnas la vista previa estaba **escondida y sin forma de
+       * llegar a ella**: `hidden lg:block` la quitaba y no la sustituía por nada. O sea que en
+       * un móvil el editor perdía la mitad de lo que hace, en silencio.
+       *
+       * **`aria-pressed` y no `role="tab"`**, y esto se escribió al revés primero.
+       *
+       * Un `tablist` de verdad exige más de lo que se puso: cada pestaña con `aria-controls`, un
+       * `role="tabpanel"` con `aria-labelledby` en cada mitad, y las flechas del teclado
+       * moviéndose entre ellas. Con solo `role="tab"` y `aria-selected`, un lector de pantalla
+       * anuncia «pestaña 1 de 2» y **no encuentra el panel que dice controlar**: promete una
+       * estructura que no está, que es peor que no prometerla.
+       *
+       * Y hay un motivo más para no completarlo: a partir de `lg` no hay pestañas, se ven las
+       * dos mitades a la vez. Unos `tabpanel` permanentes en el marcado describirían una
+       * navegación que en escritorio no existe.
+       *
+       * Dos botones que dejan pulsado el elegido es exactamente lo que son, y es el patrón que
+       * este panel ya usa para los tamaños de la vista previa.
+       */}
+      <div role="group" aria-label="Qué se ve" className="flex gap-1 lg:hidden">
+        {(
+          [
+            ['formulario', 'Escribir', 'escribir'],
+            ['vista', 'Vista previa', 'verPrevia'],
+          ] as const
+        ).map(([cual, texto, icono]) => (
+          <button
+            key={cual}
+            type="button"
+            aria-pressed={mitadVisible === cual}
+            onClick={() => {
+              setMitadVisible(cual);
+            }}
+            className={`flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm transition ${ANILLO_DE_FOCO} ${
+              mitadVisible === cual
+                ? 'bg-accion font-medium text-sobre-accion'
+                : 'border border-linea bg-superficie text-tinta-suave'
+            }`}
+          >
+            <Icono de={icono} tamano={16} />
+            {texto}
+          </button>
+        ))}
+      </div>
+
       <div
         ref={reparto}
         className="grid gap-8 lg:grid-cols-[var(--ancho-formulario)_auto_1fr] lg:gap-0"
@@ -365,6 +433,10 @@ export function EntryEditor({
         {/* `onBlur` en el contenedor y no en cada campo: el evento burbujea, y ponerlo en los
             ocho componentes de campo sería ocho sitios donde olvidarlo. */}
         <form
+          // `hidden` y no desmontar: quitar el formulario del árbol al cambiar de pestaña
+          // perdería el foco y el estado del editor de texto rico, y el `onBlur` que guarda
+          // saltaría en un momento raro. En `lg` vuelve siempre, pase lo que pase aquí.
+          className={mitadVisible === 'formulario' ? '' : 'hidden lg:block'}
           onBlur={() => {
             void autosave.guardarYa();
           }}
@@ -400,13 +472,18 @@ export function EntryEditor({
           onKeyDown={alTeclear}
           className="group hidden cursor-col-resize items-center justify-center px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento lg:flex"
         >
-          <span className="h-16 w-1 rounded-full bg-linea-fuerte transition group-hover:bg-tinta-tenue" />
+          <span className="h-16 w-1 rounded-full bg-linea-fuerte transition group-hover:bg-acento" />
         </div>
 
         {urlDeVistaPrevia === undefined ? (
-          <HuecoDeVistaPrevia />
+          <div className={mitadVisible === 'vista' ? 'block lg:block' : 'hidden lg:block'}>
+            <HuecoDeVistaPrevia />
+          </div>
         ) : (
-          <div className="hidden lg:block">
+          // Igual que el formulario: se esconde con CSS, **no se desmonta**. Desmontarlo
+          // recargaría el iframe en cada ida y vuelta entre pestañas, y con él la sesión de
+          // vista previa entera — que es lo que #138 y #180 costaron levantar.
+          <div className={mitadVisible === 'vista' ? 'block lg:block' : 'hidden lg:block'}>
             <PreviewFrame
               src={urlDeVistaPrevia}
               entryKey={entryKey}
@@ -421,15 +498,24 @@ export function EntryEditor({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-linea pt-4">
+      {/* **Pegada abajo no**, y esto se probó y se deshizo mirando la pantalla.
+          
+          La idea era buena —en una sección larga, «Publicar cambios» se va de la vista— pero
+          esta barra ocupa el ancho de las dos columnas, así que flotando cruzaba por delante de
+          la vista previa y desenfocaba la web de quien edita. Cambiar un desplazamiento por
+          tapar la mitad del contenido no es un intercambio que salga a cuenta.
+          
+          Se queda al final, con cristal: sigue leyéndose como el sitio donde se decide. */}
+      <div className="cristal flex flex-wrap items-center gap-3 rounded-2xl p-3">
         <button
           type="button"
           onClick={() => {
             void alPublicar();
           }}
           disabled={autosave.estado.tipo === 'conflicto'}
-          className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+          className={BOTON_PRINCIPAL}
         >
+          <Icono de="publicar" />
           Publicar cambios
         </button>
 
@@ -439,8 +525,9 @@ export function EntryEditor({
             onClick={() => {
               setConfirmandoDeshacer(true);
             }}
-            className="rounded-md border border-linea bg-superficie px-4 py-2 text-sm font-medium text-tinta transition hover:bg-papel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+            className={BOTON_SUAVE}
           >
+            <Icono de="revertir" />
             Deshacer cambios
           </button>
         )}
@@ -448,10 +535,11 @@ export function EntryEditor({
         {avisoDePublicar !== null && (
           <p
             aria-live="polite"
-            className={
-              erroresDePublicar.length > 0 ? 'text-sm text-alarma' : 'text-sm text-publicado-tinta'
-            }
+            className={`flex items-center gap-1.5 text-sm ${
+              erroresDePublicar.length > 0 ? 'text-alarma' : 'text-publicado-tinta'
+            }`}
           >
+            <Icono de={erroresDePublicar.length > 0 ? 'alerta' : 'publicado'} tamano={16} />
             {avisoDePublicar}
           </p>
         )}
@@ -468,24 +556,27 @@ function RecuperarBorrador({
   onDescartar: () => void;
 }) {
   return (
-    <div className="rounded-md border border-pendiente-linea bg-pendiente-fondo p-4">
-      <p className="text-sm text-pendiente-tinta">
+    <div className={`${AVISO_PENDIENTE} flex-col`}>
+      <p className="flex items-start gap-2.5">
+        <Icono de="conCambios" tamano={16} className="mt-0.5" />
         Tienes cambios sin guardar de la última vez, quizá porque se cortó la conexión. ¿Quieres
         recuperarlos?
       </p>
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={onRecuperar}
-          className="rounded-md bg-pendiente-accion px-3 py-1.5 text-sm font-medium text-sobre-pendiente hover:bg-pendiente-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta"
+          className={`inline-flex h-11 items-center gap-2 rounded-xl bg-pendiente-accion px-4 text-sm font-medium text-sobre-pendiente transition hover:bg-pendiente-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta`}
         >
+          <Icono de="revertir" tamano={16} />
           Recuperar
         </button>
         <button
           type="button"
           onClick={onDescartar}
-          className="rounded-md border border-pendiente-linea bg-superficie px-3 py-1.5 text-sm font-medium text-pendiente-tinta hover:bg-pendiente-fondo focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta"
+          className={`inline-flex h-11 items-center gap-2 rounded-xl border border-pendiente-linea px-4 text-sm font-medium text-pendiente-tinta transition hover:bg-superficie-suave focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta`}
         >
+          <Icono de="cerrar" tamano={16} />
           Descartar
         </button>
       </div>
@@ -495,8 +586,9 @@ function RecuperarBorrador({
 
 function AvisoDeConflicto() {
   return (
-    <div role="alert" className="rounded-md border border-alarma-linea bg-alarma-fondo p-4">
-      <p className="text-sm text-alarma">
+    <div role="alert" className={`${AVISO_ALARMA} flex-col`}>
+      <p className="flex items-start gap-2.5">
+        <Icono de="alerta" tamano={16} className="mt-0.5" />
         Otra persona ha guardado cambios en esta sección mientras editabas. Para no pisar su
         trabajo, hemos dejado de guardar. Vuelve a cargar la página para ver lo último.
       </p>
@@ -505,8 +597,9 @@ function AvisoDeConflicto() {
         onClick={() => {
           window.location.reload();
         }}
-        className="mt-3 rounded-md bg-alarma-accion-hover px-3 py-1.5 text-sm font-medium text-sobre-alarma hover:bg-alarma-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alarma"
+        className={`${BOTON_ALARMA} mt-3`}
       >
+        <Icono de="revertir" tamano={16} />
         Volver a cargar
       </button>
     </div>
@@ -522,8 +615,9 @@ function AvisoDeConflicto() {
  */
 function HuecoDeVistaPrevia() {
   return (
-    <div className="hidden rounded-md border border-dashed border-linea bg-papel p-6 lg:block">
-      <p className="text-sm font-medium text-tinta-suave">
+    <div className="rounded-2xl border border-dashed border-linea p-8">
+      <p className="flex items-center gap-2 text-sm font-medium text-tinta-suave">
+        <Icono de="verPrevia" tamano={16} />
         La vista previa no está disponible ahora
       </p>
       <p className="mt-1 text-sm text-tinta-tenue">

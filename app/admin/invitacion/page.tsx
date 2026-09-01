@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { checkInvitation, redeemInvitation, type DatosDeInvitacion } from '@/cms/auth/invitations';
 import { EnvoltorioDeTema } from '@/app/envoltorio-de-tema';
+import { AVISO_ALARMA, BOTON_PRINCIPAL, CAMPO, TITULO } from '@/cms/ui/estilos';
 
 /**
  * Canje de la invitación (SPEC §5.3, §10.2; issue #95).
@@ -92,7 +93,7 @@ export default async function PantallaDeInvitacion({
     <EnvoltorioDeTema>
       <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6 py-12">
         <div>
-          <h1 className="text-2xl font-semibold text-tinta">Te damos la bienvenida</h1>
+          <h1 className={TITULO}>Te damos la bienvenida</h1>
           <p className="mt-2 text-tinta-suave">
             Hola, {invitacion.name}. Elige una contraseña para tu cuenta ({invitacion.email}) y ya
             podrás entrar a administrar la web.
@@ -113,7 +114,7 @@ export default async function PantallaDeInvitacion({
                 required
                 autoComplete="new-password"
                 aria-describedby="ayuda"
-                className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+                className={CAMPO}
               />
             </label>
             <span id="ayuda" className="text-sm text-tinta-tenue">
@@ -128,14 +129,11 @@ export default async function PantallaDeInvitacion({
               type="password"
               required
               autoComplete="new-password"
-              className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+              className={CAMPO}
             />
           </label>
 
-          <button
-            type="submit"
-            className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
-          >
+          <button type="submit" className={BOTON_PRINCIPAL}>
             Guardar y entrar
           </button>
         </form>
@@ -154,10 +152,7 @@ function Aviso({ motivo }: { motivo: string }) {
         : 'Este enlace ya no sirve. Pídele a quien te invitó que te mande uno nuevo.';
 
   return (
-    <p
-      role="alert"
-      className="rounded-md border border-alarma-linea bg-alarma-fondo px-3 py-2 text-sm text-alarma"
-    >
+    <p role="alert" className={AVISO_ALARMA}>
       {texto}
     </p>
   );

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { COOKIE_DE_TEMA, leerTema } from '@/cms/tema';
+import { fuenteDelPanel } from './fuente';
 
 /**
  * El contenedor que fija el modo en las pantallas **fuera** del panel (issue #219).
@@ -27,7 +28,10 @@ export async function EnvoltorioDeTema({ children }: { children: React.ReactNode
   const tema = leerTema((await cookies()).get(COOKIE_DE_TEMA)?.value);
 
   return (
-    <div data-tema={tema ?? 'sistema'} className="min-h-dvh bg-papel text-tinta">
+    <div
+      data-tema={tema ?? 'sistema'}
+      className={`luz-del-panel min-h-dvh text-tinta ${fuenteDelPanel.className}`}
+    >
       {children}
     </div>
   );

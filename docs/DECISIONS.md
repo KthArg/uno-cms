@@ -1090,3 +1090,96 @@ Un segundo. El refresco salía **antes** que la escritura, así que refrescaba a
 - **El camino local de ADR-700 no cambia**: allí el fichero pasa por nuestro servidor y la fila la escribe la misma petición.
 
 **Qué lo revertiría.** Que el aviso deje de ser el único mecanismo por otra vía: una reconciliación periódica del almacén contra la base haría innecesaria esta escritura, y de paso resolvería lo huérfano que ya existe.
+
+---
+
+## ADR-800 — El cristal solo se compone sobre el fondo de la página, y por eso el contraste se sigue pudiendo calcular (resuelve #224)
+
+**Contexto.** La dirección visual nueva (spec 11) pide superficies translúcidas. El repositorio tiene desde #219 una guarda que comprueba con la fórmula de WCAG cada pareja de texto sobre fondo que el panel usa, en los dos modos, y **esa guarda deja de ser cierta en cuanto una superficie es translúcida**: mide el color nominal de la ficha, y lo que ve una persona es la mezcla con lo que haya debajo.
+
+El fallo que esto produce es de los que este proyecto persigue: la guarda seguiría en verde, seguiría pareciendo que el contraste está comprobado, y el texto podría estar en 4,3:1 sin que nadie se enterase. Una comprobación que mide lo que no se ve es peor que no tenerla, por lo mismo que un comentario que promete lo que el código no hace.
+
+**Las salidas evaluadas.**
+
+| Salida                                                     | Por qué no                                                                                                                                                                                                                  |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dejar la guarda como está**                              | Es la peor de todas y hay que nombrarla: sigue verde midiendo la ficha nominal, y el día que el cristal se aclare un punto nadie se entera. Pasaría a certificar un número que no existe en ninguna pantalla                |
+| **Declarar las superficies de cristal fuera de la guarda** | Es la salida cómoda, y la que ofrecía el propio issue. Deja sin comprobar justo lo nuevo, que es donde está el riesgo: las superficies opacas nunca fueron el problema                                                      |
+| **Medir el color real en un navegador**                    | Con Playwright se puede leer el píxel compuesto. Cuesta arrancar un servidor para una comprobación que hoy son milisegundos, y solo mide **las pantallas que el test recorra**: la que se olvide queda sin medir y en verde |
+| **Renunciar a la translucidez**                            | Es renunciar a lo que se pidió                                                                                                                                                                                              |
+
+**Decisión.** Se acota el fondo hasta que vuelva a ser calculable, y la guarda compone.
+
+1. **Detrás de cualquier cristal del panel solo puede haber el fondo de la página** —el color base más el halo—. Nunca contenido arbitrario y **nunca una imagen**, que es el único fondo que no controlamos. La regla está en la spec 11 §3, con la tabla de dónde hay cristal y dónde no.
+2. Ese fondo tiene por tanto **dos extremos, y los dos son fichas**: `--color-papel`, el punto más oscuro, y `--color-fondo-claro`, donde las dos manchas del halo se solapan.
+3. La guarda compone `--color-cristal` con su `--opacidad-cristal` sobre **cada uno de los dos extremos** y exige 4,5:1 en ambos. En el peor caso, no en el medio.
+
+**Consecuencias.**
+
+- **La opacidad del cristal y la intensidad del halo dejan de ser parámetros libres.** Subir cualquiera de los dos aleja los extremos y tumba la guarda. Eso es la decisión, no un efecto colateral: al diseñar esta paleta, un halo un 40 % más intenso dejaba el texto terciario en **4,31:1** — por debajo de AA y sin diferencia visible en pantalla.
+- **La opacidad tiene que estar en el CSS donde el test pueda leerla**, y por eso es una ficha (`--opacidad-cristal`) y no un número escrito dentro de la utilidad. Una utilidad con la opacidad incrustada dejaría a la guarda comprobando un valor que ya no se sirve.
+- **El cristal no se puede apilar, y esto casi se cuela.** La premisa dice «detrás de un cristal solo hay el fondo de la página»; un botón de cristal dentro de una tarjeta de cristal tiene **otro cristal** detrás. Se escribió así —`BOTON_SUAVE` era translúcido, en cinco pantallas— y la guarda seguía verde, porque compone una sola capa. Medido: apiladas dos láminas en modo oscuro, `tinta-tenue` cae de 4,93:1 a **4,09:1**, por debajo de AA. Los controles pasan a superficie opaca, que además es lo que la spec 11 §3 ya decía, y hay un caso que lo impone sobre `cms/ui/estilos.ts`.
+- **La regla «nada de cristal sobre una imagen» hay que sostenerla a mano.** No hay test que la imponga: lo que hay es la tabla de la spec y que la biblioteca de imágenes usa superficies opacas. Es el punto débil de este ADR, y se dice aquí en vez de dejarlo implícito. Nótese la diferencia con la de arriba: aquella se pudo convertir en guarda porque el cristal de un control se declara en un sitio conocido; esta depende de dónde se coloque un elemento en el árbol, que no se lee estáticamente.
+- Las parejas opacas se siguen comprobando exactamente igual. Esto **añade** una comprobación, no sustituye ninguna.
+
+**Qué lo revertiría.** Que aparezca una superficie de cristal cuyo fondo no se pueda acotar —cristal sobre la vista previa, por ejemplo—. Ahí la respuesta ya no es componer dos extremos: sería medir en un navegador, o poner bajo el texto una capa opaca propia y comprobar esa.
+
+---
+
+## ADR-801 — Lucide, y el criterio es la importación individual, no el catálogo (resuelve #224)
+
+**Contexto.** El panel no tenía ninguna librería de iconos, y #224 pide sacarlos de una existente en vez de pegar SVG a mano. Hay tres candidatas razonables, y la tentación al elegir es contar iconos.
+
+**Decisión.** `lucide-react`, por tres criterios en este orden:
+
+| Criterio                   | Lucide                                                       | Heroicons  | Phosphor                          |
+| -------------------------- | ------------------------------------------------------------ | ---------- | --------------------------------- |
+| **Licencia**               | ISC, permisiva                                               | MIT        | MIT                               |
+| **Importación individual** | Un módulo por icono, y `optimizePackageImports` lo reescribe | Sí         | Sí, pero el paquete es más pesado |
+| **Trazo**                  | 1,5 px uniforme                                              | Más grueso | Seis pesos, más carácter          |
+
+El tamaño del catálogo no entra en la decisión: las tres traen de sobra para un panel con cuatro secciones.
+
+**Consecuencias.**
+
+- **Entra una dependencia de tiempo de ejecución en el panel.** Es la primera de interfaz que se añade desde el editor de texto rico.
+- **Hay que vigilar que no llegue a la landing**, que tiene presupuesto de 60 KB. Lo vigila un test (T-215-4) además del presupuesto de JavaScript, porque el presupuesto avisaría **después** de que el bulto ya esté dentro, y sin decir de qué es.
+- **La importación con nombre es obligatoria y hay test.** `import * as Icons from 'lucide-react'` mete el índice completo, y es un cambio de una línea que ningún otro control detectaría.
+- Los iconos viven en **un solo módulo** (`cms/ui/iconos.tsx`), no repartidos por los componentes: es lo que permite que la guarda mire un sitio, y que cambiar de librería sea tocar un fichero.
+
+**Qué lo revertiría.** Que `optimizePackageImports` deje de reescribir el paquete y el índice entero empiece a entrar. Se vería en el presupuesto de JavaScript, no adivinándolo.
+
+---
+
+## ADR-802 — El acento y el estado «pendiente» comparten color, a propósito (resuelve #224)
+
+**Contexto.** Una paleta de panel necesita cuatro papeles cromáticos distinguibles: publicado, pendiente, alarma y el acento de marca. Con verde para publicado y rojo para alarma, al acento le quedan el ámbar y los fríos. La paleta anterior eligió un acento oliva, que **colisionaba con publicado**; elegir ámbar lo hace colisionar con pendiente.
+
+**Decisión.** El acento **es** el ámbar de pendiente, y eso no es una colisión sino el significado: en este panel, lo que pide atención y la acción principal son la misma cosa — publicar lo que está sin publicar. El dorado quiere decir «aquí te toca a ti».
+
+El fondo azul-noche deja además al ámbar como el único color cálido de la pantalla, que es lo que lo hace visible sin tener que saturarlo.
+
+**Consecuencias.**
+
+- El panel se lee de un vistazo con tres señales: **dorado = te toca, jade = al día, coral = mal**. Es lo que pedía «elementos claros a simple vista».
+- **La distinción no puede recaer solo en el color**, y aquí no recae: cada estado lleva su icono y su texto, que es además la regla de accesibilidad para quien no distingue esos dos tonos.
+- **Se pierde poder pintar de acento algo que no sea accionable.** Un adorno dorado en una zona donde no hay nada que hacer contradiría la regla, y la regla vale más que el adorno.
+
+**Qué lo revertiría.** Que el panel gane un estado nuevo que también pida atención y no sea publicar. Ahí harían falta dos ámbares o un color más, y la lectura de un vistazo se acabaría.
+
+---
+
+## ADR-803 — Se retira `--font-serif`, que apuntaba a una variable que no define nadie (resuelve #224)
+
+**Contexto.** La spec 10 §6 fijaba «un serif para los titulares y la interfaz en el sans del sistema», servido con `next/font` desde nuestro dominio. Al escribir la spec 11 se fue a mirar cómo estaba puesto y **no estaba**: `--font-serif` apunta a `var(--fuente-titulares)`, que no la define ningún fichero del repositorio, así que resuelve al `Georgia` del final de la lista. Y `font-serif` no aparece en ningún componente.
+
+O sea que el contraste tipográfico que la spec describía **no existió nunca en ninguna pantalla**, y nadie lo notó porque ese fallo se ve exactamente igual que la decisión de no usarlo.
+
+**Decisión.** Se retira la ficha. La dirección nueva usa **una sola familia de interfaz** servida con `next/font`, con el peso como única variable de jerarquía: el serif editorial era coherente con «papel y tinta» y no lo es con el cristal, que pide letra de interfaz legible a tamaño pequeño sobre fondo translúcido.
+
+**Consecuencias.**
+
+- **Una ficha declarada que no usa nadie vuelve a ser detectable**, porque se añade un caso que lo exige (T-215-12). Sin él esto se repite: la forma en que una ficha muere no es rompiéndose, es quedándose sin usar mientras la documentación sigue prometiéndola.
+- Se pierde el contraste serif/sans. No se pierde nada real, porque no estaba puesto.
+
+**Qué lo revertiría.** Que la jerarquía por peso no baste para distinguir un titular de un párrafo. Se vería mirando el panel, que es exactamente donde no se vio esto durante dos entregas.

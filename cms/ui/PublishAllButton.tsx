@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { FALLO_DE_RED } from './fallo-de-red';
+import { Icono } from './iconos';
+import { AVISO_PENDIENTE, BOTON_PRINCIPAL } from './estilos';
 
 /**
  * "Publicar todo" (SPEC §9).
@@ -120,8 +122,14 @@ export function PublishAllButton({ action }: { action: PublishAllAction }) {
           void publicarTodo();
         }}
         disabled={pendiente}
-        className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+        className={BOTON_PRINCIPAL}
       >
+        {/* El icono cambia con el estado, y gira mientras hay vueltas en marcha: con muchas
+            secciones esto tarda, y un botón que solo cambia de palabra parece colgado. */}
+        <Icono
+          de={pendiente ? 'esperando' : 'publicar'}
+          className={pendiente ? 'animate-spin' : ''}
+        />
         {pendiente ? 'Publicando…' : 'Publicar todo'}
       </button>
 
@@ -155,10 +163,16 @@ function Resumen({ resultado, pendiente }: { resultado: PublishAllResult; pendie
           devolvía solo el mensaje, y eso se traga la lista de lo que sí se publicó: decirle a
           alguien que no se publicó nada cuando se publicaron cuarenta es peor que el fallo que
           se está contando. Lo publicado está confirmado, cada entrada en su transacción. */}
-      {resultado.error !== undefined && <p className="text-alarma">{resultado.error}</p>}
+      {resultado.error !== undefined && (
+        <p className="flex items-start gap-2 text-alarma">
+          <Icono de="alerta" tamano={16} className="mt-0.5" />
+          {resultado.error}
+        </p>
+      )}
 
       {resultado.publicadas.length > 0 && (
-        <p className="text-publicado-tinta">
+        <p className="flex items-start gap-2 text-publicado-tinta">
+          <Icono de="publicado" tamano={16} className="mt-0.5" />
           {resultado.publicadas.length === 1
             ? 'Se ha publicado 1 sección.'
             : `Se han publicado ${String(resultado.publicadas.length)} secciones.`}
@@ -166,9 +180,12 @@ function Resumen({ resultado, pendiente }: { resultado: PublishAllResult; pendie
       )}
 
       {resultado.fallidas.length > 0 && (
-        <div className="rounded-md border border-pendiente-linea bg-pendiente-fondo p-3">
-          <p className="font-medium text-pendiente-tinta">Estas secciones no se han publicado:</p>
-          <ul className="mt-1 space-y-1 text-pendiente-tinta">
+        <div className={`${AVISO_PENDIENTE} flex-col`}>
+          <p className="flex items-center gap-2 font-medium">
+            <Icono de="conCambios" tamano={16} />
+            Estas secciones no se han publicado:
+          </p>
+          <ul className="mt-1 space-y-1 ps-6">
             {resultado.fallidas.map((fallida) => (
               <li key={fallida.nombre}>
                 <strong className="font-medium">{fallida.nombre}</strong>: {fallida.motivo}

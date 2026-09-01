@@ -1,13 +1,25 @@
 import { redirect } from 'next/navigation';
 import { auth, signIn } from '@/cms/auth';
 import { EnvoltorioDeTema } from '@/app/envoltorio-de-tema';
+import { Icono } from '@/cms/ui/iconos';
+import { AVISO_ALARMA, AVISO_PUBLICADO, BOTON_PRINCIPAL, CAMPO } from '@/cms/ui/estilos';
 
 /**
  * Página de acceso (SPEC §3).
  *
- * Lo mínimo para que el flujo funcione, sin diseño: el panel es M4. Lo que sí está aquí es
- * el mensaje único de SPEC §7.1 —"revisa el correo y la contraseña"— que no distingue entre
- * correo inexistente, contraseña incorrecta y cuenta bloqueada.
+ * Aquí sigue estando el mensaje único de SPEC §7.1 —"revisa el correo y la contraseña"— que no
+ * distingue entre correo inexistente, contraseña incorrecta y cuenta bloqueada. **Eso no se
+ * toca**: es lo que cierra la enumeración de cuentas, y es una decisión de seguridad, no de
+ * redacción.
+ *
+ * ## Lo que sí cambió (#224)
+ *
+ * Esta pantalla llevaba desde M2 un comentario que decía "lo mínimo para que el flujo funcione,
+ * **sin diseño**: el panel es M4". M4 se cerró hace cinco hitos y la frase se quedó, que es
+ * exactamente la forma en que un comentario se convierte en mentira: describía un plan, no el
+ * código, y el plan caducó sin que nadie volviera a leerlo.
+ *
+ * Es además la primera pantalla que ve quien llega, y la única que ve quien no consigue entrar.
  */
 export default async function LoginPage({
   searchParams,
@@ -35,59 +47,69 @@ export default async function LoginPage({
 
   return (
     <EnvoltorioDeTema>
-      <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6">
-        <h1 className="text-2xl font-semibold">Entrar</h1>
+      <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6 py-12">
+        {/* La lámina de cristal está aquí y no alrededor de toda la pantalla: es lo único que
+            flota, así que es donde va la mirada. Con el halo detrás, este recuadro es lo que
+            da la primera impresión de qué clase de herramienta es esto. */}
+        <div className="cristal rounded-3xl p-7">
+          <div className="flex items-center gap-2.5">
+            <span aria-hidden="true" className="size-2 rounded-full bg-acento" />
+            <span className="font-semibold text-tinta">Tu sitio</span>
+          </div>
 
-        {/* Quien llega aquí desde poner su contraseña —por invitación o por cambiarla— no viene a
-          "entrar": viene de terminar algo. Sin este aviso se encuentra un formulario mudo y no
-          sabe si lo suyo se guardó. Es el mismo motivo por el que cambiar la contraseña avisa
-          antes de cerrar la sesión. */}
-        {params.lista !== undefined && (
-          <p className="rounded-md border border-publicado-linea bg-publicado-fondo px-3 py-2 text-sm text-publicado-tinta">
-            Tu contraseña ya está puesta. Entra con ella y tu correo.
-          </p>
-        )}
+          <h1 className="mt-5 text-2xl font-semibold tracking-tight text-tinta">Entrar</h1>
 
-        {params.cambiada !== undefined && (
-          <p className="rounded-md border border-publicado-linea bg-publicado-fondo px-3 py-2 text-sm text-publicado-tinta">
-            Contraseña cambiada. Se han cerrado todas las sesiones, así que entra otra vez con la
-            nueva.
-          </p>
-        )}
+          {/* Quien llega aquí desde poner su contraseña —por invitación o por cambiarla— no viene a
+              "entrar": viene de terminar algo. Sin este aviso se encuentra un formulario mudo y no
+              sabe si lo suyo se guardó. Es el mismo motivo por el que cambiar la contraseña avisa
+              antes de cerrar la sesión. */}
+          {params.lista !== undefined && (
+            <p className={`${AVISO_PUBLICADO} mt-5`}>
+              <Icono de="publicado" tamano={16} className="mt-0.5" />
+              Tu contraseña ya está puesta. Entra con ella y tu correo.
+            </p>
+          )}
 
-        <form action={iniciarSesion} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1">
-            <span className="text-sm">Correo</span>
-            <input
-              name="email"
-              type="email"
-              required
-              autoComplete="username"
-              className="rounded border border-linea px-3 py-2"
-            />
-          </label>
+          {params.cambiada !== undefined && (
+            <p className={`${AVISO_PUBLICADO} mt-5`}>
+              <Icono de="publicado" tamano={16} className="mt-0.5" />
+              Contraseña cambiada. Se han cerrado todas las sesiones, así que entra otra vez con la
+              nueva.
+            </p>
+          )}
 
-          <label className="flex flex-col gap-1">
-            <span className="text-sm">Contraseña</span>
-            <input
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              className="rounded border border-linea px-3 py-2"
-            />
-          </label>
+          <form action={iniciarSesion} className="mt-6 flex flex-col gap-4">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-tinta-suave">Correo</span>
+              <input name="email" type="email" required autoComplete="username" className={CAMPO} />
+            </label>
 
-          <button type="submit" className="rounded bg-accion px-4 py-2 text-sobre-accion">
-            Entrar
-          </button>
-        </form>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-tinta-suave">Contraseña</span>
+              <input
+                name="password"
+                type="password"
+                required
+                autoComplete="current-password"
+                className={CAMPO}
+              />
+            </label>
 
-        {params.error !== undefined && (
-          <p role="alert" className="text-sm text-alarma">
-            Revisa el correo y la contraseña.
-          </p>
-        )}
+            <button type="submit" className={`${BOTON_PRINCIPAL} mt-1 w-full`}>
+              Entrar
+            </button>
+          </form>
+
+          {/* `role="alert"` y no un párrafo cualquiera: quien falla al entrar puede estar
+              usando un lector de pantalla, y este mensaje aparece **después** de enviar. Sin
+              anunciarlo, el formulario se recarga en silencio y parece que no ha pasado nada. */}
+          {params.error !== undefined && (
+            <p role="alert" className={`${AVISO_ALARMA} mt-5`}>
+              <Icono de="alerta" tamano={16} className="mt-0.5" />
+              Revisa el correo y la contraseña.
+            </p>
+          )}
+        </div>
       </main>
     </EnvoltorioDeTema>
   );

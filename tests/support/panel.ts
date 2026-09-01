@@ -27,7 +27,11 @@ export function ficherosDelPanel(): readonly string[] {
         continue;
       }
 
-      if (entrada.endsWith('.tsx'))
+      // **También los `.ts`, y no siempre fue así.** Al mover las clases compartidas a
+      // `cms/ui/estilos.ts` (#224), un fichero que es justamente el que más clases de color
+      // tiene se habría quedado fuera de la vigilancia. Una guarda que deja de mirar donde se
+      // acaba de concentrar el riesgo es peor que no tenerla, porque parece que lo mira.
+      if (entrada.endsWith('.tsx') || entrada.endsWith('.ts'))
         encontrados.push(relative(REPO_ROOT, ruta).replaceAll('\\', '/'));
     }
   };

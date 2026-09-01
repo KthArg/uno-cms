@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import type { SectionState } from '@/cms/core/content';
 import { EstadoDeSeccion } from './EstadoDeSeccion';
+import { Icono } from './iconos';
+import { ANILLO_DE_FOCO } from './estilos';
 
 /**
  * La tarjeta de una sección en el panel (SPEC §9: "tarjeta por sección con estado").
@@ -16,6 +18,13 @@ import { EstadoDeSeccion } from './EstadoDeSeccion';
  *
  * Distinguirlo no cuesta nada —la fila ya trae `published`— y evita que alguien crea que su
  * sitio está publicado cuando no lo está.
+ *
+ * ## El cristal, y el borde que se enciende (spec 11)
+ *
+ * La tarjeta flota sobre el fondo con luz. Al pasar por encima **no cambia de fondo**: se le
+ * enciende el filo. Cambiar el fondo de una superficie translúcida al vuelo obliga al navegador
+ * a rehacer el desenfoque de esa caja, y son las cuatro o cinco tarjetas del panel a la vez si
+ * se pasa el ratón en diagonal.
  */
 
 export interface SectionCardProps {
@@ -31,18 +40,37 @@ export function SectionCard({ nombre, href, estado, elementos }: SectionCardProp
   return (
     <Link
       href={href}
-      className="group block rounded-lg border border-linea bg-superficie p-5 transition hover:border-linea hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+      className={`cristal group flex h-full flex-col gap-4 rounded-2xl p-5 transition hover:border-acento ${ANILLO_DE_FOCO}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="font-medium text-tinta group-hover:underline">{nombre}</h3>
-        <EstadoDeSeccion estado={estado} />
-      </div>
+      {/* **El título tiene la línea entera, y la etiqueta va debajo.** Estaban en la misma fila
+          y con la etiqueta al lado —que mide lo que mide su texto— «Sobre nosotros» se partía en
+          dos líneas y «SEO y redes sociales» en tres. Las tarjetas quedaban de alturas
+          distintas y el nombre de la sección, que es lo que se busca, era lo peor colocado.
 
-      {elementos !== undefined && (
-        <p className="mt-2 text-sm text-tinta-suave">
-          {elementos === 1 ? '1 elemento' : `${String(elementos)} elementos`}
-        </p>
-      )}
+          No se vio revisando el código: se vio en la captura. */}
+      <h3 className="text-base font-semibold text-balance text-tinta">{nombre}</h3>
+
+      <div className="mt-auto flex items-end justify-between gap-3">
+        <div className="flex min-w-0 flex-col items-start gap-2">
+          <EstadoDeSeccion estado={estado} />
+
+          {elementos !== undefined && (
+            <p className="text-sm text-tinta-tenue">
+              {elementos === 1 ? '1 elemento' : `${String(elementos)} elementos`}
+            </p>
+          )}
+        </div>
+
+        {/* La flecha dice "esto se abre" sin gastar una palabra, y **está oculta al lector de
+            pantalla a propósito**: el enlace ya se anuncia como enlace, así que leerla sería
+            decir dos veces lo mismo. */}
+        <span
+          aria-hidden="true"
+          className="text-tinta-tenue transition group-hover:translate-x-0.5 group-hover:text-acento"
+        >
+          <Icono de="volver" tamano={18} className="rotate-180" />
+        </span>
+      </div>
     </Link>
   );
 }

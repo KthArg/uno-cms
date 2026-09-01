@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import type { ActionFieldError } from '@/cms/actions/pipeline';
 import { FALLO_DE_RED } from './fallo-de-red';
+import { Icono } from './iconos';
+import { BOTON_PRINCIPAL, CAMPO, TARJETA, TITULO } from './estilos';
 
 /**
  * Los ajustes del sitio (ADR-410, SPEC §5.3).
@@ -38,7 +40,7 @@ export function SettingsScreen({ nombreDelSitio, seo, onGuardar }: SettingsScree
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-tinta">Ajustes</h1>
+        <h1 className={TITULO}>Ajustes</h1>
         <p className="mt-1 text-tinta-suave">
           Estos cambios se aplican a tu web en cuanto los guardas. No hay que publicarlos.
         </p>
@@ -145,8 +147,8 @@ function Bloque({
   };
 
   return (
-    <section className="rounded-lg border border-linea bg-superficie p-5">
-      <h2 className="text-lg font-medium text-tinta">{titulo}</h2>
+    <section className={`${TARJETA} p-5`}>
+      <h2 className="text-lg font-semibold text-tinta">{titulo}</h2>
       <p className="mt-1 text-sm text-tinta-suave">{descripcion}</p>
 
       <form
@@ -176,8 +178,13 @@ function Bloque({
             defaultValue: campo.valor,
             'aria-describedby': descrito === '' ? undefined : descrito,
             'aria-invalid': error === undefined ? undefined : (true as const),
-            className:
-              'rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento',
+            // **Del vocabulario común**, y no lo estaba: esta clase se escribió a mano dentro
+            // de un objeto de atributos, así que se quedó fuera cuando el resto del panel pasó
+            // a `CAMPO`. El resultado eran tres campos de **42 px** en esta pantalla, dos por
+            // debajo del mínimo de las guías.
+            //
+            // Lo cazó el e2e de #220 midiendo, no una lectura: a ojo, 42 y 44 son lo mismo.
+            className: CAMPO,
           };
 
           return (
@@ -205,11 +212,11 @@ function Bloque({
         })}
 
         <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={ocupado}
-            className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
-          >
+          <button type="submit" disabled={ocupado} className={BOTON_PRINCIPAL}>
+            <Icono
+              de={ocupado ? 'esperando' : 'publicar'}
+              className={ocupado ? 'animate-spin' : ''}
+            />
             Guardar
           </button>
           <p aria-live="polite" className="text-sm text-tinta-suave">
