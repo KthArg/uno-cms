@@ -222,9 +222,19 @@ export function PanelShell({
          * clases normales, que sí tienen variantes de tamaño.
          *
          * **Abajo y no arriba** en el móvil: es donde llega el pulgar sin cambiar de agarre, y
-         * arriba ya está la cabecera con la cuenta, el modo y salir. El icono pasa a ser lo
-         * principal y el texto va debajo, pequeño —que es lo que se pidió con «iconos antes que
-         * descripciones»— pero **sigue estando**: cuatro iconos mudos son cuatro adivinanzas.
+         * arriba ya está la cabecera con la cuenta, el modo y salir. Ahí el icono es lo
+         * principal y el texto va debajo, pequeño, pero **sigue pintado**: es donde de verdad no
+         * se puede adivinar — la primera vez, con una mano y andando.
+         *
+         * **En escritorio es un rail de iconos sin texto** (spec 12 §4, ADR-810), y eso deroga a
+         * medias la regla de la spec 11 §5 —«el icono acompaña al texto, no lo sustituye»—. Se
+         * decide, no se desliza: el ancho que se ahorra es la mitad del motivo por el que la
+         * composición no se parecía a lo que se pidió.
+         *
+         * Lo que lo hace sostenible es que **el texto no desaparece del documento**: cada enlace
+         * lleva su nombre accesible y su `title`, así que un lector de pantalla dice «Contenido»
+         * y el ratón lo enseña al pasar. Lo que se pierde es la primera vez en escritorio, y son
+         * cuatro secciones.
          *
          * `pb-[env(safe-area-inset-bottom)]` para que en un teléfono con barra de gestos la fila
          * no quede debajo de ella. Sin eso, la última sección es la que no se puede pulsar justo
@@ -235,7 +245,7 @@ export function PanelShell({
          */}
         <nav
           aria-label="Secciones del panel"
-          className="cristal-fondo fixed inset-x-0 bottom-0 z-30 border-t border-linea pb-[env(safe-area-inset-bottom)] lg:sticky lg:inset-x-auto lg:top-24 lg:bottom-auto lg:z-auto lg:w-52 lg:shrink-0 lg:self-start lg:rounded-2xl lg:border lg:p-2 lg:pb-2"
+          className="cristal-fondo fixed inset-x-0 bottom-0 z-30 border-t border-linea pb-[env(safe-area-inset-bottom)] lg:sticky lg:inset-x-auto lg:top-24 lg:bottom-auto lg:z-auto lg:w-auto lg:shrink-0 lg:self-start lg:rounded-3xl lg:border lg:p-2 lg:pb-2"
         >
           <ul className="mx-auto flex max-w-lg items-stretch justify-around lg:max-w-none lg:flex-col lg:gap-1">
             {entradas.map((entrada) => {
@@ -248,19 +258,25 @@ export function PanelShell({
                     // `aria-current` y no solo un color: quien navega con lector de pantalla
                     // no ve el fondo.
                     aria-current={activa ? 'page' : undefined}
+                    // **El nombre accesible y el `title` son la condición de ADR-810**, no un
+                    // adorno: son lo que impide que el rail de escritorio se quede mudo de
+                    // verdad. Hay un caso que los exige (T-216-2).
+                    aria-label={entrada.texto}
+                    title={entrada.texto}
                     // 56 px de alto en el móvil y **toda la celda** pulsable, no el icono. El
                     // mínimo de las guías es 44 y aquí sobra a propósito: es el control que más
-                    // se usa y el que peor se apunta andando.
-                    className={`flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] transition lg:h-11 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-3 lg:text-sm ${ANILLO_DE_FOCO} ${
+                    // se usa y el que peor se apunta andando. En el rail es un cuadrado de 44.
+                    className={`flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] transition lg:size-11 lg:justify-center lg:rounded-2xl lg:text-sm ${ANILLO_DE_FOCO} ${
                       activa
                         ? 'font-medium text-acento lg:bg-accion lg:text-sobre-accion'
                         : 'text-tinta-suave lg:hover:bg-superficie-suave lg:hover:text-tinta'
                     }`}
                   >
-                    {/* Más grande en el móvil, donde es lo que se reconoce, y del tamaño de la
-                        interfaz en escritorio, donde va al lado de la palabra. */}
                     <Icono de={entrada.icono} tamano={22} className="lg:size-5" />
-                    {entrada.texto}
+                    {/* En escritorio el texto deja de pintarse pero **no se va del documento**:
+                        `sr-only` lo mantiene para quien lo lee en voz alta. Y en el móvil sigue
+                        debajo del icono, que es donde hace falta. */}
+                    <span className="lg:sr-only">{entrada.texto}</span>
                   </Link>
                 </li>
               );

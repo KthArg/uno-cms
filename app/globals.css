@@ -58,51 +58,51 @@
 
 @theme {
   /* El papel y lo que se levanta de él. */
-  --color-papel: #f5f7fa;
+  --color-papel: #f9f6f3;
   --color-superficie: #ffffff;
-  --color-superficie-suave: #ebedf1;
+  --color-superficie-suave: #f1ece7;
 
   /* La tinta, en sus tres pesos. */
-  --color-tinta: #1b1f28;
-  --color-tinta-suave: #515763;
-  --color-tinta-tenue: #646a79;
+  --color-tinta: #251f1a;
+  --color-tinta-suave: #60564e;
+  --color-tinta-tenue: #756960;
 
   /* Los trazos. */
-  --color-linea: #dbdee3;
-  --color-linea-fuerte: #b4b7bf;
+  --color-linea: #e2ddd9;
+  --color-linea-fuerte: #bdb6b0;
 
   /* La acción principal. */
-  --color-accion: #232d45;
-  --color-accion-hover: #35425d;
-  --color-sobre-accion: #f7f8fb;
+  --color-accion: #b54c00;
+  --color-accion-hover: #9d3d00;
+  --color-sobre-accion: #fdfbfa;
 
   /* El acento. **Es el mismo ámbar que «pendiente», y es deliberado** (ADR-802): en este panel
      lo que pide atención y la acción principal son la misma cosa — publicar lo que está sin
      publicar. Dorado quiere decir «aquí te toca a ti». */
-  --color-acento: #8d5e00;
-  --color-sobre-acento: #fbfcfe;
+  --color-acento: #af4b00;
+  --color-sobre-acento: #fdfbfa;
 
   /* Lo destructivo y los errores. */
-  --color-alarma: #a5292b;
+  --color-alarma: #a72b2c;
   --color-alarma-fondo: #fcecea;
-  --color-alarma-linea: #edbdb9;
-  --color-alarma-accion: #a5292b;
-  --color-alarma-accion-hover: #861d1f;
-  --color-sobre-alarma: #fbfcfe;
+  --color-alarma-linea: #eebfba;
+  --color-alarma-accion: #a72b2c;
+  --color-alarma-accion-hover: #881f21;
+  --color-sobre-alarma: #fdfbfa;
 
   /* Publicado. */
-  --color-publicado-fondo: #e5f5eb;
-  --color-publicado-tinta: #005d37;
-  --color-publicado-linea: #b1d9c0;
-  --color-sobre-publicado: #fbfcfe;
+  --color-publicado-fondo: #e6f5e8;
+  --color-publicado-tinta: #1a5d2f;
+  --color-publicado-linea: #b5d8bb;
+  --color-sobre-publicado: #fdfbfa;
 
   /* Con cambios sin publicar. */
-  --color-pendiente-fondo: #ffefdb;
-  --color-pendiente-tinta: #764f05;
-  --color-pendiente-linea: #eccb9e;
-  --color-pendiente-accion: #764f05;
-  --color-pendiente-accion-hover: #624000;
-  --color-sobre-pendiente: #fbfcfe;
+  --color-pendiente-fondo: #ffece1;
+  --color-pendiente-tinta: #a04400;
+  --color-pendiente-linea: #f7c7ae;
+  --color-pendiente-accion: #a04400;
+  --color-pendiente-accion-hover: #893500;
+  --color-sobre-pendiente: #fdfbfa;
 
   /* El tinte del cristal. Se usa **siempre** con `--opacidad-cristal`, nunca opaco: es una
      lámina, no una superficie. */
@@ -110,20 +110,20 @@
 
   /* Las dos manchas del halo que hay detrás de todo el panel. Sin ellas el cristal no tiene
      nada que refractar y translúcido se ve igual que opaco. */
-  --color-halo-calido: #eeb154;
-  --color-halo-frio: #6d9dce;
+  --color-halo-calido: #ff8f51;
+  --color-halo-frio: #ce8a84;
 
   /* **El extremo claro del fondo**: el color que queda donde las dos manchas se solapan al
      máximo. No es decorativo — es la mitad de la entrada de la guarda de contraste, y hay un
      caso que comprueba que sigue siendo el resultado real de componer las dos manchas sobre
      el papel. Sin él, cambiar el halo dejaría a la guarda midiendo un extremo que ya no existe. */
-  --color-fondo-claro: #e2e2dd;
+  --color-fondo-claro: #f5d9cd;
 
   /* Las opacidades. Están aquí y no dentro de las utilidades para que la guarda pueda leerlas:
      ver el bloque de arriba. */
   --opacidad-cristal: 62%;
-  --opacidad-halo-calido: 16%;
-  --opacidad-halo-frio: 13%;
+  --opacidad-halo-calido: 17%;
+  --opacidad-halo-frio: 12%;
   --opacidad-filo: 75%;
 }
 
@@ -139,105 +139,105 @@
  * leen al revés de lo que hacen. */
 @media (prefers-color-scheme: dark) {
   [data-tema='sistema'] {
-    --color-papel: #0e121a;
-    --color-superficie: #1c202a;
-    --color-superficie-suave: #2b303c;
+    --color-papel: #16120e;
+    --color-superficie: #251f1b;
+    --color-superficie-suave: #342e28;
 
-    --color-tinta: #eef0f4;
-    --color-tinta-suave: #c0c4cc;
-    --color-tinta-tenue: #a5a9b2;
+    --color-tinta: #f2efed;
+    --color-tinta-suave: #c7c1bc;
+    --color-tinta-tenue: #ada6a0;
 
-    --color-linea: #3a404c;
-    --color-linea-fuerte: #626978;
+    --color-linea: #443d37;
+    --color-linea-fuerte: #6f655d;
 
-    --color-accion: #faba59;
-    --color-accion-hover: #ffd48e;
-    --color-sobre-accion: #0e121a;
+    --color-accion: #f97c2f;
+    --color-accion-hover: #ff9658;
+    --color-sobre-accion: #16120e;
 
-    --color-acento: #faba59;
-    --color-sobre-acento: #0e121a;
+    --color-acento: #ff9454;
+    --color-sobre-acento: #16120e;
 
-    --color-alarma: #f98f87;
-    --color-alarma-fondo: #3a1d1b;
+    --color-alarma: #f78d85;
+    --color-alarma-fondo: #3c201d;
     --color-alarma-linea: #733a36;
-    --color-alarma-accion: #f98f87;
-    --color-alarma-accion-hover: #ffaba3;
-    --color-sobre-alarma: #0e121a;
+    --color-alarma-accion: #f2716a;
+    --color-alarma-accion-hover: #ff8e86;
+    --color-sobre-alarma: #16120e;
 
-    --color-publicado-fondo: #133020;
-    --color-publicado-tinta: #8ce8b4;
-    --color-publicado-linea: #265c40;
-    --color-sobre-publicado: #0e121a;
+    --color-publicado-fondo: #1a301f;
+    --color-publicado-tinta: #97e5a7;
+    --color-publicado-linea: #325b3b;
+    --color-sobre-publicado: #16120e;
 
-    --color-pendiente-fondo: #382810;
-    --color-pendiente-tinta: #ffcd7e;
-    --color-pendiente-linea: #6b4c1d;
-    --color-pendiente-accion: #ffcd7e;
-    --color-pendiente-accion-hover: #ffe0a4;
-    --color-sobre-pendiente: #0e121a;
+    --color-pendiente-fondo: #412415;
+    --color-pendiente-tinta: #ffb582;
+    --color-pendiente-linea: #794427;
+    --color-pendiente-accion: #ffb582;
+    --color-pendiente-accion-hover: #ffcca6;
+    --color-sobre-pendiente: #16120e;
 
-    --color-cristal: #cbd1df;
-    --color-halo-calido: #faba59;
-    --color-halo-frio: #73a9e1;
-    --color-fondo-claro: #292c2f;
+    --color-cristal: #dbd2cb;
+    --color-halo-calido: #ff8740;
+    --color-halo-frio: #d18882;
+    --color-fondo-claro: #38251b;
 
     /* En oscuro el cristal **aclara** lo que hay detrás y en claro lo **oscurece**, así que las
        opacidades no son las mismas ni de lejos: un 62 % de blanco sobre azul noche sería una
        superficie casi opaca y se acabaría el efecto. */
     --opacidad-cristal: 8%;
-    --opacidad-halo-calido: 9%;
-    --opacidad-halo-frio: 8%;
+    --opacidad-halo-calido: 10%;
+    --opacidad-halo-frio: 7%;
     --opacidad-filo: 22%;
   }
 }
 
 /* Con preferencia guardada, manda ella. Idéntico al bloque de arriba — hay un test que lo exige. */
 [data-tema='oscuro'] {
-  --color-papel: #0e121a;
-  --color-superficie: #1c202a;
-  --color-superficie-suave: #2b303c;
+  --color-papel: #16120e;
+  --color-superficie: #251f1b;
+  --color-superficie-suave: #342e28;
 
-  --color-tinta: #eef0f4;
-  --color-tinta-suave: #c0c4cc;
-  --color-tinta-tenue: #a5a9b2;
+  --color-tinta: #f2efed;
+  --color-tinta-suave: #c7c1bc;
+  --color-tinta-tenue: #ada6a0;
 
-  --color-linea: #3a404c;
-  --color-linea-fuerte: #626978;
+  --color-linea: #443d37;
+  --color-linea-fuerte: #6f655d;
 
-  --color-accion: #faba59;
-  --color-accion-hover: #ffd48e;
-  --color-sobre-accion: #0e121a;
+  --color-accion: #f97c2f;
+  --color-accion-hover: #ff9658;
+  --color-sobre-accion: #16120e;
 
-  --color-acento: #faba59;
-  --color-sobre-acento: #0e121a;
+  --color-acento: #ff9454;
+  --color-sobre-acento: #16120e;
 
-  --color-alarma: #f98f87;
-  --color-alarma-fondo: #3a1d1b;
+  --color-alarma: #f78d85;
+  --color-alarma-fondo: #3c201d;
   --color-alarma-linea: #733a36;
-  --color-alarma-accion: #f98f87;
-  --color-alarma-accion-hover: #ffaba3;
-  --color-sobre-alarma: #0e121a;
+  --color-alarma-accion: #f2716a;
+  --color-alarma-accion-hover: #ff8e86;
+  --color-sobre-alarma: #16120e;
 
-  --color-publicado-fondo: #133020;
-  --color-publicado-tinta: #8ce8b4;
-  --color-publicado-linea: #265c40;
-  --color-sobre-publicado: #0e121a;
+  --color-publicado-fondo: #1a301f;
+  --color-publicado-tinta: #97e5a7;
+  --color-publicado-linea: #325b3b;
+  --color-sobre-publicado: #16120e;
 
-  --color-pendiente-fondo: #382810;
-  --color-pendiente-tinta: #ffcd7e;
-  --color-pendiente-linea: #6b4c1d;
-  --color-pendiente-accion: #ffcd7e;
-  --color-pendiente-accion-hover: #ffe0a4;
-  --color-sobre-pendiente: #0e121a;
+  --color-pendiente-fondo: #412415;
+  --color-pendiente-tinta: #ffb582;
+  --color-pendiente-linea: #794427;
+  --color-pendiente-accion: #ffb582;
+  --color-pendiente-accion-hover: #ffcca6;
+  --color-sobre-pendiente: #16120e;
 
-  --color-cristal: #cbd1df;
-  --color-halo-calido: #faba59;
-  --color-halo-frio: #73a9e1;
-  --color-fondo-claro: #292c2f;
+  --color-cristal: #dbd2cb;
+  --color-halo-calido: #ff8740;
+  --color-halo-frio: #d18882;
+  --color-fondo-claro: #38251b;
 
   --opacidad-cristal: 8%;
-  --opacidad-halo-calido: 9%;
-  --opacidad-halo-frio: 8%;
+  --opacidad-halo-calido: 10%;
+  --opacidad-halo-frio: 7%;
   --opacidad-filo: 22%;
 }
 

@@ -1183,3 +1183,77 @@ O sea que el contraste tipográfico que la spec describía **no existió nunca e
 - Se pierde el contraste serif/sans. No se pierde nada real, porque no estaba puesto.
 
 **Qué lo revertiría.** Que la jerarquía por peso no baste para distinguir un titular de un párrafo. Se vería mirando el panel, que es exactamente donde no se vio esto durante dos entregas.
+
+---
+
+## ADR-810 — El rail es de iconos mudos, y eso deroga a medias la spec 11 §5 (resuelve #229)
+
+**Contexto.** La spec 11 §5 dice, con estas palabras: «el icono acompaña al texto, no lo sustituye». La referencia visual que se pidió en #229 tiene un rail de iconos sin texto, y esa es justamente la pieza que hace que la pantalla se lea distinta: el menú deja de ocupar 208 px de ancho y la composición se puede repartir en bento.
+
+O sea que hay que elegir entre una regla escrita hace dos días y lo que se pidió.
+
+**Las salidas evaluadas.**
+
+| Salida                                                | Por qué no                                                                                                                                                                           |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Mantener el texto en el menú**                      | Es no hacer lo que se pidió. El ancho del menú es la mitad del motivo por el que la composición no se parecía                                                                        |
+| **Rail que se despliega al pasar el ratón**           | Un menú que cambia de tamaño solo empuja el contenido o lo tapa, y con el teclado hay que decidir qué lo abre. Mucho mecanismo para enseñar cuatro palabras                          |
+| **Iconos mudos y ya**                                 | Es lo que hace la mitad de los paneles y es lo que la spec 11 prohibía con razón: la primera vez no se adivina, y para quien usa un lector de pantalla el enlace se queda sin nombre |
+| **Rail con el texto debajo del icono, como el móvil** | Cabría, pero entonces el rail mide lo que medía el menú y no se ha ganado nada                                                                                                       |
+
+**Decisión.** Rail de iconos, con tres condiciones que no son opcionales:
+
+1. **Nombre accesible en cada enlace.** El texto no desaparece del documento: deja de estar pintado. Quien usa un lector de pantalla oye «Contenido».
+2. **`title` nativo**, para que al pasar por encima se lea. No un tooltip propio: uno hecho a mano hay que hacerlo alcanzable por teclado, y el del navegador ya lo está.
+3. **En el móvil no hay rail.** La barra inferior de #220 mantiene el texto bajo el icono, que es donde de verdad no se puede adivinar — la primera vez, con una mano y andando.
+
+**Consecuencias.**
+
+- **La spec 11 §5 queda derogada solo en el rail.** En los botones y las acciones el icono sigue acompañando al texto, y ahí no cambia nada. Está dicho en la spec 12 §4 para que nadie lea la 11 y crea que el rail la incumple por descuido.
+- **Se pierde la primera vez en escritorio**: hay que pasar el ratón para saber qué es cada icono. Son cuatro secciones.
+- **Hay un caso que exige el nombre accesible y el `title`** (T-216-2). Sin él, la condición que hace aceptable esta decisión se cae en el primer refactor y el rail se queda mudo de verdad.
+
+**Qué lo revertiría.** Que el panel pase de cuatro secciones a ocho. Cuatro iconos se aprenden; ocho son una lista que hay que leer, y ahí el ancho ahorrado deja de compensar.
+
+---
+
+## ADR-811 — La paleta pasa a tierra cálido, y la arquitectura no se toca (resuelve #229)
+
+**Contexto.** La referencia de #229 tiene fondo tierra oscuro y acento naranja. La paleta de #224 es azul-noche con latón.
+
+**Decisión.** Se cambian **los valores** y nada más: las mismas fichas, los mismos dos bloques oscuros, la misma guarda de contraste sobre el color compuesto (ADR-800), el mismo acento compartido con «pendiente» (ADR-802).
+
+El neutro se tiñe hacia el **hue del acento** —naranja— y no hacia un marrón cualquiera. Es lo que hace que el cristal se lea cálido y que el naranja no quede pegado encima de un fondo que no lo esperaba.
+
+**Consecuencias.**
+
+- **Esto es lo que #219 compró.** Cambiar la dirección de color entera es tocar `app/globals.css` y volver a pasar la guarda; los veintitrés componentes no se enteran. Es la segunda vez que se cobra esa inversión en tres días.
+- **El margen sobre cristal queda en 4,97:1 en oscuro y 4,79:1 en claro**, ambos por encima de AA y ambos en `tinta-tenue`, que es la ficha que manda. El halo sube a 10/7 % en oscuro porque el naranja es más luminoso que el latón y el extremo claro se aleja menos.
+- **Las 21 parejas opacas siguen pasando en los dos modos.** No se relajó ninguna comprobación para que entrara la paleta nueva: se ajustaron los valores hasta que pasaron.
+
+**Qué lo revertiría.** Nada técnico: es una decisión de gusto de quien lo pide, y la arquitectura permite cambiarla otra vez sin tocar componentes.
+
+---
+
+## ADR-812 — Qué cuenta la gráfica de publicaciones, y qué no puede contar (resuelve #229)
+
+**Contexto.** El bento de #229 pide una tarjeta con una serie temporal, como la de la referencia. **Este CMS no tiene analítica**: no hay visitas, ni usuarios activos, ni ventas. Rellenar ese hueco con números plausibles sería exactamente lo que este repositorio persigue.
+
+Lo único con historia es `revisions`, y tiene tres propiedades que hay que tener delante antes de dibujar nada:
+
+1. **La revisión solo se crea si ya había algo publicado** (ADR-402): la primera publicación de una entrada no genera ninguna.
+2. Su `published_at` es `defaultNow()`, así que marca **cuándo se sustituyó**, no cuándo se publicó lo que guarda.
+3. **Se podan a 20 por entrada** (`SPEC.md` §4).
+
+**Decisión.** La serie es **las revisiones de la ventana, más la fecha de publicación de las entradas que no tienen ninguna revisión** — o sea, las publicadas una sola vez. Y la tarjeta se titula «Publicaciones» con su ventana escrita, no «actividad».
+
+**Lo que esta serie no ve, y hay que decirlo antes de que alguien lo descubra creyendo que es un fallo:** si una entrada se publica por primera vez y **se republica dentro de la misma ventana**, la primera publicación no aparece. Su fecha no está registrada en ninguna parte del esquema — no es que la consulta la ignore, es que no existe.
+
+**Consecuencias.**
+
+- **Puede subcontar, nunca sobrecontar.** De los dos lados en los que se puede fallar, es el que no infla.
+- **Con más de 20 republicaciones de una entrada en la ventana, la poda se lleva las viejas.** Con el ritmo de una landing es improbable; queda escrito porque «improbable» y «no pasa» no son lo mismo.
+- **Hay un caso sobre datos conocidos** (T-216-3), y cubre en particular la entrada publicada una sola vez, que es la que se sale de `revisions` y la que una implementación ingenua se dejaría.
+- La consulta vive en `cms/core/`, no en una action: **leer no es mutar**, y ese límite ya tuvo que corregirse una vez (#97, `readSettings`).
+
+**Qué lo revertiría.** Que el esquema empiece a registrar cada publicación con su fecha — una tabla de eventos, no de revisiones podadas. Ahí la serie sería exacta y esta nota sobraría.

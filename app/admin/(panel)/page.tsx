@@ -1,14 +1,16 @@
 import { auth } from '@/cms/auth';
 import { publishAll } from '@/cms/actions';
-import { listSections } from '@/cms/core/content';
+import { getDraft, listSections } from '@/cms/core/content';
+import { listMedia } from '@/cms/core/media';
+import { publicacionesPorDia, totalDeLaVentana } from '@/cms/core/publicaciones';
+import { listUsers } from '@/cms/core/users';
 import { motivoLegible } from '@/cms/ui/motivoLegible';
+import { PanelDeInicio, type Cifra, type UltimaImagen } from '@/cms/ui/PanelDeInicio';
 import { PublishAllButton, type PublishAllResult } from '@/cms/ui/PublishAllButton';
-import { SectionCard } from '@/cms/ui/SectionCard';
-import { Icono } from '@/cms/ui/iconos';
-import { TITULO } from '@/cms/ui/estilos';
 
 /**
- * El panel de contenido (SPEC §9: "tarjeta por sección con estado + botón Publicar todo").
+ * El panel de contenido (SPEC §9: "tarjeta por sección con estado + botón Publicar todo"),
+ * compuesto en bento desde #229 (spec 12).
  *
  * Dinámico a la fuerza: enseña el estado de publicación, y una versión cacheada mostraría
  * "Publicado" en una sección que el editor acaba de cambiar.
@@ -17,9 +19,27 @@ export const dynamic = 'force-dynamic';
 
 export default async function PanelContenido() {
   const session = await auth();
-  const secciones = await listSections();
+  const esAdmin = session?.user.role === 'admin';
+
+  /**
+   * Todo a la vez, que son lecturas independientes.
+   *
+   * En serie serían cinco viajes encadenados para pintar una pantalla que se abre entera; el
+   * dato que más tarda marca el ritmo igual, así que encadenarlos solo suma esperas.
+   */
+  const [secciones, imagenes, serie, portada, personas] = await Promise.all([
+    listSections(),
+    listMedia(),
+    publicacionesPorDia(),
+    getDraft('hero'),
+    // **La cuenta de personas solo para administración.** Un editor no entra en esa pantalla
+    // (T-E-4), y enseñarle cuánta gente hay sería contarle por la puerta de al lado justo lo que
+    // la otra puerta no le deja ver. Cuesta una consulta menos, además.
+    esAdmin ? listUsers() : Promise.resolve(null),
+  ]);
 
   const nombrePorClave = new Map(secciones.map((seccion) => [seccion.key, seccion.nombre]));
+  const pendientes = secciones.filter((seccion) => seccion.estado !== 'publicado').length;
 
   /**
    * La Server Action que consume el botón.
@@ -31,11 +51,6 @@ export default async function PanelContenido() {
    *
    * Ni `typecheck` ni `build` lo detectan. Lo encontró el e2e al renderizar la página con una
    * sesión de verdad.
-   *
-   * Llevaba la firma de `useActionState` —`(estadoAnterior, formData)`— con los dos argumentos
-   * sin usar. Desde #119 el botón la llama él mismo en un bucle, así que esos parámetros eran
-   * dos huecos que había que rellenar con `null` y un `FormData` vacío para nada. Fuera: una
-   * firma que miente sobre cómo se usa la función es peor que una firma incómoda.
    */
   async function publicarTodo(): Promise<PublishAllResult> {
     'use server';
@@ -57,56 +72,41 @@ export default async function PanelContenido() {
     };
   }
 
-  const pendientes = secciones.filter((seccion) => seccion.estado !== 'publicado').length;
+  /**
+   * Las cifras de la pieza principal. **Todas salen de algo que ya se leyó**: ninguna se estima
+   * ni se redondea, que es lo que separa esto del panel de analítica que inspiró la composición.
+   */
+  const cifras: Cifra[] = [
+    { valor: secciones.length, etiqueta: 'Secciones' },
+    { valor: pendientes, etiqueta: 'Sin publicar' },
+    { valor: imagenes.length, etiqueta: 'Imágenes' },
+    ...(personas === null ? [] : [{ valor: personas.length, etiqueta: 'Personas' }]),
+  ];
+
+  // `listMedia` viene ordenada de más reciente a más antigua, así que la primera es la última
+  // subida. Se apoya en ese orden a propósito y no vuelve a ordenar aquí: dos criterios de orden
+  // para lo mismo se separan, y el de allí es el que ve la biblioteca.
+  const primera = imagenes[0];
+  const ultimaImagen: UltimaImagen | null =
+    primera === undefined
+      ? null
+      : { url: primera.url, alt: primera.alt, filename: primera.filename };
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className={TITULO}>Contenido</h1>
-
-          {/* El resumen lleva el icono del estado en el que está el sitio entero: jade si no
-              queda nada por publicar, ámbar si algo espera. Es la misma señal que las tarjetas,
-              a otra escala — lo que se pidió con «claros a simple vista» es justamente que la
-              respuesta esté antes de leer. */}
-          <p className="mt-1.5 flex items-center gap-2 text-tinta-suave">
-            <Icono
-              de={pendientes === 0 ? 'publicado' : 'conCambios'}
-              tamano={16}
-              className={pendientes === 0 ? 'text-publicado-tinta' : 'text-pendiente-tinta'}
-            />
-            {pendientes === 0
-              ? 'Todo está publicado.'
-              : pendientes === 1
-                ? 'Hay 1 sección con cambios sin publicar.'
-                : `Hay ${String(pendientes)} secciones con cambios sin publicar.`}
-          </p>
-        </div>
-
-        {pendientes > 0 && <PublishAllButton action={publicarTodo} />}
-      </div>
-
-      {/* `auto-fit` en vez de un punto de corte: las tarjetas se recolocan por el ancho que
-          tienen, no por el de la ventana. En el editor —que va a ancho completo— eso es la
-          diferencia entre dos columnas y cuatro, sin escribir ninguna condición. */}
-      <ul className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">
-        {secciones.map((seccion) => (
-          <li key={seccion.key}>
-            <SectionCard
-              nombre={seccion.nombre}
-              href={
-                seccion.tipo === 'coleccion'
-                  ? `/admin/collections/${seccion.key}`
-                  : `/admin/content/${seccion.key}`
-              }
-              estado={seccion.estado}
-              {...(seccion.elementos === undefined ? {} : { elementos: seccion.elementos })}
-            />
-          </li>
-        ))}
-      </ul>
-
-      <p className="text-sm text-tinta-tenue">Sesión iniciada como {session?.user.email}.</p>
-    </div>
+    <PanelDeInicio
+      secciones={secciones}
+      cifras={cifras}
+      serieDePublicaciones={serie}
+      totalDePublicaciones={totalDeLaVentana(serie)}
+      ultimaImagen={ultimaImagen}
+      tituloDeLaPortada={typeof portada.title === 'string' ? portada.title : ''}
+      imagenDeLaPortada={
+        typeof portada.image === 'object' && portada.image !== null && 'url' in portada.image
+          ? String((portada.image as { url: unknown }).url)
+          : ''
+      }
+      pendientes={pendientes}
+      publicarTodo={pendientes > 0 ? <PublishAllButton action={publicarTodo} /> : null}
+    />
   );
 }
