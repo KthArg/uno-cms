@@ -274,7 +274,7 @@ function NavegacionDelPanel({
   return (
     <nav
       aria-label="Secciones del panel"
-      className="lamina-fondo fixed inset-x-0 bottom-0 z-30 border-t border-linea pb-[env(safe-area-inset-bottom)] lg:sticky lg:inset-x-auto lg:top-24 lg:bottom-auto lg:z-auto lg:w-auto lg:shrink-0 lg:self-start lg:rounded-3xl lg:border lg:p-2 lg:pb-2"
+      className="lamina-fondo fixed inset-x-0 bottom-0 z-30 border-t border-linea pb-[env(safe-area-inset-bottom)] lg:sticky lg:inset-x-auto lg:top-1/2 lg:bottom-auto lg:z-auto lg:w-auto lg:shrink-0 lg:-translate-y-1/2 lg:self-center lg:rounded-3xl lg:border lg:p-2 lg:pb-2"
     >
       <ul className="mx-auto flex max-w-lg items-stretch justify-around lg:max-w-none lg:flex-col lg:gap-1">
         {entradas.map((entrada) => {
@@ -301,7 +301,10 @@ function NavegacionDelPanel({
                     : 'text-tinta-suave lg:hover:bg-superficie-suave lg:hover:text-tinta'
                 }`}
               >
-                <Icono de={entrada.icono} tamano={22} className="lg:size-5" />
+                {/* **El dibujo cambia con la sección activa** (#231): relleno el de la pantalla
+                    en la que estás, hueco el resto. Es una señal más, no la única — el color y
+                    `aria-current` siguen ahí. */}
+                <Icono de={entrada.icono} tamano={22} relleno={activa} className="lg:size-5" />
                 {/* En escritorio el texto deja de pintarse pero **no se va del documento**:
                         `sr-only` lo mantiene para quien lo lee en voz alta. Y en el móvil sigue
                         debajo del icono, que es donde hace falta. */}

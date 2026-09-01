@@ -1300,3 +1300,24 @@ En el modo claro la lámina aclara, por lo mismo al revés.
 - **Hay más `backdrop-filter` en pantalla** —el contenedor grande lo lleva a tamaño completo—. Es lo que había que vigilar, y Lighthouse sigue verde en CI.
 
 **Qué lo revertiría.** Que el listón de rendimiento se resienta en una máquina lenta de verdad. Lo que hay medido es CI; un portátil de hace seis años no está probado.
+
+---
+
+## ADR-815 — En modo claro el acento es celeste, y deja de compartir color con «pendiente» (acota ADR-802, resuelve #231)
+
+**Contexto.** ADR-802 decidió que el acento **es** el ámbar de «cambios sin publicar», con un motivo bueno: en este panel lo que pide atención y la acción principal son la misma cosa —publicar lo que está sin publicar— y el dorado quiere decir «aquí te toca a ti».
+
+La petición de #231 es que el modo claro use celeste. Eso rompe esa unión en un modo y no en el otro, así que hay que decidirlo en vez de dejar que pase.
+
+**Decisión.** En claro, **la marca y la acción principal son celestes; «pendiente» se queda ámbar**. En oscuro los dos siguen siendo el mismo naranja.
+
+Lo que lo hace defendible y no un capricho: **el ámbar significa el estado, no la marca**. ADR-802 unió las dos cosas aprovechando que coincidían; separarlas no quita significado a ninguna — el estado sigue teniendo su color de aviso, y la acción gana uno propio que contrasta con el papel cálido.
+
+**Consecuencias.**
+
+- **Los dos modos dejan de ser uno el negativo del otro.** El claro es frío sobre papel cálido y el oscuro es cálido sobre tierra. Es más carácter y también más que mantener: cualquier ficha nueva hay que pensarla dos veces, una por modo.
+- **La regla «no confiar solo en el color» sigue cubierta**: cada estado lleva su icono y su texto, que era ya la razón por la que ADR-802 podía permitirse el color compartido.
+- **Las luces del fondo acompañan al acento** en cada modo. No es decoración: entran en el cálculo del extremo del fondo, y por eso hubo que recalcular el claro entero.
+- Las 21 parejas opacas y las dos pilas de vidrio siguen pasando en los dos modos, con el peor caso del claro en 4,68:1.
+
+**Qué lo revertiría.** Que el panel gane un segundo estado que también pida acción. Ahí el celeste y el ámbar tendrían que convivir con un tercero, y la lectura de un vistazo —que es lo que ADR-802 protegía— se acabaría igual.

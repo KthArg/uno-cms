@@ -154,3 +154,30 @@ describe('T-216-2 — el rail de iconos conserva el nombre de cada sección', ()
     }
   });
 });
+
+describe('T-231-1 — la sección activa se distingue también por el dibujo del icono', () => {
+  it('el icono de la sección en la que estás va relleno, y los otros huecos', () => {
+    // **El color no puede ser la única señal** y aquí no lo es: `aria-current` lo dice para quien
+    // escucha, el fondo para quien mira, y el relleno del dibujo para quien tiene el rail en
+    // escritorio sin texto al lado — que es donde menos pistas quedan (#231).
+    render(
+      <PanelShell
+        rol="admin"
+        nombreDeUsuario="Ana"
+        rutaActual="/admin/media"
+        onSalir={vi.fn()}
+        tema={null}
+        onCambiarDeTema={vi.fn()}
+      >
+        <p>contenido</p>
+      </PanelShell>
+    );
+
+    const secciones = screen.getByRole('navigation', { name: 'Secciones del panel' });
+    const dibujoDe = (nombre: string): SVGElement | null =>
+      within(secciones).getByRole('link', { name: nombre }).querySelector('svg');
+
+    expect(dibujoDe('Imágenes')?.getAttribute('class')).toContain('fill-current');
+    expect(dibujoDe('Contenido')?.getAttribute('class')).not.toContain('fill-current');
+  });
+});

@@ -69,14 +69,16 @@
   --color-linea-fuerte: #bdb4ad;
 
   /* La acción principal. */
-  --color-accion: #b54c00;
-  --color-accion-hover: #9d3d00;
+  --color-accion: #0073b4;
+  --color-accion-hover: #005f9a;
   --color-sobre-accion: #fdfbfa;
 
-  /* El acento. **Es el mismo naranja que «pendiente», y es deliberado** (ADR-802): en este
-     panel lo que pide atención y la acción principal son la misma cosa — publicar lo que está
-     sin publicar. */
-  --color-acento: #ac4800;
+  /* El acento. **En claro es celeste, y en oscuro naranja** (ADR-815).
+
+     Eso rompe a propósito la unión con «pendiente» que fijaba ADR-802, y solo en este modo: el
+     ámbar se queda para el estado —que es lo que significa— y la marca pasa a un frío que
+     contrasta con el papel cálido. En oscuro los dos siguen siendo el mismo naranja. */
+  --color-acento: #006dab;
   --color-sobre-acento: #fdfbfa;
 
   /* Lo destructivo y los errores. */
@@ -111,15 +113,16 @@
   --color-filo: #ffffff;
 
   /* Las luces del fondo. Son lo que el vidrio deja ver desenfocado — sin ellas no hay nada que
-     desenfocar y el efecto sencillamente no existe. */
-  --color-luz-calida: #ff9b5a;
-  --color-luz-media: #f88d92;
-  --color-luz-fria: #af95df;
+     desenfocar y el efecto sencillamente no existe. En claro son frías, con el acento; en oscuro,
+     cálidas. Los dos modos tienen personalidad propia y no son uno el negativo del otro. */
+  --color-luz-calida: #6ed0ff;
+  --color-luz-media: #8eb5ff;
+  --color-luz-fria: #67d2cc;
 
   /* **El extremo del fondo**: donde las tres luces se solapan al máximo. No es decorativo — es
      la mitad de la entrada de la guarda de contraste, y hay un caso que comprueba que sigue
      siendo el resultado real de componer las tres sobre el papel. */
-  --color-fondo-claro: #dea2b3;
+  --color-fondo-claro: #89cee9;
 
   /* Las opacidades, aquí y no dentro de las utilidades, para que la guarda pueda leerlas. */
   --opacidad-lamina: 68%;
@@ -286,6 +289,15 @@
 @utility luz-del-panel {
   background-color: var(--color-papel);
   background-image:
+    /* **El grano**, y va el primero para quedar por encima de las luces.
+     *
+     * Es lo que le da materia al fondo: sin él las luces son degradados limpios, y un degradado
+     * limpio detrás de un desenfoque sigue pareciendo un degradado limpio. Con grano, el
+     * desenfoque tiene algo que emborronar y el vidrio se lee.
+     *
+     * Un SVG en `data:` y no una imagen: la CSP declara `img-src ... data:` y esto pesa menos de
+     * un kilobyte, así que no hay petición que hacer ni fichero que servir. */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='0.32'/%3E%3C/svg%3E"),
     radial-gradient(
       ellipse 70% 60% at 2% 0%,
       color-mix(in srgb, var(--color-luz-calida) var(--opacidad-luz-calida), transparent),
@@ -300,8 +312,24 @@
       ellipse 60% 60% at 45% 104%,
       color-mix(in srgb, var(--color-luz-fria) var(--opacidad-luz-fria), transparent),
       transparent 70%
-    );
+    ),
+    /* Una cuarta luz, pequeña y apretada: es la que se lee como **una bombilla** en vez de como
+       una mancha, y la que más se nota al desenfocarse. Va a media altura por la izquierda, que
+       es donde el contenedor deja fondo a la vista. */
+      radial-gradient(
+        circle 12rem at 1% 62%,
+        color-mix(in srgb, var(--color-luz-calida) var(--opacidad-luz-calida), transparent),
+        transparent 72%
+      );
   background-attachment: fixed;
+  /* El grano no se repite con las luces: tiene su propio tamaño y se repite en mosaico. */
+  background-size:
+    140px 140px,
+    auto,
+    auto,
+    auto,
+    auto;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
 }
 
 /**
