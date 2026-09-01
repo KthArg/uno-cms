@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { ActionFieldError } from '@/cms/actions/pipeline';
 import { FALLO_DE_RED } from './fallo-de-red';
+import { BOTON_PRINCIPAL, TARJETA, TITULO } from './estilos';
 
 /**
  * Los ajustes del sitio (ADR-410, SPEC §5.3).
@@ -38,7 +39,7 @@ export function SettingsScreen({ nombreDelSitio, seo, onGuardar }: SettingsScree
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-tinta">Ajustes</h1>
+        <h1 className={TITULO}>Ajustes</h1>
         <p className="mt-1 text-tinta-suave">
           Estos cambios se aplican a tu web en cuanto los guardas. No hay que publicarlos.
         </p>
@@ -145,8 +146,8 @@ function Bloque({
   };
 
   return (
-    <section className="rounded-lg border border-linea bg-superficie p-5">
-      <h2 className="text-lg font-medium text-tinta">{titulo}</h2>
+    <section className={`${TARJETA} p-5`}>
+      <h2 className="text-lg font-semibold text-tinta">{titulo}</h2>
       <p className="mt-1 text-sm text-tinta-suave">{descripcion}</p>
 
       <form
@@ -205,11 +206,7 @@ function Bloque({
         })}
 
         <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={ocupado}
-            className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
-          >
+          <button type="submit" disabled={ocupado} className={BOTON_PRINCIPAL}>
             Guardar
           </button>
           <p aria-live="polite" className="text-sm text-tinta-suave">

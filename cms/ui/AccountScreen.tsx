@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { FALLO_DE_RED } from './fallo-de-red';
+import { BOTON_PRINCIPAL, CAMPO, TARJETA, TITULO } from './estilos';
 
 /**
  * Cambiar la propia contraseña (SPEC §5.3; `changePassword` de #81).
@@ -59,12 +60,12 @@ export function AccountScreen({ correo, onCambiar }: AccountScreenProps) {
   return (
     <div className="max-w-md space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-tinta">Tu cuenta</h1>
+        <h1 className={TITULO}>Tu cuenta</h1>
         <p className="mt-1 text-tinta-suave">Entras como {correo}.</p>
       </div>
 
-      <section className="rounded-lg border border-linea bg-superficie p-5">
-        <h2 className="text-lg font-medium text-tinta">Cambiar tu contraseña</h2>
+      <section className={`${TARJETA} p-5`}>
+        <h2 className="text-lg font-semibold text-tinta">Cambiar tu contraseña</h2>
         <p className="mt-1 text-sm text-tinta-suave">
           Al cambiarla se cierran todas las sesiones abiertas, también esta:{' '}
           <strong>tendrás que volver a entrar</strong>. Si has cambiado la contraseña porque
@@ -84,7 +85,7 @@ export function AccountScreen({ correo, onCambiar }: AccountScreenProps) {
               type="password"
               required
               autoComplete="current-password"
-              className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+              className={CAMPO}
             />
           </label>
 
@@ -100,7 +101,7 @@ export function AccountScreen({ correo, onCambiar }: AccountScreenProps) {
                 required
                 autoComplete="new-password"
                 aria-describedby="ayuda-nueva"
-                className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+                className={CAMPO}
               />
             </label>
             <span id="ayuda-nueva" className="text-sm text-tinta-tenue">
@@ -115,16 +116,12 @@ export function AccountScreen({ correo, onCambiar }: AccountScreenProps) {
               type="password"
               required
               autoComplete="new-password"
-              className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+              className={CAMPO}
             />
           </label>
 
           <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={ocupado}
-              className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
-            >
+            <button type="submit" disabled={ocupado} className={BOTON_PRINCIPAL}>
               Cambiar la contraseña
             </button>
             <p aria-live="polite" className="text-sm text-alarma">

@@ -5,6 +5,15 @@ import { useState } from 'react';
 import type { ImagenDeBiblioteca } from '@/cms/core/media';
 import { MediaPicker, type MediaPickerProps } from './MediaPicker';
 import { FALLO_DE_RED } from './fallo-de-red';
+import { Icono } from './iconos';
+import {
+  BOTON_ALARMA,
+  BOTON_ICONO,
+  BOTON_PRINCIPAL,
+  BOTON_SUAVE,
+  SUPERFICIE,
+  TITULO,
+} from './estilos';
 
 /**
  * La pantalla de la biblioteca de imágenes.
@@ -69,51 +78,69 @@ export function MediaLibrary({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-tinta">Imágenes</h1>
+        <h1 className={TITULO}>Imágenes</h1>
         <button
           type="button"
           onClick={() => {
             setAbierto(true);
           }}
-          className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion hover:bg-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+          className={BOTON_PRINCIPAL}
         >
+          <Icono de="subir" />
           Subir una imagen
         </button>
       </div>
 
-      <p aria-live="polite" className="text-sm text-tinta-suave">
+      {/* La región vive siempre, aunque esté vacía: un `aria-live` que se monta con el mensaje
+          dentro no siempre se anuncia — el navegador tiene que estar observándola de antes. */}
+      <p aria-live="polite" className="flex items-center gap-2 text-sm text-tinta-suave">
+        {aviso !== null && <Icono de="publicado" tamano={16} />}
         {aviso}
       </p>
 
       {visibles.length === 0 ? (
-        <p className="text-tinta-suave">
-          Todavía no hay imágenes. Sube la primera y podrás usarla en cualquier sección.
-        </p>
+        <div className="rounded-2xl border border-dashed border-linea p-10 text-center">
+          <Icono de="imagenes" tamano={28} className="mx-auto text-tinta-tenue" />
+          <p className="mt-3 text-tinta-suave">
+            Todavía no hay imágenes. Sube la primera y podrás usarla en cualquier sección.
+          </p>
+        </div>
       ) : (
-        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-4">
           {visibles.map((imagen) => (
-            <li key={imagen.id} className="space-y-2">
+            /* **Superficie opaca, no cristal**, y es la regla de ADR-800: encima de una foto que
+               sube cualquiera no hay contraste garantizado para ningún texto. Es la única zona
+               del panel donde el fondo no lo ponemos nosotros. */
+            <li key={imagen.id} className={`${SUPERFICIE} overflow-hidden`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imagen.url}
                 alt={imagen.alt === '' ? imagen.filename : imagen.alt}
-                className="h-32 w-full rounded border border-linea bg-papel object-cover"
+                className="h-32 w-full bg-papel object-cover"
               />
-              <p className="truncate text-xs text-tinta-suave" title={imagen.filename}>
-                {imagen.filename}
-              </p>
-
-              {puedeBorrar && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAConfirmar(imagen);
-                  }}
-                  className="text-xs text-alarma underline underline-offset-4 hover:text-alarma focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alarma"
+              <div className="flex items-center gap-1 p-2">
+                <p
+                  className="min-w-0 flex-1 truncate text-xs text-tinta-suave"
+                  title={imagen.filename}
                 >
-                  Eliminar
-                </button>
-              )}
+                  {imagen.filename}
+                </p>
+
+                {puedeBorrar && (
+                  <button
+                    type="button"
+                    // El nombre dice **cuál** se elimina. "Eliminar" repetido en doce miniaturas
+                    // no distingue ninguna para quien navega con lector de pantalla.
+                    aria-label={`Eliminar ${imagen.filename}`}
+                    onClick={() => {
+                      setAConfirmar(imagen);
+                    }}
+                    className={`${BOTON_ICONO} size-9 text-alarma hover:bg-alarma-fondo hover:text-alarma`}
+                  >
+                    <Icono de="eliminar" tamano={16} />
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -170,19 +197,22 @@ function ConfirmarBorrado({
       role="alertdialog"
       aria-modal="true"
       aria-label={`Eliminar ${imagen.filename}`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/40 p-4"
+      className="velo fixed inset-0 z-50 flex items-center justify-center p-4"
       onKeyDown={(evento) => {
         if (evento.key === 'Escape') onCancelar();
       }}
     >
-      <div className="w-full max-w-md rounded-lg bg-superficie p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-tinta">¿Eliminar «{imagen.filename}»?</h2>
+      <div className="cristal-flotante w-full max-w-md rounded-2xl p-6">
+        <h2 className="flex items-start gap-2.5 text-lg font-semibold text-tinta">
+          <Icono de="alerta" etiqueta="Atención" className="mt-0.5 text-alarma" />
+          ¿Eliminar «{imagen.filename}»?
+        </h2>
 
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imagen.url}
           alt={imagen.filename}
-          className="mt-3 h-32 w-full rounded border border-linea object-contain"
+          className="mt-4 h-32 w-full rounded-xl border border-linea bg-papel object-contain"
         />
 
         <p className="mt-3 text-sm text-tinta-suave">
@@ -190,19 +220,12 @@ function ConfirmarBorrado({
           de verse.
         </p>
 
-        <div className="mt-4 flex gap-2">
-          <button
-            type="button"
-            onClick={onConfirmar}
-            className="rounded-md bg-alarma-accion px-3 py-1.5 text-sm font-medium text-sobre-alarma hover:bg-alarma-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alarma"
-          >
+        <div className="mt-5 flex flex-wrap gap-2">
+          <button type="button" onClick={onConfirmar} className={BOTON_ALARMA}>
+            <Icono de="eliminar" tamano={16} />
             Sí, eliminar
           </button>
-          <button
-            type="button"
-            onClick={onCancelar}
-            className="rounded-md border border-linea bg-superficie px-3 py-1.5 text-sm font-medium text-tinta hover:bg-papel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
-          >
+          <button type="button" onClick={onCancelar} className={BOTON_SUAVE}>
             Cancelar
           </button>
         </div>

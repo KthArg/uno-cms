@@ -2,6 +2,7 @@
 
 import type { ImageField as ImageFieldDef, ImageValue } from '@/cms/core/config';
 import { claseControl, FieldShell, idsDeCampo } from './FieldShell';
+import { ANILLO_DE_FOCO, BOTON_SUAVE } from '../estilos';
 
 /**
  * El campo de imagen (SPEC §5.1, §8).
@@ -70,7 +71,7 @@ export function CampoImagen({ id, field, value, onChange, error, onElegir }: Ima
               onClick={() => {
                 onChange(undefined);
               }}
-              className="text-sm text-tinta-suave underline underline-offset-4 hover:text-tinta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+              className={`inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave transition hover:text-tinta ${ANILLO_DE_FOCO}`}
             >
               Quitar imagen
             </button>
@@ -78,11 +79,7 @@ export function CampoImagen({ id, field, value, onChange, error, onElegir }: Ima
         )}
 
         {onElegir !== undefined && (
-          <button
-            type="button"
-            onClick={onElegir}
-            className="rounded-md border border-linea bg-superficie px-3 py-1.5 text-sm font-medium text-tinta hover:bg-papel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
-          >
+          <button type="button" onClick={onElegir} className={BOTON_SUAVE}>
             {value === undefined ? 'Elegir imagen' : 'Cambiar imagen'}
           </button>
         )}

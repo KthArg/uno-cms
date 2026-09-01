@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { Icono } from './iconos';
+import { BOTON_ALARMA, BOTON_SUAVE } from './estilos';
 
 /**
  * La confirmación de una acción destructiva (SPEC §9, issue #105).
@@ -16,6 +18,12 @@ import { useEffect, useRef } from 'react';
  *
  * El del navegador no admite más que una línea de texto plano, así que no puede decir lo de
  * arriba. Además bloquea el hilo y su aspecto no se puede alinear con el resto del panel.
+ *
+ * ## El velo también desenfoca (spec 11)
+ *
+ * Y no es adorno: es lo que separa la decisión que se está tomando de la pantalla que la
+ * rodea. Un fondo oscurecido a secas deja el texto de debajo legible y compitiendo; borroso,
+ * el cuadro queda solo con lo que hay que leer.
  */
 
 export interface ConfirmarAccionProps {
@@ -46,31 +54,28 @@ export function ConfirmarAccion({
       role="alertdialog"
       aria-modal="true"
       aria-label={titulo}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/40 p-4"
+      className="velo fixed inset-0 z-50 flex items-center justify-center p-4"
       onKeyDown={(evento) => {
         // `Escape` cierra. Sin ello, quien navega con teclado se queda encerrado en un cuadro
         // que ha abierto sin querer.
         if (evento.key === 'Escape') onCancelar();
       }}
     >
-      <div className="w-full max-w-md rounded-lg bg-superficie p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-tinta">{titulo}</h2>
-        <p className="mt-2 text-sm text-tinta-suave">{descripcion}</p>
+      <div className="cristal-flotante w-full max-w-md rounded-2xl p-6">
+        <h2 className="flex items-start gap-2.5 text-lg font-semibold text-tinta">
+          {/* El icono de alarma **sí** significa algo aquí: es lo primero que dice que esto no
+              es un aviso más. Por eso lleva nombre accesible en vez de estar oculto. */}
+          <Icono de="alerta" etiqueta="Atención" className="mt-0.5 text-alarma" />
+          {titulo}
+        </h2>
+        <p className="mt-3 text-sm text-tinta-suave">{descripcion}</p>
 
-        <div className="mt-5 flex gap-2">
-          <button
-            type="button"
-            onClick={onConfirmar}
-            className="rounded-md bg-alarma-accion px-3 py-1.5 text-sm font-medium text-sobre-alarma hover:bg-alarma-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alarma"
-          >
+        <div className="mt-6 flex flex-wrap gap-2">
+          <button type="button" onClick={onConfirmar} className={BOTON_ALARMA}>
+            <Icono de="eliminar" tamano={16} />
             {textoConfirmar}
           </button>
-          <button
-            ref={cancelar}
-            type="button"
-            onClick={onCancelar}
-            className="rounded-md border border-linea bg-superficie px-3 py-1.5 text-sm font-medium text-tinta hover:bg-papel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
-          >
+          <button ref={cancelar} type="button" onClick={onCancelar} className={BOTON_SUAVE}>
             Cancelar
           </button>
         </div>

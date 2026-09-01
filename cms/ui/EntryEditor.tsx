@@ -20,6 +20,16 @@ import { EntryForm, type ValoresDeEntrada } from './EntryForm';
 import { EstadoGuardado } from './EstadoGuardado';
 import { MediaPicker, type MediaPickerProps } from './MediaPicker';
 import { useAutosave, type ResultadoGuardado } from './useAutosave';
+import { Icono } from './iconos';
+import {
+  ANILLO_DE_FOCO,
+  AVISO_ALARMA,
+  AVISO_PENDIENTE,
+  BOTON_ALARMA,
+  BOTON_PRINCIPAL,
+  BOTON_SUAVE,
+  TITULO,
+} from './estilos';
 
 /**
  * La pantalla de edición de una entrada (SPEC §6.1, §8, §9).
@@ -293,11 +303,12 @@ export function EntryEditor({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-tinta">{nombreSeccion}</h1>
+          <h1 className={TITULO}>{nombreSeccion}</h1>
           <Link
             href={`/admin/history/${entryKey}`}
-            className="text-sm text-tinta-suave underline underline-offset-4 hover:text-tinta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+            className={`mt-1 inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave transition hover:text-tinta ${ANILLO_DE_FOCO}`}
           >
+            <Icono de="historial" tamano={16} />
             Ver versiones anteriores
           </Link>
         </div>
@@ -400,7 +411,7 @@ export function EntryEditor({
           onKeyDown={alTeclear}
           className="group hidden cursor-col-resize items-center justify-center px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento lg:flex"
         >
-          <span className="h-16 w-1 rounded-full bg-linea-fuerte transition group-hover:bg-tinta-tenue" />
+          <span className="h-16 w-1 rounded-full bg-linea-fuerte transition group-hover:bg-acento" />
         </div>
 
         {urlDeVistaPrevia === undefined ? (
@@ -421,15 +432,19 @@ export function EntryEditor({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-linea pt-4">
+      {/* La barra de acciones queda pegada abajo: en una sección con muchos campos, «Publicar
+          cambios» se iba de la pantalla y había que bajar del todo para encontrarlo. Es cristal
+          por lo mismo que la cabecera — se ve que hay formulario pasando por debajo. */}
+      <div className="cristal sticky bottom-4 z-20 flex flex-wrap items-center gap-3 rounded-2xl p-3">
         <button
           type="button"
           onClick={() => {
             void alPublicar();
           }}
           disabled={autosave.estado.tipo === 'conflicto'}
-          className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+          className={BOTON_PRINCIPAL}
         >
+          <Icono de="publicar" />
           Publicar cambios
         </button>
 
@@ -439,8 +454,9 @@ export function EntryEditor({
             onClick={() => {
               setConfirmandoDeshacer(true);
             }}
-            className="rounded-md border border-linea bg-superficie px-4 py-2 text-sm font-medium text-tinta transition hover:bg-papel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+            className={BOTON_SUAVE}
           >
+            <Icono de="revertir" />
             Deshacer cambios
           </button>
         )}
@@ -448,10 +464,11 @@ export function EntryEditor({
         {avisoDePublicar !== null && (
           <p
             aria-live="polite"
-            className={
-              erroresDePublicar.length > 0 ? 'text-sm text-alarma' : 'text-sm text-publicado-tinta'
-            }
+            className={`flex items-center gap-1.5 text-sm ${
+              erroresDePublicar.length > 0 ? 'text-alarma' : 'text-publicado-tinta'
+            }`}
           >
+            <Icono de={erroresDePublicar.length > 0 ? 'alerta' : 'publicado'} tamano={16} />
             {avisoDePublicar}
           </p>
         )}
@@ -468,24 +485,27 @@ function RecuperarBorrador({
   onDescartar: () => void;
 }) {
   return (
-    <div className="rounded-md border border-pendiente-linea bg-pendiente-fondo p-4">
-      <p className="text-sm text-pendiente-tinta">
+    <div className={`${AVISO_PENDIENTE} flex-col`}>
+      <p className="flex items-start gap-2.5">
+        <Icono de="conCambios" tamano={16} className="mt-0.5" />
         Tienes cambios sin guardar de la última vez, quizá porque se cortó la conexión. ¿Quieres
         recuperarlos?
       </p>
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={onRecuperar}
-          className="rounded-md bg-pendiente-accion px-3 py-1.5 text-sm font-medium text-sobre-pendiente hover:bg-pendiente-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta"
+          className={`inline-flex h-11 items-center gap-2 rounded-xl bg-pendiente-accion px-4 text-sm font-medium text-sobre-pendiente transition hover:bg-pendiente-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta`}
         >
+          <Icono de="revertir" tamano={16} />
           Recuperar
         </button>
         <button
           type="button"
           onClick={onDescartar}
-          className="rounded-md border border-pendiente-linea bg-superficie px-3 py-1.5 text-sm font-medium text-pendiente-tinta hover:bg-pendiente-fondo focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta"
+          className={`inline-flex h-11 items-center gap-2 rounded-xl border border-pendiente-linea px-4 text-sm font-medium text-pendiente-tinta transition hover:bg-superficie-suave focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta`}
         >
+          <Icono de="cerrar" tamano={16} />
           Descartar
         </button>
       </div>
@@ -495,8 +515,9 @@ function RecuperarBorrador({
 
 function AvisoDeConflicto() {
   return (
-    <div role="alert" className="rounded-md border border-alarma-linea bg-alarma-fondo p-4">
-      <p className="text-sm text-alarma">
+    <div role="alert" className={`${AVISO_ALARMA} flex-col`}>
+      <p className="flex items-start gap-2.5">
+        <Icono de="alerta" tamano={16} className="mt-0.5" />
         Otra persona ha guardado cambios en esta sección mientras editabas. Para no pisar su
         trabajo, hemos dejado de guardar. Vuelve a cargar la página para ver lo último.
       </p>
@@ -505,8 +526,9 @@ function AvisoDeConflicto() {
         onClick={() => {
           window.location.reload();
         }}
-        className="mt-3 rounded-md bg-alarma-accion-hover px-3 py-1.5 text-sm font-medium text-sobre-alarma hover:bg-alarma-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alarma"
+        className={`${BOTON_ALARMA} mt-3`}
       >
+        <Icono de="revertir" tamano={16} />
         Volver a cargar
       </button>
     </div>
@@ -522,8 +544,9 @@ function AvisoDeConflicto() {
  */
 function HuecoDeVistaPrevia() {
   return (
-    <div className="hidden rounded-md border border-dashed border-linea bg-papel p-6 lg:block">
-      <p className="text-sm font-medium text-tinta-suave">
+    <div className="hidden rounded-2xl border border-dashed border-linea p-8 lg:block">
+      <p className="flex items-center gap-2 text-sm font-medium text-tinta-suave">
+        <Icono de="verPrevia" tamano={16} />
         La vista previa no está disponible ahora
       </p>
       <p className="mt-1 text-sm text-tinta-tenue">

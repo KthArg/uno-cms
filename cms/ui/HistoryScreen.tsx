@@ -6,6 +6,7 @@ import { useState } from 'react';
 import type { RevisionDelHistorial } from '@/cms/core/history';
 import { ConfirmarAccion } from './ConfirmarAccion';
 import { FALLO_DE_RED } from './fallo-de-red';
+import { ANILLO_DE_FOCO, BOTON_SUAVE, TARJETA, TITULO } from './estilos';
 
 /**
  * El historial de una entrada, con "volver a una versión anterior" (SPEC §9).
@@ -68,13 +69,11 @@ export function HistoryScreen({
       <div>
         <Link
           href={`/admin/content/${entryKey}`}
-          className="text-sm text-tinta-suave underline underline-offset-4 hover:text-tinta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+          className={`inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave transition hover:text-tinta ${ANILLO_DE_FOCO}`}
         >
           ← Volver a {nombreSeccion}
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold text-tinta">
-          Versiones anteriores de {nombreSeccion}
-        </h1>
+        <h1 className={`${TITULO} mt-2`}>Versiones anteriores de {nombreSeccion}</h1>
         <p className="mt-1 text-tinta-suave">
           Cada vez que publicas, se guarda la versión que había antes. Puedes recuperar cualquiera
           de estas.
@@ -86,7 +85,7 @@ export function HistoryScreen({
       </p>
 
       {revisiones.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-linea p-8">
+        <div className="rounded-2xl border border-dashed border-linea p-10">
           <p className="text-tinta-suave">Todavía no hay versiones anteriores.</p>
           <p className="mt-1 text-sm text-tinta-tenue">
             Aparecerán aquí a partir de la segunda vez que publiques esta sección: la primera no
@@ -96,10 +95,7 @@ export function HistoryScreen({
       ) : (
         <ol className="space-y-2">
           {revisiones.map((revision) => (
-            <li
-              key={revision.id}
-              className="flex flex-wrap items-center gap-3 rounded-lg border border-linea bg-superficie p-4"
-            >
+            <li key={revision.id} className={`${TARJETA} flex flex-wrap items-center gap-3 p-4`}>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium text-tinta">{revision.resumen}</p>
                 <p className="mt-0.5 text-sm text-tinta-tenue">
@@ -114,7 +110,7 @@ export function HistoryScreen({
                 onClick={() => {
                   setARestaurar(revision);
                 }}
-                className="rounded-md border border-linea bg-superficie px-3 py-1.5 text-sm font-medium text-tinta hover:bg-papel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+                className={BOTON_SUAVE}
               >
                 Volver a esta versión
               </button>

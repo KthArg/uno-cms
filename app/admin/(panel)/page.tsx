@@ -4,6 +4,8 @@ import { listSections } from '@/cms/core/content';
 import { motivoLegible } from '@/cms/ui/motivoLegible';
 import { PublishAllButton, type PublishAllResult } from '@/cms/ui/PublishAllButton';
 import { SectionCard } from '@/cms/ui/SectionCard';
+import { Icono } from '@/cms/ui/iconos';
+import { TITULO } from '@/cms/ui/estilos';
 
 /**
  * El panel de contenido (SPEC §9: "tarjeta por sección con estado + botón Publicar todo").
@@ -61,8 +63,18 @@ export default async function PanelContenido() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-tinta">Contenido</h1>
-          <p className="mt-1 text-tinta-suave">
+          <h1 className={TITULO}>Contenido</h1>
+
+          {/* El resumen lleva el icono del estado en el que está el sitio entero: jade si no
+              queda nada por publicar, ámbar si algo espera. Es la misma señal que las tarjetas,
+              a otra escala — lo que se pidió con «claros a simple vista» es justamente que la
+              respuesta esté antes de leer. */}
+          <p className="mt-1.5 flex items-center gap-2 text-tinta-suave">
+            <Icono
+              de={pendientes === 0 ? 'publicado' : 'conCambios'}
+              tamano={16}
+              className={pendientes === 0 ? 'text-publicado-tinta' : 'text-pendiente-tinta'}
+            />
             {pendientes === 0
               ? 'Todo está publicado.'
               : pendientes === 1
@@ -74,7 +86,10 @@ export default async function PanelContenido() {
         {pendientes > 0 && <PublishAllButton action={publicarTodo} />}
       </div>
 
-      <ul className="grid gap-4 sm:grid-cols-2">
+      {/* `auto-fit` en vez de un punto de corte: las tarjetas se recolocan por el ancho que
+          tienen, no por el de la ventana. En el editor —que va a ancho completo— eso es la
+          diferencia entre dos columnas y cuatro, sin escribir ninguna condición. */}
+      <ul className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">
         {secciones.map((seccion) => (
           <li key={seccion.key}>
             <SectionCard

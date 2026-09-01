@@ -87,16 +87,21 @@ export function notasSinIssue(fuente: string, fichero = ''): Nota[] {
 
   fuente.split('\n').forEach((linea, indice) => {
     for (const marcador of MARCADORES) {
-      // Se busca el marcador **como palabra suelta y en mayúsculas**, con letras a ambos
-      // lados excluidas. Sin lo primero, cualquier comentario que mencione "todo el
-      // contenido" —que en español es constante— saldría marcado. Sin lo segundo, una
-      // referencia al propio registro (`docs/PENDIENTES.md`) se denunciaría a sí misma; lo
-      // encontró este test al estrenarse.
+      // Se busca el marcador **como palabra suelta y en mayúsculas**, con letras y guiones
+      // bajos excluidos a ambos lados. Sin lo primero, cualquier comentario que mencione
+      // "todo el contenido" —que en español es constante— saldría marcado. Sin lo segundo,
+      // una referencia al propio registro (`docs/PENDIENTES.md`) se denunciaría a sí misma;
+      // lo encontró este test al estrenarse.
+      //
+      // **El guion bajo se añadió en #224**, cuando `AVISO_PENDIENTE` —una constante de
+      // estilos— se denunció como trabajo aplazado. Un identificador en mayúsculas con
+      // guiones bajos es lo normal en este código y no es una nota: una guarda que grita
+      // donde no hay nada es la que se acaba desactivando, que es lo que la mataría.
       //
       // `MARCADORES` es una constante literal de este fichero, no entrada externa: no hay
       // inyección ni ReDoS que valgan aquí.
       // eslint-disable-next-line security/detect-non-literal-regexp
-      const patron = new RegExp(`(^|[^A-Za-z])${marcador}([^A-Za-z]|$)`);
+      const patron = new RegExp(`(^|[^A-Za-z_])${marcador}([^A-Za-z_]|$)`);
       if (!patron.test(linea)) continue;
 
       // El issue, en la misma línea. En otra se pierde al mover el comentario.
@@ -173,5 +178,28 @@ describe('nada aplazado se queda sin issue', () => {
     ].join('\n');
 
     expect(notasSinIssue(prosa)).toEqual([]);
+  });
+
+  it('el detector no marca un identificador que lleva el marcador dentro', () => {
+    // La otra falsa alarma, y esta ya pasó: `AVISO_PENDIENTE` es una constante de estilos del
+    // panel y el detector la denunció como trabajo aplazado (#224). El nombre es correcto
+    // —«pendiente» es el estado de una sección con cambios sin publicar— así que lo que
+    // estaba mal era la detección.
+    const codigo = [
+      'const AVISO_PENDIENTE = "…";',
+      '<div className={AVISO_PENDIENTE} />',
+      'const TODO_LO_DEMAS = 1;',
+    ].join('\n');
+
+    expect(notasSinIssue(codigo)).toEqual([]);
+  });
+
+  it('y sigue encontrando la nota de verdad al lado del identificador', () => {
+    // **Este es el caso que impide que el arreglo de arriba se pase de frenada.** Si alguien
+    // ampliara la exclusión hasta apagar la detección, los tres casos anteriores seguirían en
+    // verde: son todos negativos. Este es el positivo que tiene que sobrevivir.
+    const mezcla = 'const AVISO_PENDIENTE = "x"; // PENDIENTE: falta medirlo';
+
+    expect(notasSinIssue(mezcla)).toHaveLength(1);
   });
 });

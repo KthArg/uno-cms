@@ -9,6 +9,20 @@ const nextConfig: NextConfig = {
   // encuentre, que puede estar fuera del repo (p. ej. un package-lock.json en el home del
   // usuario). El resultado son build traces que arrastran ficheros ajenos al proyecto.
   outputFileTracingRoot: path.join(import.meta.dirname, '.'),
+  experimental: {
+    /**
+     * Que de la librería de iconos entre **solo el icono que se usa** (ADR-801, T-215-3).
+     *
+     * `lucide-react` publica un módulo por icono y un índice que los reexporta todos. Con una
+     * importación con nombre, el empaquetador puede quedarse solo con lo pedido, pero tiene que
+     * recorrer el índice entero para saberlo — y en desarrollo eso son miles de módulos que
+     * compilar. Esto reescribe la importación para ir directo al fichero de cada icono.
+     *
+     * Lo que **no** hace es sustituir a la guarda: `import * as Icons` seguiría metiendo el
+     * índice completo, y eso lo para T-215-3.
+     */
+    optimizePackageImports: ['lucide-react'],
+  },
   images: {
     /**
      * Solo el dominio de Vercel Blob (SPEC §8).

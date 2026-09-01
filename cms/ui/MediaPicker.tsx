@@ -14,6 +14,7 @@ import {
   SUBIDA_FALLIDA,
 } from '@/cms/mensajes-de-subida';
 import { FALLO_DE_RED } from './fallo-de-red';
+import { ANILLO_DE_FOCO } from './estilos';
 
 /**
  * El selector de imágenes: subir una nueva o elegir de las que ya hay.
@@ -162,7 +163,7 @@ export function MediaPicker({
           <button
             type="button"
             onClick={onCerrar}
-            className="text-sm text-tinta-suave underline underline-offset-4 hover:text-tinta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+            className={`inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave transition hover:text-tinta ${ANILLO_DE_FOCO}`}
           >
             Cerrar
           </button>

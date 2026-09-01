@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { PersonaDelPanel } from '@/cms/core/users';
 import { ConfirmarAccion } from './ConfirmarAccion';
 import { FALLO_DE_RED } from './fallo-de-red';
+import { ANILLO_DE_FOCO, BOTON_PRINCIPAL, BOTON_SUAVE, CAMPO, TARJETA, TITULO } from './estilos';
 
 /**
  * La pantalla de personas (SPEC §3, §5.3, §9).
@@ -147,7 +148,7 @@ export function UsersScreen({
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-tinta">Personas</h1>
+        <h1 className={TITULO}>Personas</h1>
         <p className="mt-1 text-tinta-suave">
           Quién puede entrar a administrar tu web y qué puede hacer cada uno.
         </p>
@@ -159,8 +160,8 @@ export function UsersScreen({
 
       {enlace !== null && <EnlaceDeInvitacion enlace={enlace} />}
 
-      <section className="rounded-lg border border-linea bg-superficie p-5">
-        <h2 className="text-lg font-medium text-tinta">Invitar a alguien</h2>
+      <section className={`${TARJETA} p-5`}>
+        <h2 className="text-lg font-semibold text-tinta">Invitar a alguien</h2>
         <p className="mt-1 text-sm text-tinta-suave">
           Se crea su cuenta y obtendrás un enlace para que elija su contraseña.
         </p>
@@ -173,43 +174,24 @@ export function UsersScreen({
         >
           <label className="flex flex-col gap-1">
             <span className="text-sm font-medium text-tinta">Nombre</span>
-            <input
-              name="nombre"
-              required
-              maxLength={120}
-              className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
-            />
+            <input name="nombre" required maxLength={120} className={CAMPO} />
           </label>
 
           <label className="flex flex-col gap-1">
             <span className="text-sm font-medium text-tinta">Correo</span>
-            <input
-              name="correo"
-              type="email"
-              required
-              maxLength={254}
-              className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
-            />
+            <input name="correo" type="email" required maxLength={254} className={CAMPO} />
           </label>
 
           <label className="flex flex-col gap-1">
             <span className="text-sm font-medium text-tinta">Qué podrá hacer</span>
-            <select
-              name="rol"
-              defaultValue="editor"
-              className="rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
-            >
+            <select name="rol" defaultValue="editor" className={CAMPO}>
               <option value="editor">{NOMBRE_DEL_ROL.editor}</option>
               <option value="admin">{NOMBRE_DEL_ROL.admin}</option>
             </select>
           </label>
 
           <div className="flex items-end">
-            <button
-              type="submit"
-              disabled={ocupado}
-              className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
-            >
+            <button type="submit" disabled={ocupado} className={BOTON_PRINCIPAL}>
               Invitar
             </button>
           </div>
@@ -218,10 +200,7 @@ export function UsersScreen({
 
       <ul className="space-y-2">
         {lista.map((persona) => (
-          <li
-            key={persona.id}
-            className="flex flex-wrap items-center gap-3 rounded-lg border border-linea bg-superficie p-4"
-          >
+          <li key={persona.id} className={`${TARJETA} flex flex-wrap items-center gap-3 p-4`}>
             <div className="min-w-0 flex-1">
               <p className="font-medium text-tinta">{persona.nombre}</p>
               <p className="truncate text-sm text-tinta-tenue">{persona.correo}</p>
@@ -257,7 +236,7 @@ export function UsersScreen({
                         evento.currentTarget.value === 'admin' ? 'admin' : 'editor'
                       );
                     }}
-                    className="rounded-md border border-linea px-2 py-1 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+                    className={BOTON_SUAVE}
                   >
                     <option value="editor">{NOMBRE_DEL_ROL.editor}</option>
                     <option value="admin">{NOMBRE_DEL_ROL.admin}</option>
@@ -312,7 +291,7 @@ function EnlaceDeInvitacion({ enlace }: { enlace: string }) {
 
   return (
     <section
-      className="rounded-lg border border-publicado-linea bg-publicado-fondo p-5"
+      className="rounded-2xl border border-publicado-linea bg-publicado-fondo p-5"
       aria-live="polite"
     >
       <h2 className="text-lg font-medium text-publicado-tinta">
@@ -335,7 +314,7 @@ function EnlaceDeInvitacion({ enlace }: { enlace: string }) {
             onFocus={(evento) => {
               evento.currentTarget.select();
             }}
-            className="w-full rounded-md border border-publicado-linea bg-superficie px-3 py-2 font-mono text-sm"
+            className={`${CAMPO} border-publicado-linea font-mono text-sm`}
           />
         </label>
         <button
@@ -345,7 +324,7 @@ function EnlaceDeInvitacion({ enlace }: { enlace: string }) {
               setCopiado(true);
             });
           }}
-          className="rounded-md bg-publicado-tinta px-4 py-2 text-sm font-medium text-sobre-publicado hover:bg-publicado-tinta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-publicado-tinta"
+          className={`inline-flex h-11 items-center gap-2 rounded-xl bg-publicado-tinta px-4 text-sm font-medium text-sobre-publicado transition hover:bg-publicado-tinta ${ANILLO_DE_FOCO}`}
         >
           {copiado ? 'Copiado' : 'Copiar'}
         </button>

@@ -6,7 +6,9 @@ import { useState } from 'react';
 import type { ElementoDeColeccion } from '@/cms/core/collections';
 import { ConfirmarAccion } from './ConfirmarAccion';
 import { EstadoDeSeccion } from './EstadoDeSeccion';
+import { Icono } from './iconos';
 import { FALLO_DE_RED } from './fallo-de-red';
+import { BOTON_ICONO, BOTON_PRINCIPAL, TARJETA, TITULO } from './estilos';
 
 /**
  * La pantalla de una colección: listar, crear, ordenar y eliminar (SPEC §5.3, §9).
@@ -136,15 +138,16 @@ export function CollectionScreen({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-tinta">{nombreColeccion}</h1>
+        <h1 className={TITULO}>{nombreColeccion}</h1>
         <button
           type="button"
           disabled={ocupado}
           onClick={() => {
             void crear();
           }}
-          className="rounded-md bg-accion px-4 py-2 text-sm font-medium text-sobre-accion transition hover:bg-accion-hover disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+          className={BOTON_PRINCIPAL}
         >
+          <Icono de="anadir" />
           Añadir
         </button>
       </div>
@@ -154,7 +157,7 @@ export function CollectionScreen({
       </p>
 
       {orden.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-linea p-8 text-center">
+        <div className="rounded-2xl border border-dashed border-linea p-10 text-center">
           <p className="text-tinta-suave">Todavía no hay nada en esta lista.</p>
           <p className="mt-1 text-sm text-tinta-tenue">
             Pulsa «Añadir» para crear el primero. No se verá en tu web hasta que lo publiques.
@@ -163,10 +166,7 @@ export function CollectionScreen({
       ) : (
         <ol className="space-y-2">
           {orden.map((elemento, indice) => (
-            <li
-              key={elemento.key}
-              className="flex flex-wrap items-center gap-3 rounded-lg border border-linea bg-superficie p-4"
-            >
+            <li key={elemento.key} className={`${TARJETA} flex flex-wrap items-center gap-3 p-4`}>
               <div className="min-w-0 flex-1">
                 <Link
                   href={`/admin/content/${elemento.key}`}
@@ -188,9 +188,13 @@ export function CollectionScreen({
                   onClick={() => {
                     void mover(indice, -1);
                   }}
-                  className="rounded border border-linea px-2 py-1 text-sm disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+                  className={BOTON_ICONO}
                 >
-                  ↑
+                  {/* Una flecha de la librería, no el carácter «↑». El carácter cambia de forma
+                      con la fuente, no se puede alinear con el texto de al lado y a veces no
+                      está en la que carga — que es cómo un botón acaba enseñando un cuadrado.
+                      El nombre accesible ya está arriba, así que el dibujo es decorativo. */}
+                  <Icono de="subirEnLista" />
                 </button>
                 <button
                   type="button"
@@ -199,9 +203,9 @@ export function CollectionScreen({
                   onClick={() => {
                     void mover(indice, 1);
                   }}
-                  className="rounded border border-linea px-2 py-1 text-sm disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+                  className={BOTON_ICONO}
                 >
-                  ↓
+                  <Icono de="bajarEnLista" />
                 </button>
               </div>
 
@@ -212,9 +216,12 @@ export function CollectionScreen({
                   onClick={() => {
                     setAEliminar(elemento);
                   }}
-                  className="text-sm text-alarma underline underline-offset-4 hover:text-alarma focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alarma"
+                  className={`${BOTON_ICONO} text-alarma hover:bg-alarma-fondo hover:text-alarma`}
                 >
-                  Eliminar
+                  {/* Deja de ser un enlace subrayado de 20 píxeles de alto. Era la zona pulsable
+                      más pequeña de esta pantalla y la única destructiva: la combinación con la
+                      que se borra algo sin querer desde un móvil. */}
+                  <Icono de="eliminar" tamano={18} />
                 </button>
               )}
             </li>
