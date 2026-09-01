@@ -1219,3 +1219,46 @@ igual**: 5,6 KB nuestro, 106,1 KB de total.
 - **Y dos avisos del linter de seguridad se resolvieron sin declarar excepciones**, cambiando el
   código en vez del test: una expresión regular construida con una variable se sustituyó por una
   función de filtro. Una excepción es a veces la respuesta correcta; no debería ser la primera.
+
+---
+
+## El rail, el fondo y el acento de cada modo ✅
+
+**Cerrado** el 1 de septiembre de 2026, issue [#231](https://github.com/KthArg/uno-cms/issues/231),
+ADR-815. Cuatro peticiones sobre el despliegue ya en línea.
+
+### Qué funciona
+
+- **El rail va centrado** en vertical respecto al contenedor, en vez de pegado al borde de arriba.
+- **La sección activa se reconoce por el dibujo**: su icono va relleno y con el trazo más grueso.
+  Es una señal más, no la única — `aria-current` y el fondo siguen ahí.
+- **El fondo tiene grano**, un SVG de ruido en `data:` de menos de un kilobyte, y una cuarta luz
+  pequeña y apretada. Es lo que le da algo que emborronar al desenfoque: un degradado limpio
+  detrás de un vidrio sigue pareciendo un degradado limpio.
+- **En claro el acento es celeste** y en oscuro naranja (ADR-815). Los dos modos dejan de ser uno
+  el negativo del otro.
+
+Las 109 comprobaciones de contraste pasan en los dos modos sin relajar ninguna; el peor caso del
+claro celeste queda en 4,68:1.
+
+### Lo que NO se pudo reproducir, y por eso no se arregló
+
+Se reportó que **la vista previa perdió el scroll para ver la página completa**. Medido en local,
+con una web de verdad dentro del iframe:
+
+| Comprobación                                      | Resultado                                    |
+| ------------------------------------------------- | -------------------------------------------- |
+| Contenido de la web frente a su ventana           | 3500 px contra 800                           |
+| Rueda del ratón encima de la vista previa         | la desplaza (`scrollY` 0 → 600)              |
+| ¿Se lleva el panel el desplazamiento en su lugar? | no, el panel se queda quieto                 |
+| Rueda fuera de la vista previa                    | desplaza el panel                            |
+| ¿El marco recorta la barra de la web de dentro?   | no: el iframe escalado ocupa el hueco exacto |
+
+O sea que **el mecanismo funciona en local**. Y hay una diferencia conocida con el entorno donde
+se vio: aquí el iframe apunta a `PREVIEW_URL` —la vista previa remota de ADR-701— y esa web no
+está levantada, así que hubo que servir una de prueba en su puerto para poder medir.
+
+Se deja **sin cerrar y sin arreglo inventado**, que es la lección de #134: una explicación
+plausible no es una explicación. Lo que falta es saber qué se ve exactamente — si la barra no
+aparece, si la rueda mueve el panel en vez de la web, o si la página de dentro sencillamente no
+tiene más contenido que enseñar porque el resto de secciones están sin publicar.

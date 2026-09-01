@@ -112,10 +112,21 @@ export interface IconoProps {
   readonly etiqueta?: string;
   /** En píxeles. 20 es el de la interfaz; 16 el de una línea de texto. */
   readonly tamano?: number;
+  /**
+   * **El icono de lo que está activo se dibuja relleno** (issue #231).
+   *
+   * Lucide es una librería de trazo: no trae pares hueco/relleno como otras. Rellenar el propio
+   * trazo con el color actual y engordarlo un poco da el mismo efecto —el par que se reconoce en
+   * cualquier barra de navegación— sin meter una segunda librería solo para cuatro dibujos.
+   *
+   * Y no sustituye al color ni a `aria-current`: es una señal más. Quien no distinga el fondo
+   * ve la forma, y quien no ve nada oye «página actual».
+   */
+  readonly relleno?: boolean;
   readonly className?: string;
 }
 
-export function Icono({ de, etiqueta, tamano = 20, className }: IconoProps) {
+export function Icono({ de, etiqueta, tamano = 20, relleno = false, className }: IconoProps) {
   const Dibujo = DIBUJOS[de];
 
   return (
@@ -123,10 +134,12 @@ export function Icono({ de, etiqueta, tamano = 20, className }: IconoProps) {
       // `shrink-0` en el propio icono y no en cada sitio que lo usa: dentro de un flex con texto
       // largo, un icono sin esto se aplasta hasta volverse un garabato. Pasa solo en textos que
       // desbordan, así que se descubre tarde y en una pantalla concreta.
-      className={`shrink-0 ${className ?? ''}`}
+      className={`shrink-0 ${relleno ? 'fill-current' : ''} ${className ?? ''}`}
       size={tamano}
       // 1,75 en vez del 2 de fábrica: sobre el vidrio, un trazo grueso se lee como una mancha.
-      strokeWidth={1.75}
+      // El relleno engorda medio punto: sin eso, el contorno del icono lleno se ve más fino que
+      // el de los huecos y el par se lee al revés de lo que quiere decir.
+      strokeWidth={relleno ? 2.25 : 1.75}
       aria-hidden={etiqueta === undefined ? true : undefined}
       role={etiqueta === undefined ? undefined : 'img'}
       aria-label={etiqueta}
