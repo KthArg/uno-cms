@@ -229,3 +229,38 @@ test.describe('en la pantalla más estrecha que se vende', () => {
     }
   });
 });
+
+test.describe('en una pantalla de escritorio ancha', () => {
+  test.use({ viewport: { width: 1920, height: 1080 } });
+
+  test('T-216-10: el contenido usa el ancho, no se queda centrado en una columna', async ({
+    page,
+  }) => {
+    /**
+     * **De dónde sale este caso.** El panel vivía dentro de un techo de lectura de 1152 px
+     * (#190), y medido en 1920 eso dejaba casi cuatrocientos píxeles muertos a cada lado — en
+     * una herramienta que existe para editar. Se retiró en ADR-813.
+     *
+     * Sin esta comprobación, volver a poner un `max-w-*` en el armazón no rompe nada: la
+     * pantalla sigue funcionando, solo se encoge. Es exactamente la clase de regresión que no
+     * se nota hasta que alguien la mira en su monitor.
+     */
+    await crearYEntrar(page, { email: 'ancho-escritorio@ejemplo.com', role: 'admin' });
+
+    for (const [nombre, ruta] of PANTALLAS) {
+      await page.goto(ruta);
+      await page.waitForLoadState('networkidle');
+
+      const { ventana, anchoReal, util } = await medir(page);
+
+      expect(anchoReal, `${nombre} desborda a 1920`).toBeLessThanOrEqual(ventana + 1);
+
+      // El 85 % deja sitio al rail —que son 44 px más su margen— y al aire del contenedor.
+      // Por debajo de eso ya no es margen: es una columna centrada.
+      expect(
+        util / ventana,
+        `${nombre} deja el contenido en ${String(util)}px de ${String(ventana)}`
+      ).toBeGreaterThanOrEqual(0.85);
+    }
+  });
+});

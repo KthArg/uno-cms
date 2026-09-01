@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation';
 import { auth, signOut } from '@/cms/auth';
 import { fuenteDelPanel } from '@/app/fuente';
 import { COOKIE_DE_TEMA, DURACION_DE_LA_COOKIE, elContrario, leerTema } from '@/cms/tema';
-import { esPantallaDeAnchoCompleto } from '@/cms/routes';
 import { PanelShell } from '@/cms/ui/PanelShell';
 
 /**
@@ -76,9 +75,6 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       onSalir={salir}
       tema={tema}
       onCambiarDeTema={cambiarDeTema}
-      // El editor de una entrada usa el ancho de la ventana: media pantalla es una vista previa
-      // de una web de verdad, y el techo de lectura la dejaba al tercio (issue #190).
-      anchoCompleto={esPantallaDeAnchoCompleto(rutaActual)}
       claseDeFuente={fuenteDelPanel.className}
     >
       {children}

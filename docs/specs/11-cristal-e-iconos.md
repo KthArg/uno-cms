@@ -11,6 +11,30 @@
 > pidió: **solo el panel**. La landing pública sigue fuera, con su presupuesto de 60 KB de
 > JavaScript y su listón de Lighthouse.
 
+> **Enmienda del 1 de septiembre de 2026 — §5 queda derogada en un punto, y §2 y §8 en otro.**
+>
+> Tras entregar esto, la valoración fue que **la referencia visual era otra**: «no solo en la
+> estética, sino también en la manera que están acomodados los elementos». La dirección nueva
+> está en [`12-bento-y-rail.md`](12-bento-y-rail.md) (issue
+> [#229](https://github.com/KthArg/uno-cms/issues/229)).
+>
+> Lo que decae:
+>
+> - **§5, en el rail y solo en el rail.** «El icono acompaña al texto, no lo sustituye» sigue
+>   valiendo en los botones y las acciones; en la navegación de escritorio el texto deja de
+>   pintarse. Se decidió en **ADR-810**, con tres condiciones —nombre accesible, `title`, y el
+>   móvil intacto— y un caso que las exige.
+> - **Los valores de §2**, que eran azul-noche con latón y pasan a tierra cálido con naranja
+>   (ADR-811). La arquitectura de fichas no se toca: es la segunda vez en tres días que cambiar
+>   la dirección de color entera cuesta un fichero.
+> - **La frase de §8 que dejaba fuera «la estructura de las pantallas»**, para el panel de
+>   inicio: ahí sí se reordena. Lo que no cambia es el vocabulario ni lo que `SPEC.md` §9 exige
+>   que haya en esa pantalla, y hay un caso nuevo que lo fija (T-216-1).
+>
+> Lo que **sigue entero**: el material —cristal, profundidad, la tabla de dónde hay cristal y
+> dónde no—, la guarda de contraste sobre el color compuesto de ADR-800, la regla de que el
+> cristal no se apila, y la librería de iconos de ADR-801.
+
 ## 1. Qué se pide, en las palabras de quien lo pidió
 
 Tras entregar las fichas de color y los dos modos (#219, #221), la valoración fue **«todavía no

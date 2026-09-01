@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /**
- * Las fichas de color del panel (spec 11, issue #224; antes spec 10, issue #219).
+ * Las fichas de color del panel (spec 12, issue #229; antes spec 11 y spec 10).
  *
  * ## Por qué fichas y no variantes `dark:`
  *
@@ -10,235 +10,242 @@
  * ninguna forma de comprobar que los dos modos dicen lo mismo.
  *
  * Aquí cada ficha nombra **el papel que cumple un color**, no el color. Los componentes
- * escriben `bg-papel`, `text-tinta`, `border-linea`, y no saben en qué modo están. El modo
- * oscuro es otro juego de valores para las mismas fichas, así que no se pueden desincronizar.
+ * escriben `bg-papel`, `text-tinta`, `border-linea`, y no saben en qué modo están.
  *
- * **La arquitectura es la de #219 y no ha cambiado.** Lo que cambió en #224 son los valores y
- * la aparición de tres fichas nuevas —el cristal, el halo y el extremo claro del fondo—, que
- * es justo lo que esta arquitectura permitía hacer sin volver a tocar veintitrés ficheros.
+ * ## El vidrio: láminas que OSCURECEN sobre un fondo con luces
  *
- * ## El cristal, y por qué el contraste se sigue pudiendo calcular (ADR-800)
+ * Es el cambio de #229, y salió de mirar los números. Hasta aquí el cristal era una lámina
+ * **clara** con muy poca opacidad, y tenía dos problemas a la vez:
  *
- * Las superficies translúcidas rompen la comprobación de contraste: la fórmula de WCAG mide el
- * color de la ficha, y lo que se ve es la mezcla con lo que haya debajo. La salida **no** es
- * declarar el cristal fuera de la guarda —eso deja sin comprobar justo lo nuevo—, sino acotar
- * el fondo hasta que vuelva a ser calculable:
+ * 1. **No se veía que fuera vidrio.** El fondo era casi liso, y sin nada con detalle detrás,
+ *    translúcido y opaco se ven exactamente igual: no hay nada que desenfocar.
+ * 2. **Y no se podía arreglar subiendo el fondo.** Medido: con manchas de verdad detrás, el
+ *    texto terciario sobre una lámina clara cae a 4,07:1 con el cristal al 8 % y a 3,34 al
+ *    16 %. Por debajo de AA en todas las combinaciones que se probaron.
  *
- * - Detrás de un cristal del panel solo hay **el fondo de la página**: `--color-papel` más el
- *   halo. Nunca contenido arbitrario y **nunca una imagen** (spec 11 §3).
- * - Ese fondo tiene dos extremos y los dos son fichas: `--color-papel`, el más oscuro, y
- *   `--color-fondo-claro`, donde las dos manchas del halo se solapan.
- * - `tests/unit/fichas-de-color.test.ts` compone `--color-cristal` con `--opacidad-cristal`
- *   sobre **los dos** y exige 4,5:1 en ambos. En el peor caso, no en el medio.
+ * Lo que sí funciona es lo que hace el vidrio ahumado de verdad: **la lámina oscurece lo que
+ * hay detrás**. Así las luces del fondo se ven atenuadas —que es lo que se lee como vidrio— y
+ * el texto gana contraste en vez de perderlo. Con este modelo el peor caso es 5,67:1.
  *
- * Por eso la opacidad es una ficha y no un número escrito dentro de la utilidad: si viviera
- * dentro de `@utility cristal`, la guarda estaría comprobando un valor que ya no se sirve.
+ * En el modo claro la lámina aclara, por lo mismo al revés.
  *
- * **Y por eso `--opacidad-halo-*` tampoco es libre.** Un halo un 40 % más intenso que este
- * dejaba el texto terciario en 4,31:1 sobre cristal — por debajo de AA, y sin diferencia
- * visible mirando la pantalla. Está medido, no supuesto.
+ * ## Cómo se comprueba, y por qué la pila importa (ADR-800, ampliado en #229)
+ *
+ * El contraste sobre una superficie translúcida no es el de su ficha: es el de la mezcla con
+ * todo lo que hay debajo. Y ahora hay **dos capas**: el contenedor grande y, dentro, las
+ * tarjetas. `tests/unit/fichas-de-color.test.ts` compone **la pila entera** —fondo, contenedor,
+ * tarjeta— sobre los dos extremos del fondo, y exige 4,5:1 en todos los casos.
+ *
+ * Por eso las opacidades son fichas y no números escritos dentro de las utilidades: si vivieran
+ * ahí, la guarda estaría comprobando valores que ya no se sirven.
  *
  * ## Los valores se eligieron en OKLCH y se escriben en hexadecimal
  *
- * En OKLCH porque es perceptualmente uniforme: los tres pesos de tinta están a distancias que
- * *se ven* iguales, cosa que en HSL no pasa. En hexadecimal porque la guarda de contraste lleva
- * la fórmula de WCAG escrita sobre sRGB desde #219, y traducirla a OKLCH sería más código de
- * test —y más superficie de error— en la única pieza que no puede equivocarse.
+ * En OKLCH porque es perceptualmente uniforme. En hexadecimal porque la guarda lleva la fórmula
+ * de WCAG escrita sobre sRGB desde #219, y traducirla sería más superficie de error en la única
+ * pieza que no puede equivocarse.
  *
  * ## El bloque oscuro está dos veces, y es a propósito
  *
  * Uno para `prefers-color-scheme` (sin preferencia guardada) y otro para `data-tema="oscuro"`
  * (con ella). CSS no deja compartir un bloque entre un `@media` y un selector de atributo sin
- * indirecciones peores que la repetición.
- *
- * Lo que evita que se separen no es la disciplina: es `tests/unit/fichas-de-color.test.ts`,
- * que exige que los dos bloques oscuros sean **idénticos** y que ninguna ficha del claro se
- * quede sin pareja.
+ * indirecciones peores que la repetición. Lo que evita que se separen es un test que exige que
+ * sean **idénticos**.
  */
 
 @theme {
-  /* El papel y lo que se levanta de él. */
-  --color-papel: #f5f7fa;
+  /* El papel y lo que se levanta de él, opaco. */
+  --color-papel: #f8f2ee;
   --color-superficie: #ffffff;
-  --color-superficie-suave: #ebedf1;
+  --color-superficie-suave: #f1ece7;
 
   /* La tinta, en sus tres pesos. */
-  --color-tinta: #1b1f28;
-  --color-tinta-suave: #515763;
-  --color-tinta-tenue: #646a79;
+  --color-tinta: #251f1a;
+  --color-tinta-suave: #5e554d;
+  --color-tinta-tenue: #6a6056;
 
   /* Los trazos. */
-  --color-linea: #dbdee3;
-  --color-linea-fuerte: #b4b7bf;
+  --color-linea: #e1dbd6;
+  --color-linea-fuerte: #bdb4ad;
 
   /* La acción principal. */
-  --color-accion: #232d45;
-  --color-accion-hover: #35425d;
-  --color-sobre-accion: #f7f8fb;
+  --color-accion: #b54c00;
+  --color-accion-hover: #9d3d00;
+  --color-sobre-accion: #fdfbfa;
 
-  /* El acento. **Es el mismo ámbar que «pendiente», y es deliberado** (ADR-802): en este panel
-     lo que pide atención y la acción principal son la misma cosa — publicar lo que está sin
-     publicar. Dorado quiere decir «aquí te toca a ti». */
-  --color-acento: #8d5e00;
-  --color-sobre-acento: #fbfcfe;
+  /* El acento. **Es el mismo naranja que «pendiente», y es deliberado** (ADR-802): en este
+     panel lo que pide atención y la acción principal son la misma cosa — publicar lo que está
+     sin publicar. */
+  --color-acento: #ac4800;
+  --color-sobre-acento: #fdfbfa;
 
   /* Lo destructivo y los errores. */
-  --color-alarma: #a5292b;
+  --color-alarma: #a3282a;
   --color-alarma-fondo: #fcecea;
-  --color-alarma-linea: #edbdb9;
-  --color-alarma-accion: #a5292b;
-  --color-alarma-accion-hover: #861d1f;
-  --color-sobre-alarma: #fbfcfe;
+  --color-alarma-linea: #eebfba;
+  --color-alarma-accion: #a3282a;
+  --color-alarma-accion-hover: #881f21;
+  --color-sobre-alarma: #fdfbfa;
 
   /* Publicado. */
-  --color-publicado-fondo: #e5f5eb;
-  --color-publicado-tinta: #005d37;
-  --color-publicado-linea: #b1d9c0;
-  --color-sobre-publicado: #fbfcfe;
+  --color-publicado-fondo: #e6f5e8;
+  --color-publicado-tinta: #175a2d;
+  --color-publicado-linea: #b5d8bb;
+  --color-sobre-publicado: #fdfbfa;
 
   /* Con cambios sin publicar. */
-  --color-pendiente-fondo: #ffefdb;
-  --color-pendiente-tinta: #764f05;
-  --color-pendiente-linea: #eccb9e;
-  --color-pendiente-accion: #764f05;
-  --color-pendiente-accion-hover: #624000;
-  --color-sobre-pendiente: #fbfcfe;
+  --color-pendiente-fondo: #ffece1;
+  --color-pendiente-tinta: #9d4100;
+  --color-pendiente-linea: #f7c7ae;
+  --color-pendiente-accion: #9d4100;
+  --color-pendiente-accion-hover: #853200;
+  --color-sobre-pendiente: #fdfbfa;
 
-  /* El tinte del cristal. Se usa **siempre** con `--opacidad-cristal`, nunca opaco: es una
-     lámina, no una superficie. */
-  --color-cristal: #ffffff;
+  /* **La lámina.** Se usa siempre con su opacidad, nunca opaca: es vidrio, no una superficie. */
+  --color-lamina: #ffffff;
 
-  /* Las dos manchas del halo que hay detrás de todo el panel. Sin ellas el cristal no tiene
-     nada que refractar y translúcido se ve igual que opaco. */
-  --color-halo-calido: #eeb154;
-  --color-halo-frio: #6d9dce;
+  /* **El filo del borde, y va aparte de la lámina.** Es un brillo, así que es claro en los dos
+     modos. Salía de `--color-lamina` y en oscuro esa es oscura: el "filo" se pintaba como una
+     sombra y las tarjetas de dentro del contenedor no se distinguían del contenedor. Se vio en
+     una captura, no leyendo el CSS. */
+  --color-filo: #ffffff;
 
-  /* **El extremo claro del fondo**: el color que queda donde las dos manchas se solapan al
-     máximo. No es decorativo — es la mitad de la entrada de la guarda de contraste, y hay un
-     caso que comprueba que sigue siendo el resultado real de componer las dos manchas sobre
-     el papel. Sin él, cambiar el halo dejaría a la guarda midiendo un extremo que ya no existe. */
-  --color-fondo-claro: #e2e2dd;
+  /* Las luces del fondo. Son lo que el vidrio deja ver desenfocado — sin ellas no hay nada que
+     desenfocar y el efecto sencillamente no existe. */
+  --color-luz-calida: #ff9b5a;
+  --color-luz-media: #f88d92;
+  --color-luz-fria: #af95df;
 
-  /* Las opacidades. Están aquí y no dentro de las utilidades para que la guarda pueda leerlas:
-     ver el bloque de arriba. */
-  --opacidad-cristal: 62%;
-  --opacidad-halo-calido: 16%;
-  --opacidad-halo-frio: 13%;
-  --opacidad-filo: 75%;
+  /* **El extremo del fondo**: donde las tres luces se solapan al máximo. No es decorativo — es
+     la mitad de la entrada de la guarda de contraste, y hay un caso que comprueba que sigue
+     siendo el resultado real de componer las tres sobre el papel. */
+  --color-fondo-claro: #dea2b3;
+
+  /* Las opacidades, aquí y no dentro de las utilidades, para que la guarda pueda leerlas. */
+  --opacidad-lamina: 68%;
+  --opacidad-lamina-tarjeta: 58%;
+  --opacidad-luz-calida: 55%;
+  --opacidad-luz-media: 46%;
+  --opacidad-luz-fria: 38%;
+  --opacidad-filo: 70%;
 }
 
 /* Sin preferencia guardada, manda el sistema.
  *
- * El selector es de atributo **a secas**, no `:root[...]`, y esa diferencia costó encontrarla
- * mirando la pantalla: Tailwind emite las fichas en `:root`, pero el atributo lo pinta el panel
- * en su propio contenedor —no en el `<html>`, que comparte con la landing—. Con `:root[...]` el
- * interruptor cambiaba de etiqueta y no cambiaba ni un color.
- *
- * Y los tres estados son explícitos: `sistema` existe como valor en vez de ser la ausencia del
- * atributo. Una ausencia no se puede seleccionar dentro de un `@media` sin negaciones que se
- * leen al revés de lo que hacen. */
+ * El selector es de atributo **a secas**, no `:root[...]`: Tailwind emite las fichas en `:root`,
+ * pero el atributo lo pinta el panel en su propio contenedor —no en el `<html>`, que comparte
+ * con la landing—. Con `:root[...]` el interruptor cambiaba de etiqueta y no cambiaba un color. */
 @media (prefers-color-scheme: dark) {
   [data-tema='sistema'] {
-    --color-papel: #0e121a;
-    --color-superficie: #1c202a;
-    --color-superficie-suave: #2b303c;
+    --color-papel: #0c0704;
+    --color-superficie: #241c16;
+    --color-superficie-suave: #352c25;
 
-    --color-tinta: #eef0f4;
-    --color-tinta-suave: #c0c4cc;
-    --color-tinta-tenue: #a5a9b2;
+    --color-tinta: #f2efed;
+    --color-tinta-suave: #c7c1bc;
+    --color-tinta-tenue: #ada6a0;
 
-    --color-linea: #3a404c;
-    --color-linea-fuerte: #626978;
+    --color-linea: #433b35;
+    --color-linea-fuerte: #70655c;
 
-    --color-accion: #faba59;
-    --color-accion-hover: #ffd48e;
-    --color-sobre-accion: #0e121a;
+    --color-accion: #f97c2f;
+    --color-accion-hover: #ff9658;
+    --color-sobre-accion: #0c0704;
 
-    --color-acento: #faba59;
-    --color-sobre-acento: #0e121a;
+    --color-acento: #ff9454;
+    --color-sobre-acento: #0c0704;
 
-    --color-alarma: #f98f87;
-    --color-alarma-fondo: #3a1d1b;
+    --color-alarma: #f78d85;
+    --color-alarma-fondo: #3c201d;
     --color-alarma-linea: #733a36;
-    --color-alarma-accion: #f98f87;
-    --color-alarma-accion-hover: #ffaba3;
-    --color-sobre-alarma: #0e121a;
+    --color-alarma-accion: #f2716a;
+    --color-alarma-accion-hover: #ff8e86;
+    --color-sobre-alarma: #0c0704;
 
-    --color-publicado-fondo: #133020;
-    --color-publicado-tinta: #8ce8b4;
-    --color-publicado-linea: #265c40;
-    --color-sobre-publicado: #0e121a;
+    --color-publicado-fondo: #1a301f;
+    --color-publicado-tinta: #97e5a7;
+    --color-publicado-linea: #325b3b;
+    --color-sobre-publicado: #0c0704;
 
-    --color-pendiente-fondo: #382810;
-    --color-pendiente-tinta: #ffcd7e;
-    --color-pendiente-linea: #6b4c1d;
-    --color-pendiente-accion: #ffcd7e;
-    --color-pendiente-accion-hover: #ffe0a4;
-    --color-sobre-pendiente: #0e121a;
+    --color-pendiente-fondo: #412415;
+    --color-pendiente-tinta: #ffb582;
+    --color-pendiente-linea: #794427;
+    --color-pendiente-accion: #ffb582;
+    --color-pendiente-accion-hover: #ffcca6;
+    --color-sobre-pendiente: #0c0704;
 
-    --color-cristal: #cbd1df;
-    --color-halo-calido: #faba59;
-    --color-halo-frio: #73a9e1;
-    --color-fondo-claro: #292c2f;
+    /* En oscuro la lámina **oscurece**, que es lo que hace legible el texto encima y lo que se
+       lee como vidrio ahumado. El filo, en cambio, sigue siendo claro: es un brillo. */
+    --color-lamina: #120c07;
+    --color-filo: #ffe6d5;
 
-    /* En oscuro el cristal **aclara** lo que hay detrás y en claro lo **oscurece**, así que las
-       opacidades no son las mismas ni de lejos: un 62 % de blanco sobre azul noche sería una
-       superficie casi opaca y se acabaría el efecto. */
-    --opacidad-cristal: 8%;
-    --opacidad-halo-calido: 9%;
-    --opacidad-halo-frio: 8%;
-    --opacidad-filo: 22%;
+    --color-luz-calida: #ff7716;
+    --color-luz-media: #e3636c;
+    --color-luz-fria: #8962c5;
+    --color-fondo-claro: #a35667;
+
+    --opacidad-lamina: 55%;
+    --opacidad-lamina-tarjeta: 45%;
+    --opacidad-luz-calida: 52%;
+    --opacidad-luz-media: 44%;
+    --opacidad-luz-fria: 34%;
+    --opacidad-filo: 16%;
   }
 }
 
 /* Con preferencia guardada, manda ella. Idéntico al bloque de arriba — hay un test que lo exige. */
 [data-tema='oscuro'] {
-  --color-papel: #0e121a;
-  --color-superficie: #1c202a;
-  --color-superficie-suave: #2b303c;
+  --color-papel: #0c0704;
+  --color-superficie: #241c16;
+  --color-superficie-suave: #352c25;
 
-  --color-tinta: #eef0f4;
-  --color-tinta-suave: #c0c4cc;
-  --color-tinta-tenue: #a5a9b2;
+  --color-tinta: #f2efed;
+  --color-tinta-suave: #c7c1bc;
+  --color-tinta-tenue: #ada6a0;
 
-  --color-linea: #3a404c;
-  --color-linea-fuerte: #626978;
+  --color-linea: #433b35;
+  --color-linea-fuerte: #70655c;
 
-  --color-accion: #faba59;
-  --color-accion-hover: #ffd48e;
-  --color-sobre-accion: #0e121a;
+  --color-accion: #f97c2f;
+  --color-accion-hover: #ff9658;
+  --color-sobre-accion: #0c0704;
 
-  --color-acento: #faba59;
-  --color-sobre-acento: #0e121a;
+  --color-acento: #ff9454;
+  --color-sobre-acento: #0c0704;
 
-  --color-alarma: #f98f87;
-  --color-alarma-fondo: #3a1d1b;
+  --color-alarma: #f78d85;
+  --color-alarma-fondo: #3c201d;
   --color-alarma-linea: #733a36;
-  --color-alarma-accion: #f98f87;
-  --color-alarma-accion-hover: #ffaba3;
-  --color-sobre-alarma: #0e121a;
+  --color-alarma-accion: #f2716a;
+  --color-alarma-accion-hover: #ff8e86;
+  --color-sobre-alarma: #0c0704;
 
-  --color-publicado-fondo: #133020;
-  --color-publicado-tinta: #8ce8b4;
-  --color-publicado-linea: #265c40;
-  --color-sobre-publicado: #0e121a;
+  --color-publicado-fondo: #1a301f;
+  --color-publicado-tinta: #97e5a7;
+  --color-publicado-linea: #325b3b;
+  --color-sobre-publicado: #0c0704;
 
-  --color-pendiente-fondo: #382810;
-  --color-pendiente-tinta: #ffcd7e;
-  --color-pendiente-linea: #6b4c1d;
-  --color-pendiente-accion: #ffcd7e;
-  --color-pendiente-accion-hover: #ffe0a4;
-  --color-sobre-pendiente: #0e121a;
+  --color-pendiente-fondo: #412415;
+  --color-pendiente-tinta: #ffb582;
+  --color-pendiente-linea: #794427;
+  --color-pendiente-accion: #ffb582;
+  --color-pendiente-accion-hover: #ffcca6;
+  --color-sobre-pendiente: #0c0704;
 
-  --color-cristal: #cbd1df;
-  --color-halo-calido: #faba59;
-  --color-halo-frio: #73a9e1;
-  --color-fondo-claro: #292c2f;
+  --color-lamina: #120c07;
+  --color-filo: #ffe6d5;
 
-  --opacidad-cristal: 8%;
-  --opacidad-halo-calido: 9%;
-  --opacidad-halo-frio: 8%;
-  --opacidad-filo: 22%;
+  --color-luz-calida: #ff7716;
+  --color-luz-media: #e3636c;
+  --color-luz-fria: #8962c5;
+  --color-fondo-claro: #a35667;
+
+  --opacidad-lamina: 55%;
+  --opacidad-lamina-tarjeta: 45%;
+  --opacidad-luz-calida: 52%;
+  --opacidad-luz-media: 44%;
+  --opacidad-luz-fria: 34%;
+  --opacidad-filo: 16%;
 }
 
 /* Lo que pinta el navegador —barras de desplazamiento, cursor de texto, controles nativos—
@@ -262,134 +269,96 @@
 }
 
 /**
- * La luz de fondo del panel (spec 11 §2).
+ * El fondo del panel: luces sobre el color base (spec 12 §5).
  *
- * Dos manchas fijas sobre el color base. **Fijas y no animadas**, y eso es una decisión de
- * rendimiento explícita: un fondo en movimiento detrás de un desenfoque obliga al navegador a
- * recomponer el desenfoque en cada fotograma, y el listón de Lighthouse (rendimiento ≥ 90) va
+ * **Aquí está la mitad del efecto.** Una lámina translúcida sobre un fondo liso se ve igual que
+ * una opaca: no hay nada que desenfocar. Lo que hace que se lea como vidrio es que detrás haya
+ * algo con forma — y estas son tres luces de tamaños distintos, como las lámparas de una
+ * habitación, que al pasar por el desenfoque dejan halos.
+ *
+ * **Fijas y no animadas**, y es una decisión de rendimiento: un fondo en movimiento detrás de un
+ * desenfoque obliga al navegador a recomponerlo en cada fotograma, y el listón de Lighthouse va
  * en CI.
  *
- * Las posiciones importan menos que las opacidades: el peor caso que mide la guarda es que las
- * dos manchas coincidan al máximo, que es más de lo que llegan a solaparse aquí. La guarda mide
- * por encima de lo que pasa, que es la dirección correcta en la que equivocarse.
+ * Las opacidades no son libres: las lee la guarda de contraste para calcular el extremo del
+ * fondo. Subirlas aleja ese extremo y tumba la comprobación, que es lo que tiene que pasar.
  */
 @utility luz-del-panel {
   background-color: var(--color-papel);
   background-image:
     radial-gradient(
-      ellipse 90% 70% at 12% -10%,
-      color-mix(in srgb, var(--color-halo-calido) var(--opacidad-halo-calido), transparent),
+      ellipse 70% 60% at 2% 0%,
+      color-mix(in srgb, var(--color-luz-calida) var(--opacidad-luz-calida), transparent),
       transparent 70%
     ),
     radial-gradient(
-      ellipse 80% 60% at 88% 8%,
-      color-mix(in srgb, var(--color-halo-frio) var(--opacidad-halo-frio), transparent),
+      circle 42rem at 96% 8%,
+      color-mix(in srgb, var(--color-luz-media) var(--opacidad-luz-media), transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 60% at 45% 104%,
+      color-mix(in srgb, var(--color-luz-fria) var(--opacidad-luz-fria), transparent),
       transparent 70%
     );
   background-attachment: fixed;
 }
 
 /**
- * Una lámina de cristal.
+ * **El contenedor grande**: la lámina que envuelve el panel entero.
  *
- * El filo del borde superior es de donde viene la sensación de grosor: sin él, una superficie
- * translúcida se lee como un rectángulo desvaído y no como vidrio.
+ * Es la pieza que hace que todo esto se lea como una sola cosa de vidrio flotando, en vez de
+ * como tarjetas sueltas sobre un fondo. Lleva el desenfoque más fuerte porque por debajo pasa el
+ * fondo entero, con sus luces.
  *
- * ## Por qué son tres utilidades cerradas y no una que se retoca
- *
- * Porque la genérica traía borde en los cuatro lados y una sombra, y la cabecera solo quiere
- * línea abajo. Corregirlo desde el componente —`border-x-0 border-t-0`, o un `shadow-*` encima—
- * es pelear con la especificidad de dos utilidades de la misma capa: funciona hasta que alguien
- * reordena las clases, y entonces falla en una pantalla y en un modo.
- *
- * Así que cada sitio donde hay cristal tiene su utilidad completa, y ninguna se sobrescribe.
- *
- * ## `contain: layout style`, y por qué **no** `paint`
- *
- * `paint` es el que más aporta al desenfoque y es justo el que no se puede usar: recorta todo lo
- * que se pinte fuera de la caja, y ahí está **el anillo de foco** de lo que haya dentro. Cambiar
- * accesibilidad de teclado por milisegundos de composición no es un intercambio que este panel
- * pueda hacer.
+ * `contain: layout style` y no `paint`: `paint` recorta lo que se pinte fuera de la caja, y ahí
+ * está **el anillo de foco** de todo lo que hay dentro. Cambiar accesibilidad de teclado por
+ * milisegundos de composición no es un intercambio que este panel pueda hacer.
  */
-@utility cristal {
-  background-color: color-mix(in srgb, var(--color-cristal) var(--opacidad-cristal), transparent);
-  backdrop-filter: blur(16px) saturate(1.5);
-  -webkit-backdrop-filter: blur(16px) saturate(1.5);
-  border: 1px solid color-mix(in srgb, var(--color-cristal) var(--opacidad-filo), transparent);
+@utility lamina {
+  background-color: color-mix(in srgb, var(--color-lamina) var(--opacidad-lamina), transparent);
+  backdrop-filter: blur(40px) saturate(1.3);
+  -webkit-backdrop-filter: blur(40px) saturate(1.3);
+  border: 1px solid color-mix(in srgb, var(--color-filo) var(--opacidad-filo), var(--color-linea));
   box-shadow:
-    inset 0 1px 0 0 color-mix(in srgb, var(--color-cristal) var(--opacidad-filo), transparent),
-    0 8px 24px -12px rgb(0 0 0 / 0.45);
+    inset 0 1px 0 0 color-mix(in srgb, var(--color-filo) var(--opacidad-filo), transparent),
+    0 32px 80px -24px rgb(0 0 0 / 0.55);
   contain: layout style;
 }
 
-/**
- * **Solo el material**: el tinte y el desenfoque, sin bordes ni sombra.
- *
- * Existe para lo que cambia de forma entre tamaños de pantalla — hoy la navegación, que en un
- * móvil es una barra pegada abajo y en escritorio una tarjeta en la columna—. Ahí las tres
- * utilidades cerradas de arriba no valen: haría falta una en cada breakpoint, y dos utilidades
- * de la misma capa peleándose es lo que esta separación evita.
- *
- * Con esto, el material se pone una vez y **los bordes y el radio se ponen con clases normales**,
- * que sí tienen variantes de tamaño y se resuelven entre ellas sin ambigüedad.
- *
- * El desenfoque es mayor que el de la cabecera porque por debajo pasa el contenido de la página
- * entera, no un margen: con poco desenfoque se lee lo de detrás a través de las palabras.
- */
-@utility cristal-fondo {
-  background-color: color-mix(in srgb, var(--color-cristal) var(--opacidad-cristal), transparent);
-  backdrop-filter: blur(24px) saturate(1.5);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5);
-}
-
-/** El cristal de una barra pegada a un borde: filo arriba y línea abajo, sin costados. */
-@utility cristal-barra {
-  background-color: color-mix(in srgb, var(--color-cristal) var(--opacidad-cristal), transparent);
-  backdrop-filter: blur(16px) saturate(1.5);
-  -webkit-backdrop-filter: blur(16px) saturate(1.5);
-  border-bottom: 1px solid var(--color-linea);
-  box-shadow: inset 0 1px 0 0
-    color-mix(in srgb, var(--color-cristal) var(--opacidad-filo), transparent);
-}
-
-/**
- * El cristal de lo que se superpone: diálogos y menús.
- *
- * Más opaco que el de las superficies fijas, porque encima de él hay decisiones que se toman
- * leyendo —«se borra del almacén y no se puede recuperar»— y porque debajo hay contenido de la
- * página, no solo el fondo.
- */
-@utility cristal-flotante {
+/** Las tarjetas de dentro: una lámina más sobre la grande. La guarda compone las dos. */
+@utility lamina-tarjeta {
   background-color: color-mix(
     in srgb,
-    var(--color-superficie) 92%,
-    color-mix(in srgb, var(--color-cristal) var(--opacidad-cristal), transparent)
+    var(--color-lamina) var(--opacidad-lamina-tarjeta),
+    transparent
   );
-  backdrop-filter: blur(24px) saturate(1.6);
-  -webkit-backdrop-filter: blur(24px) saturate(1.6);
-  border: 1px solid color-mix(in srgb, var(--color-cristal) var(--opacidad-filo), transparent);
-  box-shadow:
-    inset 0 1px 0 0 color-mix(in srgb, var(--color-cristal) var(--opacidad-filo), transparent),
-    0 24px 60px -20px rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid var(--color-linea);
+  box-shadow: inset 0 1px 0 0
+    color-mix(in srgb, var(--color-filo) var(--opacidad-filo), transparent);
 }
 
-/**
- * El velo que oscurece la página bajo un diálogo.
- *
- * Con su propio desenfoque: es lo que hace que el diálogo se lea como algo que está delante y
- * no como una caja pegada encima.
- */
+/** Solo el material, sin bordes: para lo que cambia de forma entre tamaños de pantalla. */
+@utility lamina-fondo {
+  background-color: color-mix(in srgb, var(--color-lamina) var(--opacidad-lamina), transparent);
+  backdrop-filter: blur(28px) saturate(1.3);
+  -webkit-backdrop-filter: blur(28px) saturate(1.3);
+}
+
+/** El velo que oscurece la página bajo un diálogo, con su propio desenfoque. */
 @utility velo {
   background-color: color-mix(in srgb, var(--color-papel) 72%, transparent);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 /**
  * Quien haya pedido menos movimiento no lo recibe.
  *
- * Va aquí y no componente a componente porque es una preferencia del sistema, no una decisión
- * de cada pantalla: repartirla sería garantizar que la próxima transición se escriba sin ella.
+ * Va aquí y no componente a componente porque es una preferencia del sistema: repartirla sería
+ * garantizar que la próxima transición se escriba sin ella.
  */
 @media (prefers-reduced-motion: reduce) {
   *,

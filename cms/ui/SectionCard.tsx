@@ -19,7 +19,7 @@ import { ANILLO_DE_FOCO } from './estilos';
  * Distinguirlo no cuesta nada —la fila ya trae `published`— y evita que alguien crea que su
  * sitio está publicado cuando no lo está.
  *
- * ## El cristal, y el borde que se enciende (spec 11)
+ * ## El vidrio, y el borde que se enciende (spec 11)
  *
  * La tarjeta flota sobre el fondo con luz. Al pasar por encima **no cambia de fondo**: se le
  * enciende el filo. Cambiar el fondo de una superficie translúcida al vuelo obliga al navegador
@@ -40,7 +40,7 @@ export function SectionCard({ nombre, href, estado, elementos }: SectionCardProp
   return (
     <Link
       href={href}
-      className={`cristal group flex h-full flex-col gap-4 rounded-2xl p-5 transition hover:border-acento ${ANILLO_DE_FOCO}`}
+      className={`lamina-tarjeta group flex h-full flex-col gap-4 rounded-2xl p-5 transition hover:border-acento ${ANILLO_DE_FOCO}`}
     >
       {/* **El título tiene la línea entera, y la etiqueta va debajo.** Estaban en la misma fila
           y con la etiqueta al lado —que mide lo que mide su texto— «Sobre nosotros» se partía en

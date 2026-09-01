@@ -940,6 +940,37 @@ Spec: [`docs/specs/10-estetica-del-panel.md`](specs/10-estetica-del-panel.md), c
 - **Y una guarda cazó una deriva de verdad**, cometida por quien la acababa de escribir: una
   ficha añadida a un bloque oscuro y no al otro.
 
+### Lo que cambió al enseñarlo, y lo que enseñó
+
+Dos peticiones más, con la composición ya entregada, y las dos de las que solo se ven mirando.
+
+**«Sobra espacio a los lados».** Medido en 1920 px: el techo de lectura de #190 dejaba casi
+cuatrocientos píxeles muertos a cada lado. Se retira (ADR-813), y con él su caso T-190-6 — que
+se dice en vez de fingir que sobraba. **El error de #190 no era el techo: era dónde se
+aplicaba**, al contenedor entero en vez de a la prosa. En el móvil, además, el contenedor grande
+deja de llevar margen: ahí no se ve flotar y solo quitaba ancho, de 364 px a 332 de 390.
+
+**«Que se note más el vidrio».** El problema real: una lámina translúcida sobre un fondo liso se
+ve igual que una opaca, porque no hay nada que desenfocar.
+
+Lo primero que se probó fue lo obvio —subir las manchas manteniendo el cristal claro— y **no
+funciona, y está medido**: el texto terciario cae a 4,07:1 con el cristal al 8 % y a 3,34 al
+16 %, por debajo de AA en las cinco combinaciones probadas. No era cuestión de afinar: la
+dirección estaba equivocada.
+
+Lo que sí funciona es lo del vidrio ahumado de verdad: **la lámina oscurece**. Las luces se ven
+atenuadas —que es lo que se lee como vidrio— y el texto gana contraste en vez de perderlo. Con
+ese modelo caben luces cuatro veces más fuertes y el peor caso queda en 4,88:1 (ADR-814).
+
+Y aparece el **contenedor grande** que envuelve el panel con el rail flotando fuera, que es lo
+que hace que se lea como una sola pieza de vidrio. Obliga a que la guarda componga **dos capas**
+en vez de una: componer solo la primera habría sido el fallo de ADR-800 otra vez, un nivel más
+abajo.
+
+**Y el filo necesitó ficha propia.** Salía de `--color-lamina`, que en oscuro es oscura: el
+«filo» se pintaba como sombra y las tarjetas no se distinguían del contenedor. Se vio en una
+captura, no leyendo el CSS.
+
 ### Abierto
 
 - **#220 — el panel en un móvil.** Es funcionalidad, no acabado: hoy no se puede usar.
@@ -1110,3 +1141,81 @@ Y a 320 px, que es el suelo de la spec, tampoco desborda ninguna pantalla.
 - **Y un estilo se escapó de la migración por llevar comillas simples.** Los campos de ajustes
   tenían su clase escrita dentro de un objeto de atributos, así que se quedaron fuera cuando el
   resto del panel pasó al vocabulario común: tres campos de 42 px. A ojo, 42 y 44 son lo mismo.
+
+---
+
+## El bento, el rail y la paleta tierra ✅
+
+**Cerrado** el 1 de septiembre de 2026, issue [#229](https://github.com/KthArg/uno-cms/issues/229),
+spec [`12-bento-y-rail.md`](specs/12-bento-y-rail.md), ADR-810 a ADR-812.
+
+Es la tercera pasada sobre el mismo problema, y la primera con una referencia visual delante. Lo
+que enseñó: **#224 acertó el material y falló la composición**. Cristal, iconos y profundidad
+sobre un layout de barra lateral con texto y contenido en una columna — la misma forma de
+siempre. Por eso «se ve bien» y «se ve como cualquier otro» podían ser ciertas a la vez.
+
+### Qué funciona
+
+| Área            | Estado                                                                                                                                          |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| La composición  | Bento: rail de iconos, pieza principal con la portada y sus cifras dentro, columna de apoyo a la derecha, y las secciones en filas anchas abajo |
+| El rail         | Iconos sin texto pintado, **con nombre accesible y `title`** — las condiciones de ADR-810, con un caso que las exige                            |
+| La paleta       | Tierra cálido con acento naranja. Las mismas fichas y las mismas guardas: **73 comprobaciones de contraste en verde sin tocar ninguna**         |
+| Las cifras      | Secciones, sin publicar, imágenes y personas. **Todas salen de algo que ya se leía**; ninguna se estima                                         |
+| La gráfica      | Publicaciones por día de los últimos 14, de `revisions` más las entradas publicadas una sola vez, con lo que **no puede ver** escrito (ADR-812) |
+| Lo que §9 exige | Intacto y con caso propio: el estado de cada sección con su vocabulario, y «Publicar todo»                                                      |
+
+**Verificado con el panel delante** en los dos modos y a 390 px, y con números: 853 tests
+rápidos, 293 de integración y los 71 e2e en verde, y el presupuesto de la landing **byte a byte
+igual**: 5,6 KB nuestro, 106,1 KB de total.
+
+### Qué es frágil
+
+1. **La gráfica puede subcontar.** Si una entrada se publica por primera vez y se republica
+   dentro de la misma ventana, la primera publicación no aparece: **su fecha no existe en el
+   esquema**. Está en ADR-812 y en el propio módulo, y falla en la dirección que no infla.
+2. **Con más de 20 republicaciones de una entrada en 14 días, la poda se lleva las viejas.** Con
+   el ritmo de una landing es improbable; queda escrito porque improbable y «no pasa» no son lo
+   mismo.
+3. **El rail cuesta la primera vez en escritorio**: hay que pasar el ratón para saber qué es cada
+   icono. Son cuatro secciones, y es el precio elegido en ADR-810.
+4. **La pieza principal se ve vacía si la portada no tiene imagen.** Con imagen se lee como la
+   referencia; sin ella queda un hueco a la derecha. No se rellena con nada inventado a propósito.
+5. **El `data:` URI que se usó para verlo con imagen no es lo que se despliega.** Lo que se
+   probó a mano fue el caso con imagen, no la subida real.
+
+### Qué probaría a mano
+
+- **Subir una foto de verdad y ponerla de portada**, para ver la fusión con una imagen real y no
+  con un degradado generado.
+- **Un sitio recién estrenado**, sin nada publicado: es donde la gráfica está a cero y las cifras
+  a uno, y donde peor puede quedar una composición pensada con datos.
+- **El rail con el teclado**, tabulando: el `title` no se lee al tabular, solo al pasar el ratón.
+  Lo que sostiene ese caso es el nombre accesible, y quien navega con teclado y vista lo tiene
+  peor que los dos extremos.
+
+### Lo que enseñó esta pasada
+
+- **La forma se reconoce antes que el color, y es lo que se pidió dos veces sin acertar.** Las
+  dos entregas anteriores cambiaron material y paleta; lo que no se parecía era la disposición.
+- **Cambiar la dirección de color entera volvió a costar un fichero.** Es la segunda vez en tres
+  días que se cobra la inversión de #219, y esta vez con las 73 comprobaciones de contraste
+  pasando sin relajar ninguna: se ajustaron los valores hasta que entraron.
+- **El rediseño se llevó por delante el `<h1>` de la pantalla**, y lo cazó un e2e que ya existía.
+  Una página sin encabezado de nivel 1 deja sin punto de partida a quien navega por encabezados,
+  y es de lo que Lighthouse mira en la nota que va en CI. El test decía «el panel carga y lista
+  las secciones»; tenía razón por debajo de lo que decía.
+- **Copiar la forma de un gráfico sin mirar el dato es como se hacen los gráficos que mienten.**
+  La referencia tenía una curva suave porque medía usuarios activos, que es una magnitud continua;
+  aquí son conteos de cero a tres, y una curva habría dibujado «1,4 publicaciones» un martes por
+  la tarde. Van barras.
+- **El panel de inicio se acopló a una clave de la configuración de quien lo monta, y eso lo
+  encontró la autorrevisión.** La primera versión leía `getDraft('hero')` a pelo; `hero` es una
+  clave de **este** `cms.config.ts`, no del producto, y la promesa de `SPEC.md` §5.1 es que las
+  secciones las decide quien monta el CMS sobre su landing. Un panel de inicio que da por hecha
+  una clave se rompe en la primera configuración que no la tenga — y en la pantalla que se abre
+  primero. Ahora usa el primer singleton de la lista y saca el título y la imagen **por el tipo
+  del campo**, que es lo estable, no por su nombre.
+- **Y dos avisos del linter de seguridad se resolvieron sin declarar excepciones**, cambiando el
+  código en vez del test: una expresión regular construida con una variable se sustituyó por una
+  función de filtro. Una excepción es a veces la respuesta correcta; no debería ser la primera.

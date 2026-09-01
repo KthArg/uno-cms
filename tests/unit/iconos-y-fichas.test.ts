@@ -39,12 +39,42 @@ describe('T-215-2 — los iconos vienen de una librería, no pegados a mano', ()
     // No es purismo: un SVG escrito a mano en un componente no tiene tamaño ni grosor de trazo
     // coherentes con los demás, y —lo que importa— **no pasa por el envoltorio** que decide si
     // el icono se anuncia o se oculta. Cada uno es una excepción a T-215-6 esperando.
-    const conSvg = FUENTES.filter(({ texto }) => /<svg[\s>]/.test(texto)).map(({ ruta }) => ruta);
+    //
+    // **Las excepciones llevan motivo escrito**, que es la regla de este repositorio: una lista
+    // sin explicación crece hasta vaciar el test de sentido.
+    const EXCEPCIONES: readonly { readonly ruta: string; readonly motivo: string }[] = [
+      {
+        ruta: 'cms/ui/PublicacionesPorDia.tsx',
+        motivo:
+          'No es un icono: es una visualización de datos, y su forma sale de la serie. Lo que ' +
+          'esta guarda protege —que los dibujos con significado pasen por el envoltorio que ' +
+          'decide si se anuncian— aquí lo cumple por su cuenta: el `<svg>` lleva `role="img"` ' +
+          'con nombre, y cada barra su `<title>`.',
+      },
+    ];
+
+    const exentas = new Set(EXCEPCIONES.map((excepcion) => excepcion.ruta));
+
+    const conSvg = FUENTES.filter(
+      ({ ruta, texto }) => !exentas.has(ruta) && /<svg[\s>]/.test(texto)
+    ).map(({ ruta }) => ruta);
 
     expect(
       conSvg,
       'dibujan un SVG a mano en vez de usar `Icono` de `cms/ui/iconos.tsx` (ADR-801)'
     ).toEqual([]);
+
+    // Y una excepción que ya no hace falta se va sola: si el fichero exento deja de tener SVG,
+    // este caso lo dice en vez de dejar la lista creciendo con entradas muertas.
+    for (const { ruta } of EXCEPCIONES) {
+      const fuente = FUENTES.find((candidata) => candidata.ruta === ruta);
+
+      expect(fuente, `la excepción ${ruta} apunta a un fichero que ya no existe`).toBeDefined();
+      expect(
+        /<svg[\s>]/.test(fuente?.texto ?? ''),
+        `${ruta} está exento y ya no dibuja ningún SVG: quita la excepción`
+      ).toBe(true);
+    }
   });
 
   it('y la lista de ficheros no está vacía, o esto no comprobaría nada', () => {

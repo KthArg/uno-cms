@@ -158,7 +158,7 @@ export function MediaPicker({
         if (evento.key === 'Escape') onCerrar();
       }}
     >
-      <div className="cristal-flotante max-h-[80vh] w-full max-w-3xl overflow-auto rounded-2xl p-6">
+      <div className="lamina-tarjeta max-h-[80vh] w-full max-w-3xl overflow-auto rounded-2xl p-6">
         <div className="flex items-start justify-between gap-4">
           <h2 className="text-lg font-semibold text-tinta">Elegir una imagen</h2>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" className={BOTON_ICONO}>

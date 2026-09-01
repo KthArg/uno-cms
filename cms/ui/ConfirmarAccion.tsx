@@ -61,7 +61,7 @@ export function ConfirmarAccion({
         if (evento.key === 'Escape') onCancelar();
       }}
     >
-      <div className="cristal-flotante w-full max-w-md rounded-2xl p-6">
+      <div className="lamina-tarjeta w-full max-w-md rounded-2xl p-6">
         <h2 className="flex items-start gap-2.5 text-lg font-semibold text-tinta">
           {/* El icono de alarma **sí** significa algo aquí: es lo primero que dice que esto no
               es un aviso más. Por eso lleva nombre accesible en vez de estar oculto. */}

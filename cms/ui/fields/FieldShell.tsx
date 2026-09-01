@@ -79,7 +79,7 @@ export function FieldShell({ id, label, help, error, required, children }: Field
  * lista se ven igual sin que nadie tenga que acordarse. Lo único propio de aquí es el borde de
  * error, que **se pone después** para ganarle al del estado normal.
  *
- * **Sin cristal, y es la regla de la spec 11 §3**: en un campo se lee y se escribe durante
+ * **Sin vidrio, y es la regla de la spec 11 §3**: en un campo se lee y se escribe durante
  * minutos, y una superficie translúcida cambia de contraste con lo que pase por detrás al
  * desplazar la página.
  */

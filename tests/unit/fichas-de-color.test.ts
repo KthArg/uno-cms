@@ -205,52 +205,82 @@ describe('T-212-4 — el contraste cumple AA en los dos modos', () => {
 });
 
 /**
- * Las fichas de texto que **pueden ir sobre cristal**.
+ * Las fichas de texto que **pueden ir encima del vidrio**.
  *
- * No es la lista de todas: es la de las que el panel pinta encima de una lámina translúcida. El
+ * No es la lista de todas: es la de las que el panel pinta sobre una lámina translúcida. El
  * resto —los pares de estado, los «sobre-algo»— van sobre superficies opacas por la tabla de la
  * spec 11 §3, y comprobarlas aquí obligaría a que todo contrastara contra todo.
  */
-const TEXTO_SOBRE_CRISTAL = ['tinta', 'tinta-suave', 'tinta-tenue', 'acento', 'alarma'];
+const TEXTO_SOBRE_VIDRIO = [
+  'tinta',
+  'tinta-suave',
+  'tinta-tenue',
+  'acento',
+  'alarma',
+  'publicado-tinta',
+  'pendiente-tinta',
+];
 
-describe('T-215-1 — el contraste sobre cristal se mide en el color que se ve', () => {
+/**
+ * **La pila de láminas que el panel apila de verdad** (spec 12, ADR-800 ampliado).
+ *
+ * Hasta #229 el vidrio era una sola capa y bastaba componer una. Ahora hay un contenedor grande
+ * y, dentro, las tarjetas — así que el fondo efectivo de un texto es el resultado de apilar las
+ * dos sobre el fondo de la página.
+ *
+ * Componer una sola capa aquí sería el mismo fallo que ADR-800 vino a evitar, un nivel más
+ * abajo: la guarda en verde midiendo un color que no es el que se ve.
+ */
+const PILAS: readonly { readonly nombre: string; readonly capas: readonly string[] }[] = [
+  { nombre: 'el contenedor grande', capas: ['lamina'] },
+  { nombre: 'una tarjeta dentro del contenedor', capas: ['lamina', 'lamina-tarjeta'] },
+];
+
+describe('T-215-1 — el contraste sobre el vidrio se mide en el color que se ve', () => {
   for (const [modo, fichas, opacidades] of [
     ['claro', CLARO, OPACIDAD_CLARO],
     ['oscuro', OSCURO_DEL_SISTEMA, OPACIDAD_OSCURO],
   ] as const) {
     /**
-     * Los dos extremos del fondo que puede haber detrás de un cristal (ADR-800).
+     * Los dos extremos del fondo que puede haber debajo (ADR-800).
      *
-     * Que sean **dos y conocidos** es toda la decisión de diseño: detrás del cristal solo hay el
-     * fondo de la página, nunca contenido arbitrario y nunca una imagen. Sin esa regla, el fondo
+     * Que sean **dos y conocidos** es toda la decisión de diseño: debajo del vidrio solo hay el
+     * fondo de la página, nunca contenido arbitrario y nunca una imagen. Sin esa regla el fondo
      * efectivo no se puede acotar y esta comprobación no existiría.
      */
     const extremos = [
       ['el papel a secas', fichas['papel']],
-      ['el punto más claro del halo', fichas['fondo-claro']],
+      ['donde se solapan las tres luces', fichas['fondo-claro']],
     ] as const;
 
-    for (const texto of TEXTO_SOBRE_CRISTAL) {
-      for (const [donde, fondo] of extremos) {
-        it(`${modo}: «${texto}» sobre cristal, con ${donde} detrás`, () => {
-          const tinte = fichas['cristal'];
-          const alfa = opacidades['cristal'];
+    for (const { nombre, capas } of PILAS) {
+      for (const texto of TEXTO_SOBRE_VIDRIO) {
+        for (const [donde, fondo] of extremos) {
+          it(`${modo}: «${texto}» sobre ${nombre}, con ${donde} debajo`, () => {
+            const tinte = fichas['lamina'];
 
-          expect(tinte, `falta la ficha cristal en ${modo}`).toBeDefined();
-          expect(fondo, `falta el extremo del fondo en ${modo}`).toBeDefined();
-          expect(alfa, `falta --opacidad-cristal en ${modo}`).toBeDefined();
-          expect(fichas[texto], `falta la ficha ${texto} en ${modo}`).toBeDefined();
+            expect(tinte, `falta la ficha lamina en ${modo}`).toBeDefined();
+            expect(fondo, `falta el extremo del fondo en ${modo}`).toBeDefined();
+            expect(fichas[texto], `falta la ficha ${texto} en ${modo}`).toBeDefined();
 
-          const visto = componer(tinte!, alfa!, fondo!);
-          const ratio = contraste(fichas[texto]!, visto);
+            // Se apilan en orden, de abajo arriba, igual que en la pantalla.
+            let visto = fondo!;
+            for (const capa of capas) {
+              const alfa = opacidades[capa];
+              expect(alfa, `falta --opacidad-${capa} en ${modo}`).toBeDefined();
+              visto = componer(tinte!, alfa!, visto);
+            }
 
-          expect(
-            Number(ratio.toFixed(2)),
-            `${texto} (${fichas[texto]!}) sobre el cristal compuesto (${visto}) da ` +
-              `${ratio.toFixed(2)}:1. Sube el contraste de la ficha, baja --opacidad-cristal ` +
-              'o baja el halo: los tres mueven este número.'
-          ).toBeGreaterThanOrEqual(4.5);
-        });
+            const ratio = contraste(fichas[texto]!, visto);
+
+            expect(
+              Number(ratio.toFixed(2)),
+              `${texto} (${fichas[texto]!}) sobre ${nombre} compuesto (${visto}) da ` +
+                `${ratio.toFixed(2)}:1. Sube el contraste de la ficha, sube --opacidad-lamina ` +
+                'o baja las luces del fondo: los tres mueven este número.'
+            ).toBeGreaterThanOrEqual(4.5);
+          });
+        }
       }
     }
   }
@@ -261,15 +291,19 @@ describe('T-215-1 — y el extremo declarado es el extremo de verdad', () => {
     ['claro', CLARO, OPACIDAD_CLARO],
     ['oscuro', OSCURO_DEL_SISTEMA, OPACIDAD_OSCURO],
   ] as const) {
-    it(`${modo}: «fondo-claro» es lo que sale de componer las dos manchas del halo`, () => {
+    it(`${modo}: «fondo-claro» es lo que sale de componer las tres luces`, () => {
       // **Este es el caso que sostiene a los de arriba.** `--color-fondo-claro` se escribe a
-      // mano, y si el halo cambia y esa ficha no, la comprobación de contraste sigue en verde
-      // midiendo un extremo que ya no existe en ninguna pantalla — que es exactamente el modo
-      // de fallo que ADR-800 dice evitar, reaparecido un nivel más abajo.
-      const tras1 = componer(fichas['halo-calido']!, opacidades['halo-calido']!, fichas['papel']!);
-      const esperado = componer(fichas['halo-frio']!, opacidades['halo-frio']!, tras1);
+      // mano, y si las luces cambian y esa ficha no, la comprobación de contraste sigue en verde
+      // midiendo un extremo que ya no existe en ninguna pantalla — que es exactamente el modo de
+      // fallo que ADR-800 dice evitar, reaparecido un nivel más abajo.
+      let esperado = fichas['papel']!;
+      for (const luz of ['luz-calida', 'luz-media', 'luz-fria']) {
+        expect(fichas[luz], `falta la ficha ${luz} en ${modo}`).toBeDefined();
+        expect(opacidades[luz], `falta --opacidad-${luz} en ${modo}`).toBeDefined();
+        esperado = componer(fichas[luz]!, opacidades[luz]!, esperado);
+      }
 
-      // Canal a canal y con un punto de margen: componer en dos pasos redondea dos veces, y
+      // Canal a canal y con un punto de margen: componer en varios pasos redondea en cada uno, y
       // exigir igualdad exacta convertiría este caso en frágil por una unidad de 255.
       const canales = (hex: string): number[] =>
         [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
@@ -280,8 +314,8 @@ describe('T-215-1 — y el extremo declarado es el extremo de verdad', () => {
       for (const [i, valor] of calculado.entries()) {
         expect(
           Math.abs(valor - declarado[i]!),
-          `--color-fondo-claro en ${modo} dice ${fichas['fondo-claro']!} y las manchas del ` +
-            `halo dan ${esperado}. Recalcúlalo o baja el halo.`
+          `--color-fondo-claro en ${modo} dice ${fichas['fondo-claro']!} y las luces dan ` +
+            `${esperado}. Recalcúlalo o baja las luces.`
         ).toBeLessThanOrEqual(1);
       }
     });
@@ -291,7 +325,7 @@ describe('T-215-1 — y el extremo declarado es el extremo de verdad', () => {
 describe('T-215-1 — las opacidades también tienen pareja en los dos modos', () => {
   it('el oscuro declara exactamente las mismas que el claro', () => {
     // Mismo motivo que con los colores, y con una consecuencia peor: una opacidad sin pareja
-    // hereda la del otro modo, y el 62 % de blanco que es una lámina en claro deja el cristal
+    // hereda la del otro modo, y el 68 % que es una lámina razonable en claro deja el vidrio
     // oscuro **casi opaco**. Se vería, pero no sabría nadie por qué.
     expect(Object.keys(OPACIDAD_OSCURO).sort()).toEqual(Object.keys(OPACIDAD_CLARO).sort());
   });
