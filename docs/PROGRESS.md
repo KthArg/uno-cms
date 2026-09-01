@@ -1178,6 +1178,13 @@ igual**: 5,6 KB nuestro, 106,1 KB de total.
   La referencia tenía una curva suave porque medía usuarios activos, que es una magnitud continua;
   aquí son conteos de cero a tres, y una curva habría dibujado «1,4 publicaciones» un martes por
   la tarde. Van barras.
+- **El panel de inicio se acopló a una clave de la configuración de quien lo monta, y eso lo
+  encontró la autorrevisión.** La primera versión leía `getDraft('hero')` a pelo; `hero` es una
+  clave de **este** `cms.config.ts`, no del producto, y la promesa de `SPEC.md` §5.1 es que las
+  secciones las decide quien monta el CMS sobre su landing. Un panel de inicio que da por hecha
+  una clave se rompe en la primera configuración que no la tenga — y en la pantalla que se abre
+  primero. Ahora usa el primer singleton de la lista y saca el título y la imagen **por el tipo
+  del campo**, que es lo estable, no por su nombre.
 - **Y dos avisos del linter de seguridad se resolvieron sin declarar excepciones**, cambiando el
   código en vez del test: una expresión regular construida con una variable se sustituyó por una
   función de filtro. Una excepción es a veces la respuesta correcta; no debería ser la primera.

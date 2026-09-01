@@ -1,7 +1,8 @@
 import { auth } from '@/cms/auth';
 import { publishAll } from '@/cms/actions';
-import { getDraft, listSections } from '@/cms/core/content';
+import { listSections } from '@/cms/core/content';
 import { listMedia } from '@/cms/core/media';
+import { leerPortadaDelPanel } from '@/cms/core/portada';
 import { publicacionesPorDia, totalDeLaVentana } from '@/cms/core/publicaciones';
 import { listUsers } from '@/cms/core/users';
 import { motivoLegible } from '@/cms/ui/motivoLegible';
@@ -27,16 +28,21 @@ export default async function PanelContenido() {
    * En serie serían cinco viajes encadenados para pintar una pantalla que se abre entera; el
    * dato que más tarda marca el ritmo igual, así que encadenarlos solo suma esperas.
    */
-  const [secciones, imagenes, serie, portada, personas] = await Promise.all([
+  const [secciones, imagenes, serie, personas] = await Promise.all([
     listSections(),
     listMedia(),
     publicacionesPorDia(),
-    getDraft('hero'),
     // **La cuenta de personas solo para administración.** Un editor no entra en esa pantalla
     // (T-E-4), y enseñarle cuánta gente hay sería contarle por la puerta de al lado justo lo que
     // la otra puerta no le deja ver. Cuesta una consulta menos, además.
     esAdmin ? listUsers() : Promise.resolve(null),
   ]);
+
+  // Va después porque necesita saber cuál es la primera sección, y eso lo dice `listSections()`.
+  // **No se lee `hero` a pelo**: esa clave es de este `cms.config.ts`, no del producto, y un
+  // panel de inicio que la dé por hecha se rompe en la primera landing que no la tenga — en la
+  // pantalla que se abre primero. Está contado en `cms/core/portada.ts`.
+  const portada = await leerPortadaDelPanel(secciones);
 
   const nombrePorClave = new Map(secciones.map((seccion) => [seccion.key, seccion.nombre]));
   const pendientes = secciones.filter((seccion) => seccion.estado !== 'publicado').length;
@@ -99,12 +105,8 @@ export default async function PanelContenido() {
       serieDePublicaciones={serie}
       totalDePublicaciones={totalDeLaVentana(serie)}
       ultimaImagen={ultimaImagen}
-      tituloDeLaPortada={typeof portada.title === 'string' ? portada.title : ''}
-      imagenDeLaPortada={
-        typeof portada.image === 'object' && portada.image !== null && 'url' in portada.image
-          ? String((portada.image as { url: unknown }).url)
-          : ''
-      }
+      tituloDeLaPortada={portada.titulo}
+      imagenDeLaPortada={portada.imagen}
       pendientes={pendientes}
       publicarTodo={pendientes > 0 ? <PublishAllButton action={publicarTodo} /> : null}
     />
