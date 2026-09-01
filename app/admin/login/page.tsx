@@ -48,10 +48,10 @@ export default async function LoginPage({
   return (
     <EnvoltorioDeTema>
       <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6 py-12">
-        {/* La lámina de cristal está aquí y no alrededor de toda la pantalla: es lo único que
+        {/* La lámina de vidrio está aquí y no alrededor de toda la pantalla: es lo único que
             flota, así que es donde va la mirada. Con el halo detrás, este recuadro es lo que
             da la primera impresión de qué clase de herramienta es esto. */}
-        <div className="cristal rounded-3xl p-7">
+        <div className="lamina-tarjeta rounded-3xl p-7">
           <div className="flex items-center gap-2.5">
             <span aria-hidden="true" className="size-2 rounded-full bg-acento" />
             <span className="font-semibold text-tinta">Tu sitio</span>

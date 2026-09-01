@@ -23,7 +23,7 @@
 /**
  * El foco visible.
  *
- * Sobre cristal el anillo por defecto del navegador se pierde entre el desenfoque y el filo, así
+ * Sobre el vidrio el anillo por defecto del navegador se pierde entre el desenfoque y el filo, así
  * que se pinta uno propio en el color de acento. No es preferencia estética: sin él, quien navega
  * con teclado deja de saber dónde está.
  */
@@ -43,21 +43,21 @@ export const ANILLO_DE_FOCO_ALARMA =
  */
 const BOTON_BASE = `inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${ANILLO_DE_FOCO}`;
 
-/** La acción principal de una pantalla. Sólida, nunca de cristal: tiene que leerse a la primera. */
+/** La acción principal de una pantalla. Sólida, nunca de vidrio: tiene que leerse a la primera. */
 export const BOTON_PRINCIPAL = `${BOTON_BASE} bg-accion text-sobre-accion hover:bg-accion-hover`;
 
 /**
  * Lo demás que se puede pulsar.
  *
- * **Superficie opaca, no cristal**, y esto se escribió al revés primero. La versión con cristal
+ * **Superficie opaca, no vidrio**, y esto se escribió al revés primero. La versión translúcida
  * se leía bien y contradecía dos cosas a la vez:
  *
- * 1. **La spec 11 §3**, que pone los botones en la columna de «no hay cristal». O sea que el
+ * 1. **La spec 11 §3**, que pone los botones en la columna de «no hay vidrio». O sea que el
  *    código decía una cosa y el documento otra, que es de donde salen los fallos que nadie busca.
- * 2. **La premisa de ADR-800**, que es la que hace calculable el contraste: «detrás de un cristal
- *    del panel solo hay el fondo de la página». Un botón de cristal dentro de una tarjeta de
- *    cristal —y estaba en cinco sitios: la confirmación, el historial, la biblioteca, las
- *    personas y el editor— tiene **otro cristal** detrás, no el fondo.
+ * 2. **La premisa de ADR-800**, que es la que hace calculable el contraste: «detrás de un vidrio
+ *    del panel solo hay el fondo de la página». Un botón de vidrio dentro de una tarjeta de
+ *    vidrio —y estaba en cinco sitios: la confirmación, el historial, la biblioteca, las
+ *    personas y el editor— tiene **otro vidrio** detrás, no el fondo.
  *
  * Y no era teórico. Apilando dos láminas en modo oscuro, `tinta-tenue` cae de 4,93:1 a
  * **4,09:1** — por debajo de AA. La guarda seguía verde porque compone una sola capa, que es
@@ -84,9 +84,9 @@ export const BOTON_ICONO = `inline-flex size-11 items-center justify-center roun
 /**
  * Un campo de formulario.
  *
- * **Sin cristal, y es la regla de la spec 11 §3**: aquí se escribe y se lee durante minutos
+ * **Sin vidrio, y es la regla de la spec 11 §3**: aquí se escribe y se lee durante minutos
  * seguidos, y un fondo translúcido cambia de contraste según lo que pase por detrás al hacer
- * scroll. La superficie es opaca y el cristal se queda para lo que flota.
+ * scroll. La superficie es opaca y el vidrio se queda para lo que flota.
  *
  * **`min-h-11` son los 44 px de T-213-3**, y hacían falta: medido en un móvil de 390 px, los
  * campos del editor daban **42**. Dos píxeles no se ven y son la diferencia entre cumplir el
@@ -99,7 +99,7 @@ export const CAMPO = `min-h-11 w-full rounded-xl border border-linea bg-superfic
 export const CAMPO_ALTO = `${CAMPO} min-h-28`;
 
 /** Una lámina que flota sobre el fondo: las tarjetas y las cajas de una lista. */
-export const TARJETA = 'cristal rounded-2xl';
+export const TARJETA = 'lamina-tarjeta rounded-2xl';
 
 /**
  * Una superficie opaca para leer encima.
@@ -113,7 +113,7 @@ export const SUPERFICIE = 'rounded-2xl border border-linea bg-superficie';
 /** El título de una pantalla. */
 export const TITULO = 'text-2xl font-semibold tracking-tight text-tinta';
 
-/** Un aviso. **Nunca de cristal**: un error tiene que leerse en la peor circunstancia. */
+/** Un aviso. **Nunca de vidrio**: un error tiene que leerse en la peor circunstancia. */
 export const AVISO_ALARMA =
   'flex items-start gap-2.5 rounded-xl border border-alarma-linea bg-alarma-fondo px-3.5 py-3 text-sm text-alarma';
 

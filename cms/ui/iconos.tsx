@@ -125,7 +125,7 @@ export function Icono({ de, etiqueta, tamano = 20, className }: IconoProps) {
       // desbordan, así que se descubre tarde y en una pantalla concreta.
       className={`shrink-0 ${className ?? ''}`}
       size={tamano}
-      // 1,75 en vez del 2 de fábrica: sobre cristal, un trazo grueso se lee como una mancha.
+      // 1,75 en vez del 2 de fábrica: sobre el vidrio, un trazo grueso se lee como una mancha.
       strokeWidth={1.75}
       aria-hidden={etiqueta === undefined ? true : undefined}
       role={etiqueta === undefined ? undefined : 'img'}

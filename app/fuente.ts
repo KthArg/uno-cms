@@ -10,7 +10,7 @@ import { Schibsted_Grotesk } from 'next/font/google';
  * componente usaba `font-serif`, así que lo que se veía en pantalla era el `Georgia` del final
  * de la lista de reserva. Está contado en ADR-803.
  *
- * Y no se recupera. El serif editorial era coherente con «papel y tinta»; el cristal pide letra
+ * Y no se recupera. El serif editorial era coherente con «papel y tinta»; el vidrio pide letra
  * de interfaz —asta uniforme, altura de equis generosa, legible a doce píxeles sobre un fondo
  * translúcido—. La jerarquía la lleva el **peso**, que es una variable y no una segunda descarga.
  *

@@ -131,6 +131,40 @@ primera publicación no aparece. Su fecha no está registrada en ninguna parte d
 Por eso la tarjeta se titula **«Publicaciones»** y lleva su ventana escrita, no «actividad» ni
 nada que prometa completitud.
 
+## 7 bis. Lo que cambió al verlo: el ancho y el vidrio
+
+Las dos peticiones llegaron con la composición ya entregada, y las dos son de las que solo se
+ven mirando la pantalla.
+
+### El espacio que sobraba a los lados
+
+Medido en 1920 px: el techo de lectura de #190 dejaba **casi cuatrocientos píxeles muertos a
+cada lado**. Para una herramienta de edición eso no es aire, es pantalla que no se usa.
+
+El techo se retira (ADR-813). El error de #190 no era el límite sino **dónde se aplicaba**: al
+contenedor entero en vez de a la prosa. Lo que lo sustituye es acotar la medida donde de verdad
+hay texto que leer.
+
+En el móvil, además, el contenedor grande **no lleva margen**: ahí no se ve flotar y solo quita
+ancho. Medido, el contenido pasó de 332 px a 364 de 390 al quitarlo.
+
+### Que el vidrio se notara
+
+El problema real: **una lámina translúcida sobre un fondo liso se ve igual que una opaca**,
+porque no hay nada que desenfocar.
+
+Lo primero que se probó fue subir las manchas manteniendo el cristal claro, y **no funciona**:
+con manchas de verdad detrás, el texto terciario cae a 4,07:1 con el cristal al 8 % y a 3,34 al
+16 %. Por debajo de AA en las cinco combinaciones probadas. No era cuestión de afinar.
+
+La dirección correcta es la del vidrio ahumado: **la lámina oscurece**. Las luces del fondo se
+ven atenuadas —que es lo que se lee como vidrio— y el texto gana contraste en vez de perderlo.
+Con ese modelo, luces cuatro veces más fuertes y el peor caso en 4,88:1 (ADR-814).
+
+Y aparece **el contenedor grande** que envuelve el panel, con el rail flotando fuera. Es lo que
+hace que todo se lea como una sola pieza de vidrio y no como tarjetas sueltas — y obliga a que
+la guarda componga **dos capas**, no una.
+
 ## 8. Casos
 
 - **T-216-1** El panel de inicio sigue ofreciendo lo que fija `SPEC.md` §9: el estado de cada
@@ -146,6 +180,10 @@ nada que prometa completitud.
 - **T-216-7** El presupuesto de JavaScript de la landing no se mueve.
 - **T-216-8** Sigue sin haber colores literales ni variantes `dark:` en el panel, y ninguna ficha
   declarada se queda sin usar.
+- **T-216-9** El contraste se comprueba sobre **la pila entera** —fondo, contenedor, tarjeta—,
+  no sobre una sola capa.
+- **T-216-10** El contenido dispone de al menos el 85 % del ancho también en escritorio, y del
+  90 % en un móvil.
 
 ## 9. Fuera de alcance
 

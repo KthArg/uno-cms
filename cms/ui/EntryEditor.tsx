@@ -505,8 +505,8 @@ export function EntryEditor({
           la vista previa y desenfocaba la web de quien edita. Cambiar un desplazamiento por
           tapar la mitad del contenido no es un intercambio que salga a cuenta.
           
-          Se queda al final, con cristal: sigue leyéndose como el sitio donde se decide. */}
-      <div className="cristal flex flex-wrap items-center gap-3 rounded-2xl p-3">
+          Se queda al final, con vidrio: sigue leyéndose como el sitio donde se decide. */}
+      <div className="lamina-tarjeta flex flex-wrap items-center gap-3 rounded-2xl p-3">
         <button
           type="button"
           onClick={() => {

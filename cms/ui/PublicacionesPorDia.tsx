@@ -23,7 +23,7 @@ import type { DiaConPublicaciones } from '@/cms/core/publicaciones';
  * ## El texto no lleva el color de la serie
  *
  * Los números y las etiquetas van en fichas de tinta. El naranja se queda en las barras, que es
- * lo que carga con la identidad; texto de color sobre cristal es la forma más rápida de perder
+ * lo que carga con la identidad; texto de color sobre vidrio es la forma más rápida de perder
  * contraste sin enterarse.
  */
 

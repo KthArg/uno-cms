@@ -1257,3 +1257,46 @@ Lo único con historia es `revisions`, y tiene tres propiedades que hay que tene
 - La consulta vive en `cms/core/`, no en una action: **leer no es mutar**, y ese límite ya tuvo que corregirse una vez (#97, `readSettings`).
 
 **Qué lo revertiría.** Que el esquema empiece a registrar cada publicación con su fecha — una tabla de eventos, no de revisiones podadas. Ahí la serie sería exacta y esta nota sobraría.
+
+---
+
+## ADR-813 — El panel usa toda la ventana, y el techo de lectura de #190 se retira (resuelve #229)
+
+**Contexto.** El panel vivía dentro de un techo de 1152 px centrados, puesto en #190 con un motivo real: una línea de texto de 1900 píxeles obliga a barrer la cabeza de un lado a otro para leerla.
+
+La valoración de quien lo pidió fue que **sobra espacio a los lados, y que eso no conviene para el tipo de ediciones que se hacen aquí**. Medido en una ventana de 1920: el techo dejaba **casi cuatrocientos píxeles muertos a cada lado**, en una herramienta que existe para editar.
+
+**El error de #190 no era el techo: era dónde se aplicaba.** Un límite de medida de línea protege la _prosa_; aplicarlo al contenedor entero encoge también la vista previa, los formularios y las listas, que no son prosa y que ganan con el ancho.
+
+**Decisión.** El contenedor ocupa la ventana entera, con su margen. Lo que sustituye al techo es acotar la medida donde de verdad hay texto que leer. `esPantallaDeAnchoCompleto()` y su caso T-190-6 **se retiran**: sin dos comportamientos que distinguir, la función no decide nada.
+
+**Consecuencias.**
+
+- **La vista previa del editor pasa a ser útil de verdad.** Era la mitad de un contenedor de 1152; ahora es la mitad de la pantalla.
+- **Se pierde el caso T-190-6**, que protegía de ensanchar el panel entero por descuido. Deja de tener sentido porque ensanchar el panel entero es ahora la decisión, no el descuido — pero conviene decir que se retira una guarda y no fingir que sobraba.
+- **Una lista muy ancha separa mucho el nombre de su estado.** Se acepta: en la lista de secciones el nombre va a la izquierda y el estado a la derecha, alineados en columna, que es como se lee una tabla.
+
+**Qué lo revertiría.** Que aparezca una pantalla de prosa larga —la ayuda, un registro de cambios en texto—. Ahí hace falta el límite de medida, y va en esa pantalla, no en el armazón.
+
+---
+
+## ADR-814 — El vidrio pasa a láminas que oscurecen sobre un fondo con luces (amplía ADR-800, resuelve #229)
+
+**Contexto.** Con la dirección de #224 el vidrio no se veía. Dicho con precisión: **una lámina translúcida sobre un fondo liso se ve igual que una opaca**, porque no hay nada que desenfocar. Y la petición fue justamente que se notara más, «agregando algo de fondo con lo que se pueda notar que los elementos son vidrio».
+
+El primer intento fue el obvio: subir las manchas del fondo manteniendo el cristal claro. **No funciona, y está medido.** Con manchas de verdad detrás, el texto terciario sobre una lámina clara cae a 4,07:1 con el cristal al 8 % y a 3,34 al 16 %. Por debajo de AA en las cinco combinaciones que se probaron: no era cuestión de afinar, la dirección estaba equivocada.
+
+**La salida.** Lo que hace el vidrio ahumado de verdad: **la lámina oscurece lo que hay detrás** en vez de aclararlo. Así las luces del fondo se ven atenuadas —que es exactamente lo que se lee como vidrio— y el texto claro encima **gana** contraste en vez de perderlo. Con ese modelo el peor caso sube a 4,88:1 con luces cuatro veces más fuertes que las de #224.
+
+En el modo claro la lámina aclara, por lo mismo al revés.
+
+**Y una segunda capa.** La composición pasa a tener un **contenedor grande** que envuelve el panel y, dentro, las tarjetas. Son dos láminas apiladas, así que **ADR-800 se amplía**: la guarda deja de componer una capa y compone **la pila declarada** —fondo, contenedor, tarjeta— sobre los dos extremos del fondo. Componer una sola sería el mismo fallo que ADR-800 vino a evitar, un nivel más abajo.
+
+**Consecuencias.**
+
+- **Las luces del fondo dejan de ser decoración**: son la mitad del efecto, y sus opacidades entran en el cálculo del extremo del fondo. Subirlas aleja ese extremo y tumba la guarda, que es lo que tiene que pasar.
+- **El filo del borde necesitó ficha propia.** Salía de `--color-lamina`, y en oscuro esa es oscura: el «filo» se pintaba como una sombra y las tarjetas no se distinguían del contenedor. Se vio en una captura, no leyendo el CSS.
+- **La regla de ADR-802 se mantiene**: el vidrio no se apila más de lo declarado, y los botones, campos y avisos siguen sobre superficie opaca.
+- **Hay más `backdrop-filter` en pantalla** —el contenedor grande lo lleva a tamaño completo—. Es lo que había que vigilar, y Lighthouse sigue verde en CI.
+
+**Qué lo revertiría.** Que el listón de rendimiento se resienta en una máquina lenta de verdad. Lo que hay medido es CI; un portátil de hace seis años no está probado.

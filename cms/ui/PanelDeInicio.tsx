@@ -84,7 +84,7 @@ export function PanelDeInicio({
        * izquierda, y esconderlo sería quitar de la vista algo que ayuda a los dos lados. */}
       <h1 className="px-1 text-2xl font-semibold tracking-tight text-tinta">Contenido</h1>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3 2xl:grid-cols-4">
         {/* La pieza que manda. Ocupa dos tercios y es lo primero que se lee. */}
         <section className={`${TARJETA} relative overflow-hidden lg:col-span-2`}>
           {imagenDeLaPortada !== '' && (
@@ -159,7 +159,7 @@ export function PanelDeInicio({
         </section>
 
         {/* La columna de apoyo. Dos tarjetas apiladas que se leen de un vistazo y no piden nada. */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 2xl:col-span-2 2xl:grid-cols-2">
           <section className={`${TARJETA} p-5`}>
             <PublicacionesPorDia serie={serieDePublicaciones} total={totalDePublicaciones} />
           </section>

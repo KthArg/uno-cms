@@ -940,6 +940,37 @@ Spec: [`docs/specs/10-estetica-del-panel.md`](specs/10-estetica-del-panel.md), c
 - **Y una guarda cazó una deriva de verdad**, cometida por quien la acababa de escribir: una
   ficha añadida a un bloque oscuro y no al otro.
 
+### Lo que cambió al enseñarlo, y lo que enseñó
+
+Dos peticiones más, con la composición ya entregada, y las dos de las que solo se ven mirando.
+
+**«Sobra espacio a los lados».** Medido en 1920 px: el techo de lectura de #190 dejaba casi
+cuatrocientos píxeles muertos a cada lado. Se retira (ADR-813), y con él su caso T-190-6 — que
+se dice en vez de fingir que sobraba. **El error de #190 no era el techo: era dónde se
+aplicaba**, al contenedor entero en vez de a la prosa. En el móvil, además, el contenedor grande
+deja de llevar margen: ahí no se ve flotar y solo quitaba ancho, de 364 px a 332 de 390.
+
+**«Que se note más el vidrio».** El problema real: una lámina translúcida sobre un fondo liso se
+ve igual que una opaca, porque no hay nada que desenfocar.
+
+Lo primero que se probó fue lo obvio —subir las manchas manteniendo el cristal claro— y **no
+funciona, y está medido**: el texto terciario cae a 4,07:1 con el cristal al 8 % y a 3,34 al
+16 %, por debajo de AA en las cinco combinaciones probadas. No era cuestión de afinar: la
+dirección estaba equivocada.
+
+Lo que sí funciona es lo del vidrio ahumado de verdad: **la lámina oscurece**. Las luces se ven
+atenuadas —que es lo que se lee como vidrio— y el texto gana contraste en vez de perderlo. Con
+ese modelo caben luces cuatro veces más fuertes y el peor caso queda en 4,88:1 (ADR-814).
+
+Y aparece el **contenedor grande** que envuelve el panel con el rail flotando fuera, que es lo
+que hace que se lea como una sola pieza de vidrio. Obliga a que la guarda componga **dos capas**
+en vez de una: componer solo la primera habría sido el fallo de ADR-800 otra vez, un nivel más
+abajo.
+
+**Y el filo necesitó ficha propia.** Salía de `--color-lamina`, que en oscuro es oscura: el
+«filo» se pintaba como sombra y las tarjetas no se distinguían del contenedor. Se vio en una
+captura, no leyendo el CSS.
+
 ### Abierto
 
 - **#220 — el panel en un móvil.** Es funcionalidad, no acabado: hoy no se puede usar.

@@ -108,7 +108,7 @@ export function MediaLibrary({
       ) : (
         <ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-4">
           {visibles.map((imagen) => (
-            /* **Superficie opaca, no cristal**, y es la regla de ADR-800: encima de una foto que
+            /* **Superficie opaca, no vidrio**, y es la regla de ADR-800: encima de una foto que
                sube cualquiera no hay contraste garantizado para ningún texto. Es la única zona
                del panel donde el fondo no lo ponemos nosotros. */
             <li key={imagen.id} className={`${SUPERFICIE} overflow-hidden`}>
@@ -202,7 +202,7 @@ function ConfirmarBorrado({
         if (evento.key === 'Escape') onCancelar();
       }}
     >
-      <div className="cristal-flotante w-full max-w-md rounded-2xl p-6">
+      <div className="lamina-tarjeta w-full max-w-md rounded-2xl p-6">
         <h2 className="flex items-start gap-2.5 text-lg font-semibold text-tinta">
           <Icono de="alerta" etiqueta="Atención" className="mt-0.5 text-alarma" />
           ¿Eliminar «{imagen.filename}»?
