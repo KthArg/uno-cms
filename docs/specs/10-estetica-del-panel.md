@@ -4,6 +4,16 @@
 >
 > Alcance decidido con quien lo pidió: **solo el panel** (`/admin` y la pantalla de acceso). La landing pública no se toca — tiene un presupuesto de 60 KB de JavaScript y un listón de Lighthouse, y mezclar las dos cosas pondría en riesgo lo que hoy funciona.
 
+> **Enmienda del 1 de septiembre de 2026 — la dirección visual de §1 ya no vale.**
+>
+> Tras entregar la primera pieza (#219: fichas de color y los dos modos), la valoración fue **«todavía no se ve bien»**, con tres peticiones: un estilo más único tirando a **liquid glass**, priorizar habilidades de diseño, y usar **iconos de librerías existentes** en vez de inventarlos.
+>
+> Lo que decae es **§1 y §6**: «papel y tinta» —editorial, sin cajas, sin iconos— es casi lo contrario de superficies translúcidas con profundidad por capas.
+>
+> Lo que **sigue en pie** es todo lo demás, y conviene decirlo porque es la mitad del documento: el diagnóstico medido de §2, la arquitectura de fichas de §3 —que es justamente lo que permite cambiar de dirección sin volver a tocar veintitrés ficheros—, el mecanismo de modos de §4, el móvil de §5 y los casos de §8 salvo los que hablan de tipografía.
+>
+> La dirección nueva y sus tensiones —el contraste deja de ser calculable sobre superficies translúcidas— están en [#224](https://github.com/KthArg/uno-cms/issues/224).
+
 ## 1. Qué se pide
 
 Que el panel sea **elegante, inspirador y amable de trabajar**, y que se pueda usar desde cualquier dispositivo. Con modo claro y oscuro.
