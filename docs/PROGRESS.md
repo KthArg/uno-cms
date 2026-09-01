@@ -1039,3 +1039,74 @@ T-215-4 y T-215-11 midiendo en vez de razonando.
 - **#220 — el panel en un móvil.** Sigue abierto y sigue siendo funcionalidad, no acabado. Esta
   pieza no lo empeora y deja la navegación ya construida con el icono como elemento principal,
   que es lo que permitirá la barra inferior sin rediseñarla otra vez.
+
+---
+
+## El panel en un móvil ✅
+
+**Cerrado** el 1 de septiembre de 2026, issue [#220](https://github.com/KthArg/uno-cms/issues/220),
+casos T-213-1 a T-213-5 de [`10-estetica-del-panel.md`](specs/10-estetica-del-panel.md) §5.
+
+Esto no era acabado, era **funcionalidad**: el panel no se podía usar en un teléfono.
+
+### Lo que estaba roto, medido antes y después
+
+| Medido en un móvil de 390 px               | Antes             | Ahora         |
+| ------------------------------------------ | ----------------- | ------------- |
+| Ancho útil del contenido                   | 102 px (**26 %**) | 358 px (92 %) |
+| Ancho real de la página en `/admin`        | 524 px (desborda) | 390 px        |
+| Zonas pulsables por debajo de 44 px        | 3 en el editor    | **0**         |
+| Formas de ver la vista previa en el editor | **ninguna**       | una pestaña   |
+
+Y a 320 px, que es el suelo de la spec, tampoco desborda ninguna pantalla.
+
+### Qué funciona
+
+- **La navegación es una sola**, y cambia de forma: barra pegada abajo en un móvil —donde llega
+  el pulgar— y columna de cristal a partir de `lg`. **Mismo marcado**, que es lo que impide que
+  las dos versiones se separen.
+- **El editor apila** por debajo del ancho de dos columnas, con pestañas «Escribir» y «Vista
+  previa». El divisor arrastrable no se ofrece donde no hay sitio para arrastrar.
+- **Los 44 px viven en el vocabulario**, no en cada pantalla: `BOTON_*`, `BOTON_ICONO` y `CAMPO`
+  los llevan de fábrica.
+
+### Qué es frágil
+
+1. **La suite e2e en paralelo y en local falla en `historial.spec.ts` T-E-3** desde que existen
+   estos cinco casos. Con un worker —como corre CI— pasan los 71, siempre. Está en
+   [#227](https://github.com/KthArg/uno-cms/issues/227) con las siete comprobaciones que se
+   hicieron y, sobre todo, **con el mecanismo sin identificar**: se descartaron la caché de Next
+   y que los casos nuevos toquen su estado, y no se cerró con la explicación cómoda.
+2. **La barra de abajo tapa la última línea si algo se sale del `main`.** El hueco se reserva con
+   `pb-24` en el contenido, así que cualquier cosa pintada fuera de `<main>` no lo tiene.
+3. **`env(safe-area-inset-bottom)` no lo ejercita ningún test.** Playwright no simula el área de
+   gestos de un teléfono, así que lo que hay es el CSS correcto y ninguna comprobación.
+4. **Las pestañas del editor esconden con CSS y no desmontan.** Es lo correcto —desmontar
+   recargaría el iframe y con él la sesión de vista previa— pero significa que en un móvil el
+   iframe de la vista previa **está cargado aunque no se vea**, con lo que eso cuesta en datos.
+
+### Qué probaría a mano
+
+- **Escribir una sección entera desde un teléfono de verdad**, con el teclado abierto tapando
+  media pantalla. Es lo único que dice si esto se puede usar o solo cabe.
+- **Girar el teléfono** a horizontal en el editor, que cae justo alrededor del corte de dos
+  columnas.
+- **Un teléfono con barra de gestos**, para ver si el área segura está bien reservada.
+
+### Lo que enseñó esta pieza
+
+- **Una mutación mal elegida no prueba nada, y casi cuela.** La primera mutación —quitar las
+  clases `lg:` de la navegación— dejó los cinco casos en verde, y la conclusión fácil era «los
+  tests no sirven». Lo que pasaba es que la mutación **no restauraba el fallo**: la barra seguía
+  fija abajo, así que el móvil seguía arreglado. Con la mutación correcta murieron tres.
+- **Y entonces sí apareció un test que no probaba lo que decía.** `T-213-4` se llamaba «se llega
+  a las cuatro secciones **sin menú lateral**» y sobrevivía con el menú lateral puesto: los
+  enlaces existen y funcionan aunque el menú se coma dos tercios de la pantalla. Ahora mide
+  dónde está la caja, que es lo que distingue una cosa de la otra.
+- **Los botones del editor de texto rico medían 24 px**, la mitad del mínimo. No los había visto
+  nadie porque solo se pintan en secciones con texto enriquecido, y la medición a mano se hizo
+  sobre `hero`, que no tiene ninguno. Los cazó el e2e al darle a estos casos **su propia
+  entrada** — o sea que el aislamiento, que se hizo por higiene, encontró un fallo de paso.
+- **Y un estilo se escapó de la migración por llevar comillas simples.** Los campos de ajustes
+  tenían su clase escrita dentro de un objeto de atributos, así que se quedaron fuera cuando el
+  resto del panel pasó al vocabulario común: tres campos de 42 px. A ojo, 42 y 44 son lo mismo.

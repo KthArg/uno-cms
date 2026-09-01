@@ -87,8 +87,13 @@ export const BOTON_ICONO = `inline-flex size-11 items-center justify-center roun
  * **Sin cristal, y es la regla de la spec 11 §3**: aquí se escribe y se lee durante minutos
  * seguidos, y un fondo translúcido cambia de contraste según lo que pase por detrás al hacer
  * scroll. La superficie es opaca y el cristal se queda para lo que flota.
+ *
+ * **`min-h-11` son los 44 px de T-213-3**, y hacían falta: medido en un móvil de 390 px, los
+ * campos del editor daban **42**. Dos píxeles no se ven y son la diferencia entre cumplir el
+ * mínimo de las guías de accesibilidad y no cumplirlo — el padding solo no basta porque depende
+ * de la altura de línea de la letra, que cambió al cambiar la fuente.
  */
-export const CAMPO = `w-full rounded-xl border border-linea bg-superficie px-3 py-2.5 text-tinta transition placeholder:text-tinta-tenue hover:border-linea-fuerte focus:border-acento ${ANILLO_DE_FOCO}`;
+export const CAMPO = `min-h-11 w-full rounded-xl border border-linea bg-superficie px-3 py-2.5 text-tinta transition placeholder:text-tinta-tenue hover:border-linea-fuerte focus:border-acento ${ANILLO_DE_FOCO}`;
 
 /** Un campo que además crece: el textarea y el editor de texto rico. */
 export const CAMPO_ALTO = `${CAMPO} min-h-28`;

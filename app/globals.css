@@ -322,6 +322,26 @@
   contain: layout style;
 }
 
+/**
+ * **Solo el material**: el tinte y el desenfoque, sin bordes ni sombra.
+ *
+ * Existe para lo que cambia de forma entre tamaños de pantalla — hoy la navegación, que en un
+ * móvil es una barra pegada abajo y en escritorio una tarjeta en la columna—. Ahí las tres
+ * utilidades cerradas de arriba no valen: haría falta una en cada breakpoint, y dos utilidades
+ * de la misma capa peleándose es lo que esta separación evita.
+ *
+ * Con esto, el material se pone una vez y **los bordes y el radio se ponen con clases normales**,
+ * que sí tienen variantes de tamaño y se resuelven entre ellas sin ambigüedad.
+ *
+ * El desenfoque es mayor que el de la cabecera porque por debajo pasa el contenido de la página
+ * entera, no un margen: con poco desenfoque se lee lo de detrás a través de las palabras.
+ */
+@utility cristal-fondo {
+  background-color: color-mix(in srgb, var(--color-cristal) var(--opacidad-cristal), transparent);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+}
+
 /** El cristal de una barra pegada a un borde: filo arriba y línea abajo, sin costados. */
 @utility cristal-barra {
   background-color: color-mix(in srgb, var(--color-cristal) var(--opacidad-cristal), transparent);

@@ -206,33 +206,60 @@ export function PanelShell({
         </div>
       </header>
 
-      <div className={`mx-auto flex w-full ${ancho} flex-1 gap-8 px-6 py-8`}>
-        {/* `aria-label` porque puede haber más de un `nav` en la página y un lector de
-            pantalla necesita distinguirlos por algo que no sea el orden. */}
-        <nav aria-label="Secciones del panel" className="w-52 shrink-0">
-          {/* Pegado también: en el editor y en el historial la lista de secciones se iba
-              hacia arriba y había que volver al principio para cambiar de sitio. */}
-          <ul className="cristal sticky top-24 space-y-1 rounded-2xl p-2">
+      <div className={`mx-auto flex w-full ${ancho} flex-1 gap-8 px-4 py-6 sm:px-6 sm:py-8`}>
+        {/**
+         * La navegación, **una sola** (issue #220).
+         *
+         * En un móvil es una barra pegada abajo; a partir de `lg` vuelve a ser la tarjeta de la
+         * columna izquierda. **Es el mismo marcado**, y esa decisión salió de escribirlo mal
+         * primero: la primera versión eran dos `nav` —uno `lg:hidden` y otro `hidden lg:block`—
+         * y los tests se pusieron rojos con «se han encontrado varios enlaces llamados
+         * Contenido». Tenían razón por debajo de lo que decían: los enlaces estaban duplicados
+         * en el DOM, y dos árboles que dicen lo mismo se separan en cuanto alguien toque uno.
+         *
+         * Lo que hace que quepa en un solo marcado es que **el material se separó de la forma**:
+         * `cristal-fondo` pone el tinte y el desenfoque, y el borde, el radio y la posición son
+         * clases normales, que sí tienen variantes de tamaño.
+         *
+         * **Abajo y no arriba** en el móvil: es donde llega el pulgar sin cambiar de agarre, y
+         * arriba ya está la cabecera con la cuenta, el modo y salir. El icono pasa a ser lo
+         * principal y el texto va debajo, pequeño —que es lo que se pidió con «iconos antes que
+         * descripciones»— pero **sigue estando**: cuatro iconos mudos son cuatro adivinanzas.
+         *
+         * `pb-[env(safe-area-inset-bottom)]` para que en un teléfono con barra de gestos la fila
+         * no quede debajo de ella. Sin eso, la última sección es la que no se puede pulsar justo
+         * donde más falta hace.
+         *
+         * `lg:self-start` porque un elemento de un flex se estira a lo alto por defecto, y un
+         * `sticky` estirado no se pega a nada: se queda quieto pareciendo que funciona.
+         */}
+        <nav
+          aria-label="Secciones del panel"
+          className="cristal-fondo fixed inset-x-0 bottom-0 z-30 border-t border-linea pb-[env(safe-area-inset-bottom)] lg:sticky lg:inset-x-auto lg:top-24 lg:bottom-auto lg:z-auto lg:w-52 lg:shrink-0 lg:self-start lg:rounded-2xl lg:border lg:p-2 lg:pb-2"
+        >
+          <ul className="mx-auto flex max-w-lg items-stretch justify-around lg:max-w-none lg:flex-col lg:gap-1">
             {entradas.map((entrada) => {
-              const activa =
-                entrada.href === '/admin'
-                  ? rutaActual === '/admin'
-                  : rutaActual.startsWith(entrada.href);
+              const activa = esActiva(entrada.href, rutaActual);
 
               return (
-                <li key={entrada.href}>
+                <li key={entrada.href} className="flex-1 lg:flex-none">
                   <Link
                     href={entrada.href}
                     // `aria-current` y no solo un color: quien navega con lector de pantalla
                     // no ve el fondo.
                     aria-current={activa ? 'page' : undefined}
-                    className={`flex h-11 items-center gap-3 rounded-xl px-3 text-sm transition ${ANILLO_DE_FOCO} ${
+                    // 56 px de alto en el móvil y **toda la celda** pulsable, no el icono. El
+                    // mínimo de las guías es 44 y aquí sobra a propósito: es el control que más
+                    // se usa y el que peor se apunta andando.
+                    className={`flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] transition lg:h-11 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-xl lg:px-3 lg:text-sm ${ANILLO_DE_FOCO} ${
                       activa
-                        ? 'bg-accion font-medium text-sobre-accion'
-                        : 'text-tinta-suave hover:bg-superficie-suave hover:text-tinta'
+                        ? 'font-medium text-acento lg:bg-accion lg:text-sobre-accion'
+                        : 'text-tinta-suave lg:hover:bg-superficie-suave lg:hover:text-tinta'
                     }`}
                   >
-                    <Icono de={entrada.icono} />
+                    {/* Más grande en el móvil, donde es lo que se reconoce, y del tamaño de la
+                        interfaz en escritorio, donde va al lado de la palabra. */}
+                    <Icono de={entrada.icono} tamano={22} className="lg:size-5" />
                     {entrada.texto}
                   </Link>
                 </li>
@@ -241,10 +268,27 @@ export function PanelShell({
           </ul>
         </nav>
 
-        <main className="min-w-0 flex-1">{children}</main>
+        {/* El hueco de abajo es para la barra de secciones, que en el móvil va fija sobre el
+            contenido: sin él, el último elemento de cualquier lista queda debajo y no se puede
+            pulsar. */}
+        <main className="min-w-0 flex-1 pb-24 lg:pb-0">{children}</main>
       </div>
     </div>
   );
+}
+
+/**
+ * Si una entrada del menú es la de la pantalla actual.
+ *
+ * Estaba escrita dentro del `map` y ahora hay **dos menús** —el lateral y el de abajo—, así que
+ * copiarla sería tener dos criterios que se pueden separar: el lateral marcando una sección y la
+ * barra inferior otra, en la misma pantalla.
+ *
+ * `/admin` se compara entero porque es prefijo de todas las demás: con `startsWith` se quedaría
+ * marcada siempre.
+ */
+function esActiva(href: string, rutaActual: string): boolean {
+  return href === '/admin' ? rutaActual === '/admin' : rutaActual.startsWith(href);
 }
 
 /**

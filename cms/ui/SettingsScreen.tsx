@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { ActionFieldError } from '@/cms/actions/pipeline';
 import { FALLO_DE_RED } from './fallo-de-red';
 import { Icono } from './iconos';
-import { BOTON_PRINCIPAL, TARJETA, TITULO } from './estilos';
+import { BOTON_PRINCIPAL, CAMPO, TARJETA, TITULO } from './estilos';
 
 /**
  * Los ajustes del sitio (ADR-410, SPEC §5.3).
@@ -178,8 +178,13 @@ function Bloque({
             defaultValue: campo.valor,
             'aria-describedby': descrito === '' ? undefined : descrito,
             'aria-invalid': error === undefined ? undefined : (true as const),
-            className:
-              'rounded-md border border-linea px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento',
+            // **Del vocabulario común**, y no lo estaba: esta clase se escribió a mano dentro
+            // de un objeto de atributos, así que se quedó fuera cuando el resto del panel pasó
+            // a `CAMPO`. El resultado eran tres campos de **42 px** en esta pantalla, dos por
+            // debajo del mínimo de las guías.
+            //
+            // Lo cazó el e2e de #220 midiendo, no una lectura: a ojo, 42 y 44 son lo mismo.
+            className: CAMPO,
           };
 
           return (

@@ -6,6 +6,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { useEffect, useRef } from 'react';
 import type { RichTextField as RichTextFieldDef } from '@/cms/core/config';
 import { allowedLinkProtocols } from '@/cms/links';
+import { ANILLO_DE_FOCO } from '../estilos';
 
 /**
  * El campo de texto rico (SPEC §6.3).
@@ -187,10 +188,15 @@ function BarraDeFormato({ editor }: { editor: Editor | null }) {
           onClick={() => {
             boton.aplicar(editor);
           }}
-          className={`rounded px-2 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento ${
+          // **44 px de alto**, y medían 24. No se veía: en una barra de formato los botones
+          // pequeños parecen correctos, y solo al medirlos en un móvil se ve que son la mitad
+          // del mínimo de las guías. Los cazó el e2e de #220 al usar una sección con texto
+          // enriquecido — con `hero`, que no lo tiene, esta barra no se pintaba y nadie la
+          // medía nunca.
+          className={`inline-flex h-11 items-center rounded-xl px-3 text-sm font-medium transition ${ANILLO_DE_FOCO} ${
             editor.isActive(boton.activo)
               ? 'bg-accion text-sobre-accion'
-              : 'bg-superficie-suave text-tinta-suave hover:bg-superficie-suave'
+              : 'bg-superficie-suave text-tinta-suave hover:bg-superficie hover:text-tinta'
           }`}
         >
           {boton.nombre}
