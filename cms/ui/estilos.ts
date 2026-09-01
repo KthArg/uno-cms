@@ -46,8 +46,26 @@ const BOTON_BASE = `inline-flex h-11 items-center justify-center gap-2 rounded-x
 /** La acción principal de una pantalla. Sólida, nunca de cristal: tiene que leerse a la primera. */
 export const BOTON_PRINCIPAL = `${BOTON_BASE} bg-accion text-sobre-accion hover:bg-accion-hover`;
 
-/** Lo demás que se puede pulsar. Cristal, porque acompaña en vez de reclamar. */
-export const BOTON_SUAVE = `${BOTON_BASE} cristal text-tinta hover:bg-superficie-suave`;
+/**
+ * Lo demás que se puede pulsar.
+ *
+ * **Superficie opaca, no cristal**, y esto se escribió al revés primero. La versión con cristal
+ * se leía bien y contradecía dos cosas a la vez:
+ *
+ * 1. **La spec 11 §3**, que pone los botones en la columna de «no hay cristal». O sea que el
+ *    código decía una cosa y el documento otra, que es de donde salen los fallos que nadie busca.
+ * 2. **La premisa de ADR-800**, que es la que hace calculable el contraste: «detrás de un cristal
+ *    del panel solo hay el fondo de la página». Un botón de cristal dentro de una tarjeta de
+ *    cristal —y estaba en cinco sitios: la confirmación, el historial, la biblioteca, las
+ *    personas y el editor— tiene **otro cristal** detrás, no el fondo.
+ *
+ * Y no era teórico. Apilando dos láminas en modo oscuro, `tinta-tenue` cae de 4,93:1 a
+ * **4,09:1** — por debajo de AA. La guarda seguía verde porque compone una sola capa, que es
+ * exactamente el modo de fallo que ADR-800 dice evitar, reaparecido por la puerta de al lado.
+ *
+ * Dos vidrios superpuestos tampoco se leen como profundidad: se leen como suciedad.
+ */
+export const BOTON_SUAVE = `${BOTON_BASE} border border-linea bg-superficie text-tinta hover:bg-superficie-suave`;
 
 /** Lo que no cambia nada: cancelar, volver. Sin superficie propia. */
 export const BOTON_LLANO = `${BOTON_BASE} text-tinta-suave hover:bg-superficie-suave hover:text-tinta`;

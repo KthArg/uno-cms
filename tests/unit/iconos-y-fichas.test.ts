@@ -140,6 +140,40 @@ describe('T-215-4 — ningún icono llega a la landing pública', () => {
   });
 });
 
+describe('T-215-1 — el cristal no se apila: ni botones, ni campos, ni avisos', () => {
+  it('ninguna constante de control de `cms/ui/estilos.ts` lleva cristal', () => {
+    // **Esto sostiene la premisa de ADR-800**, que es lo que hace calculable el contraste:
+    // «detrás de un cristal del panel solo hay el fondo de la página». Un control de cristal
+    // dentro de una tarjeta de cristal tiene **otro cristal** detrás, y la guarda de contraste
+    // —que compone una sola capa— seguiría verde midiendo un fondo que no es el que se ve.
+    //
+    // No es teórico: pasó en este mismo cambio. `BOTON_SUAVE` era de cristal y se usaba dentro
+    // de contenedores de cristal en cinco pantallas. Apiladas dos láminas en modo oscuro,
+    // `tinta-tenue` cae de 4,93:1 a **4,09:1**, por debajo de AA.
+    //
+    // Y lo dice además la spec 11 §3, que pone los botones, los campos y los avisos en la
+    // columna de «no hay cristal». El código la contradecía.
+    const estilos = readFileSync(join(REPO_ROOT, 'cms', 'ui', 'estilos.ts'), 'utf8');
+
+    const constantes = [...estilos.matchAll(/^export const ([A-Z_]+) = ([`'][^`']*[`'])/gm)];
+
+    expect(constantes.length, 'no se están leyendo las constantes de estilos').toBeGreaterThan(5);
+
+    const conCristal = constantes
+      .filter(
+        ([, nombre, valor]) => /^(BOTON|CAMPO|AVISO)/.test(nombre!) && valor!.includes('cristal')
+      )
+      .map(([, nombre]) => nombre!);
+
+    expect(
+      conCristal,
+      'los botones, campos y avisos van sobre superficie opaca (spec 11 §3). Un control de ' +
+        'cristal dentro de una tarjeta de cristal apila dos láminas, y el contraste real deja ' +
+        'de ser el que mide la guarda (ADR-800)'
+    ).toEqual([]);
+  });
+});
+
 describe('T-215-12 — ninguna ficha declarada se queda sin usar', () => {
   it('todas las del bloque claro las nombra alguien', () => {
     // **De dónde sale este caso.** `--font-serif` apuntaba a `var(--fuente-titulares)`, que no
