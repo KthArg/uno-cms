@@ -179,14 +179,14 @@
     --color-cristal: #cbd1df;
     --color-halo-calido: #faba59;
     --color-halo-frio: #73a9e1;
-    --color-fondo-claro: #24262a;
+    --color-fondo-claro: #292c2f;
 
     /* En oscuro el cristal **aclara** lo que hay detrás y en claro lo **oscurece**, así que las
        opacidades no son las mismas ni de lejos: un 62 % de blanco sobre azul noche sería una
        superficie casi opaca y se acabaría el efecto. */
     --opacidad-cristal: 8%;
-    --opacidad-halo-calido: 7%;
-    --opacidad-halo-frio: 6%;
+    --opacidad-halo-calido: 9%;
+    --opacidad-halo-frio: 8%;
     --opacidad-filo: 22%;
   }
 }
@@ -233,11 +233,11 @@
   --color-cristal: #cbd1df;
   --color-halo-calido: #faba59;
   --color-halo-frio: #73a9e1;
-  --color-fondo-claro: #24262a;
+  --color-fondo-claro: #292c2f;
 
   --opacidad-cristal: 8%;
-  --opacidad-halo-calido: 7%;
-  --opacidad-halo-frio: 6%;
+  --opacidad-halo-calido: 9%;
+  --opacidad-halo-frio: 8%;
   --opacidad-filo: 22%;
 }
 

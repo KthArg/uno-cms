@@ -6,6 +6,7 @@ import { useState } from 'react';
 import type { RevisionDelHistorial } from '@/cms/core/history';
 import { ConfirmarAccion } from './ConfirmarAccion';
 import { FALLO_DE_RED } from './fallo-de-red';
+import { Icono } from './iconos';
 import { ANILLO_DE_FOCO, BOTON_SUAVE, TARJETA, TITULO } from './estilos';
 
 /**
@@ -71,7 +72,11 @@ export function HistoryScreen({
           href={`/admin/content/${entryKey}`}
           className={`inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave transition hover:text-tinta ${ANILLO_DE_FOCO}`}
         >
-          ← Volver a {nombreSeccion}
+          {/* La flecha era el carácter «←», que cambia de forma con la fuente y no se alinea
+              con el texto. El nombre de la sección ya dice a dónde vuelve, así que el dibujo es
+              decorativo. */}
+          <Icono de="volver" tamano={16} />
+          Volver a {nombreSeccion}
         </Link>
         <h1 className={`${TITULO} mt-2`}>Versiones anteriores de {nombreSeccion}</h1>
         <p className="mt-1 text-tinta-suave">
@@ -86,7 +91,10 @@ export function HistoryScreen({
 
       {revisiones.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-linea p-10">
-          <p className="text-tinta-suave">Todavía no hay versiones anteriores.</p>
+          <p className="flex items-center gap-2 text-tinta-suave">
+            <Icono de="historial" tamano={18} />
+            Todavía no hay versiones anteriores.
+          </p>
           <p className="mt-1 text-sm text-tinta-tenue">
             Aparecerán aquí a partir de la segunda vez que publiques esta sección: la primera no
             sustituye nada.
@@ -112,6 +120,7 @@ export function HistoryScreen({
                 }}
                 className={BOTON_SUAVE}
               >
+                <Icono de="revertir" tamano={16} />
                 Volver a esta versión
               </button>
             </li>

@@ -3,8 +3,17 @@
 import { useState } from 'react';
 import type { PersonaDelPanel } from '@/cms/core/users';
 import { ConfirmarAccion } from './ConfirmarAccion';
+import { Icono } from './iconos';
 import { FALLO_DE_RED } from './fallo-de-red';
-import { ANILLO_DE_FOCO, BOTON_PRINCIPAL, BOTON_SUAVE, CAMPO, TARJETA, TITULO } from './estilos';
+import {
+  ANILLO_DE_FOCO,
+  ANILLO_DE_FOCO_ALARMA,
+  BOTON_PRINCIPAL,
+  BOTON_SUAVE,
+  CAMPO,
+  TARJETA,
+  TITULO,
+} from './estilos';
 
 /**
  * La pantalla de personas (SPEC §3, §5.3, §9).
@@ -192,6 +201,7 @@ export function UsersScreen({
 
           <div className="flex items-end">
             <button type="submit" disabled={ocupado} className={BOTON_PRINCIPAL}>
+              <Icono de="anadir" />
               Invitar
             </button>
           </div>
@@ -207,7 +217,8 @@ export function UsersScreen({
             </div>
 
             {!persona.activa && (
-              <span className="rounded-full bg-superficie-suave px-2.5 py-1 text-xs font-medium text-tinta-suave">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-superficie-suave py-1 pr-3 pl-2 text-xs font-medium text-tinta-suave">
+                <Icono de="cerrar" tamano={14} />
                 Sin acceso
               </span>
             )}
@@ -250,8 +261,9 @@ export function UsersScreen({
                     onClick={() => {
                       setADesactivar(persona);
                     }}
-                    className="text-sm text-alarma underline underline-offset-4 hover:text-alarma focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-alarma"
+                    className={`inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm text-alarma transition hover:bg-alarma-fondo ${ANILLO_DE_FOCO_ALARMA}`}
                   >
+                    <Icono de="cerrar" tamano={16} />
                     Quitar acceso
                   </button>
                 )}
@@ -326,6 +338,7 @@ function EnlaceDeInvitacion({ enlace }: { enlace: string }) {
           }}
           className={`inline-flex h-11 items-center gap-2 rounded-xl bg-publicado-tinta px-4 text-sm font-medium text-sobre-publicado transition hover:bg-publicado-tinta ${ANILLO_DE_FOCO}`}
         >
+          <Icono de={copiado ? 'publicado' : 'anadir'} tamano={16} />
           {copiado ? 'Copiado' : 'Copiar'}
         </button>
       </div>

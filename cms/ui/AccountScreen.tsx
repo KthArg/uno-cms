@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { FALLO_DE_RED } from './fallo-de-red';
+import { Icono } from './iconos';
 import { BOTON_PRINCIPAL, CAMPO, TARJETA, TITULO } from './estilos';
 
 /**
@@ -122,6 +123,10 @@ export function AccountScreen({ correo, onCambiar }: AccountScreenProps) {
 
           <div className="flex items-center gap-3">
             <button type="submit" disabled={ocupado} className={BOTON_PRINCIPAL}>
+              <Icono
+                de={ocupado ? 'esperando' : 'cuenta'}
+                className={ocupado ? 'animate-spin' : ''}
+              />
               Cambiar la contraseña
             </button>
             <p aria-live="polite" className="text-sm text-alarma">

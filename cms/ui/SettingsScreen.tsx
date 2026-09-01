@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { ActionFieldError } from '@/cms/actions/pipeline';
 import { FALLO_DE_RED } from './fallo-de-red';
+import { Icono } from './iconos';
 import { BOTON_PRINCIPAL, TARJETA, TITULO } from './estilos';
 
 /**
@@ -207,6 +208,10 @@ function Bloque({
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={ocupado} className={BOTON_PRINCIPAL}>
+            <Icono
+              de={ocupado ? 'esperando' : 'publicar'}
+              className={ocupado ? 'animate-spin' : ''}
+            />
             Guardar
           </button>
           <p aria-live="polite" className="text-sm text-tinta-suave">

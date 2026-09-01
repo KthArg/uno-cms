@@ -40,21 +40,26 @@ export function SectionCard({ nombre, href, estado, elementos }: SectionCardProp
   return (
     <Link
       href={href}
-      className={`cristal group flex h-full flex-col justify-between gap-4 rounded-2xl p-5 transition hover:border-acento ${ANILLO_DE_FOCO}`}
+      className={`cristal group flex h-full flex-col gap-4 rounded-2xl p-5 transition hover:border-acento ${ANILLO_DE_FOCO}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="font-medium text-tinta">{nombre}</h3>
-        <EstadoDeSeccion estado={estado} />
-      </div>
+      {/* **El título tiene la línea entera, y la etiqueta va debajo.** Estaban en la misma fila
+          y con la etiqueta al lado —que mide lo que mide su texto— «Sobre nosotros» se partía en
+          dos líneas y «SEO y redes sociales» en tres. Las tarjetas quedaban de alturas
+          distintas y el nombre de la sección, que es lo que se busca, era lo peor colocado.
 
-      <div className="flex items-end justify-between gap-3">
-        <p className="text-sm text-tinta-tenue">
-          {elementos === undefined
-            ? ''
-            : elementos === 1
-              ? '1 elemento'
-              : `${String(elementos)} elementos`}
-        </p>
+          No se vio revisando el código: se vio en la captura. */}
+      <h3 className="text-base font-semibold text-balance text-tinta">{nombre}</h3>
+
+      <div className="mt-auto flex items-end justify-between gap-3">
+        <div className="flex min-w-0 flex-col items-start gap-2">
+          <EstadoDeSeccion estado={estado} />
+
+          {elementos !== undefined && (
+            <p className="text-sm text-tinta-tenue">
+              {elementos === 1 ? '1 elemento' : `${String(elementos)} elementos`}
+            </p>
+          )}
+        </div>
 
         {/* La flecha dice "esto se abre" sin gastar una palabra, y **está oculta al lector de
             pantalla a propósito**: el enlace ya se anuncia como enlace, así que leerla sería

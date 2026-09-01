@@ -44,12 +44,18 @@ color, lo único que quedaba para distinguir una zona de otra era el espacio en 
 cristal resuelve justo eso — da **jerarquía por profundidad**, que es una dimensión que el papel
 no tiene: lo que flota es lo que actúa, lo que está pegado al fondo es lo que se lee.
 
-**El modo por defecto es el oscuro**, y esa es una decisión derivada del uso, no de gusto: el
-cristal necesita que la luz venga de detrás para leerse como vidrio, y sobre fondo claro el
-efecto es casi invisible salvo que se cargue tanto que estorbe al texto. El panel es además
-donde alguien escribe el contenido de su web, muchas veces de noche. El modo claro existe,
-está completo y se comprueba con las mismas guardas; lo que no es, es el punto de partida del
-diseño.
+**El modo desde el que se diseña es el oscuro**, y conviene decirlo con esas palabras y no con
+«el modo por defecto», porque por defecto **manda el sistema operativo** y eso no cambia (spec
+10 §4). Lo que cambia es de dónde sale la paleta: se eligió en oscuro y el claro se derivó de
+ella, y no al revés.
+
+La razón no es de gusto: el cristal necesita que la luz venga de detrás para leerse como vidrio,
+y sobre fondo claro el efecto es casi invisible salvo que se cargue tanto que estorbe al texto.
+El panel es además donde alguien escribe el contenido de su web, muchas veces de noche.
+
+**El modo claro existe, está completo y se comprueba con las mismas guardas** — se pidió
+explícitamente, y en él la lámina oscurece en vez de aclarar, así que su opacidad es otra: 62 %
+frente al 8 % del oscuro. Que las dos estén declaradas y emparejadas lo exige un caso.
 
 ## 3. Dónde hay cristal y dónde no
 

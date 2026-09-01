@@ -432,10 +432,15 @@ export function EntryEditor({
         )}
       </div>
 
-      {/* La barra de acciones queda pegada abajo: en una sección con muchos campos, «Publicar
-          cambios» se iba de la pantalla y había que bajar del todo para encontrarlo. Es cristal
-          por lo mismo que la cabecera — se ve que hay formulario pasando por debajo. */}
-      <div className="cristal sticky bottom-4 z-20 flex flex-wrap items-center gap-3 rounded-2xl p-3">
+      {/* **Pegada abajo no**, y esto se probó y se deshizo mirando la pantalla.
+          
+          La idea era buena —en una sección larga, «Publicar cambios» se va de la vista— pero
+          esta barra ocupa el ancho de las dos columnas, así que flotando cruzaba por delante de
+          la vista previa y desenfocaba la web de quien edita. Cambiar un desplazamiento por
+          tapar la mitad del contenido no es un intercambio que salga a cuenta.
+          
+          Se queda al final, con cristal: sigue leyéndose como el sitio donde se decide. */}
+      <div className="cristal flex flex-wrap items-center gap-3 rounded-2xl p-3">
         <button
           type="button"
           onClick={() => {
