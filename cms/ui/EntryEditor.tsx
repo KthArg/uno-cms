@@ -116,6 +116,15 @@ export function EntryEditor({
   const [avisoDePublicar, setAvisoDePublicar] = useState<string | null>(null);
 
   /**
+   * Qué mitad se ve en una pantalla estrecha (spec 10 §5, issue #220).
+   *
+   * Por encima del ancho de dos columnas **no se usa para nada**: ahí se ven las dos a la vez y
+   * este control no se pinta. Así que no es «pestañas en móvil y otra cosa en escritorio»: es
+   * una sola maqueta cuyo repartidor cambia de forma.
+   */
+  const [mitadVisible, setMitadVisible] = useState<'formulario' | 'vista'>('formulario');
+
+  /**
    * El reparto de la pantalla entre el formulario y la vista previa (issue #190).
    *
    * ## Por qué el ancho viaja por una variable de CSS y no por el `style` de cada columna
@@ -368,6 +377,43 @@ export function EntryEditor({
         />
       )}
 
+      {/**
+       * El repartidor de pantalla estrecha (issue #220).
+       *
+       * Debajo del ancho de dos columnas la vista previa estaba **escondida y sin forma de
+       * llegar a ella**: `hidden lg:block` la quitaba y no la sustituía por nada. O sea que en
+       * un móvil el editor perdía la mitad de lo que hace, en silencio.
+       *
+       * `role="tablist"` de verdad y no dos botones sueltos: es lo que hace que un lector de
+       * pantalla anuncie «pestaña 1 de 2» y que las flechas del teclado sirvan.
+       */}
+      <div role="tablist" aria-label="Qué se ve" className="flex gap-1 lg:hidden">
+        {(
+          [
+            ['formulario', 'Escribir', 'escribir'],
+            ['vista', 'Vista previa', 'verPrevia'],
+          ] as const
+        ).map(([cual, texto, icono]) => (
+          <button
+            key={cual}
+            type="button"
+            role="tab"
+            aria-selected={mitadVisible === cual}
+            onClick={() => {
+              setMitadVisible(cual);
+            }}
+            className={`flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm transition ${ANILLO_DE_FOCO} ${
+              mitadVisible === cual
+                ? 'bg-accion font-medium text-sobre-accion'
+                : 'border border-linea bg-superficie text-tinta-suave'
+            }`}
+          >
+            <Icono de={icono} tamano={16} />
+            {texto}
+          </button>
+        ))}
+      </div>
+
       <div
         ref={reparto}
         className="grid gap-8 lg:grid-cols-[var(--ancho-formulario)_auto_1fr] lg:gap-0"
@@ -376,6 +422,10 @@ export function EntryEditor({
         {/* `onBlur` en el contenedor y no en cada campo: el evento burbujea, y ponerlo en los
             ocho componentes de campo sería ocho sitios donde olvidarlo. */}
         <form
+          // `hidden` y no desmontar: quitar el formulario del árbol al cambiar de pestaña
+          // perdería el foco y el estado del editor de texto rico, y el `onBlur` que guarda
+          // saltaría en un momento raro. En `lg` vuelve siempre, pase lo que pase aquí.
+          className={mitadVisible === 'formulario' ? '' : 'hidden lg:block'}
           onBlur={() => {
             void autosave.guardarYa();
           }}
@@ -415,9 +465,14 @@ export function EntryEditor({
         </div>
 
         {urlDeVistaPrevia === undefined ? (
-          <HuecoDeVistaPrevia />
+          <div className={mitadVisible === 'vista' ? 'block lg:block' : 'hidden lg:block'}>
+            <HuecoDeVistaPrevia />
+          </div>
         ) : (
-          <div className="hidden lg:block">
+          // Igual que el formulario: se esconde con CSS, **no se desmonta**. Desmontarlo
+          // recargaría el iframe en cada ida y vuelta entre pestañas, y con él la sesión de
+          // vista previa entera — que es lo que #138 y #180 costaron levantar.
+          <div className={mitadVisible === 'vista' ? 'block lg:block' : 'hidden lg:block'}>
             <PreviewFrame
               src={urlDeVistaPrevia}
               entryKey={entryKey}
@@ -549,7 +604,7 @@ function AvisoDeConflicto() {
  */
 function HuecoDeVistaPrevia() {
   return (
-    <div className="hidden rounded-2xl border border-dashed border-linea p-8 lg:block">
+    <div className="rounded-2xl border border-dashed border-linea p-8">
       <p className="flex items-center gap-2 text-sm font-medium text-tinta-suave">
         <Icono de="verPrevia" tamano={16} />
         La vista previa no está disponible ahora

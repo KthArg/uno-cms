@@ -14,6 +14,7 @@ import {
   LoaderCircle,
   LogOut,
   Monitor,
+  Pencil,
   Moon,
   Plus,
   Send,
@@ -70,6 +71,7 @@ const DIBUJOS = {
 
   // Las acciones.
   publicar: Send,
+  escribir: Pencil,
   subir: Upload,
   eliminar: Trash2,
   anadir: Plus,
