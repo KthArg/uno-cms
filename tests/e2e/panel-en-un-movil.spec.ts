@@ -193,14 +193,17 @@ test.describe('en un móvil', () => {
     // Y la vista previa no desaparece sin más: se llega por la otra pestaña. Antes de #220
     // estaba escondida con `hidden lg:block` y **sin nada que la sustituyera**, así que en un
     // teléfono el editor perdía la mitad de lo que hace, en silencio.
-    const escribir = page.getByRole('tab', { name: 'Escribir' });
-    const vista = page.getByRole('tab', { name: 'Vista previa' });
+    const escribir = page.getByRole('button', { name: 'Escribir' });
+    const vista = page.getByRole('button', { name: 'Vista previa' });
 
-    await expect(escribir).toHaveAttribute('aria-selected', 'true');
+    // `aria-pressed` y no `aria-selected`: son dos botones que dejan pulsado el elegido, no un
+    // `tablist` — que exigiría `aria-controls` y `role="tabpanel"` en cada mitad, y describiría
+    // una navegación que a partir de `lg`, con las dos mitades a la vista, no existe.
+    await expect(escribir).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByLabel(/Pregunta/)).toBeVisible();
 
     await vista.click();
-    await expect(vista).toHaveAttribute('aria-selected', 'true');
+    await expect(vista).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByLabel(/Pregunta/)).not.toBeVisible();
   });
 });

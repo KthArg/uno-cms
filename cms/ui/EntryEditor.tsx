@@ -384,10 +384,22 @@ export function EntryEditor({
        * llegar a ella**: `hidden lg:block` la quitaba y no la sustituía por nada. O sea que en
        * un móvil el editor perdía la mitad de lo que hace, en silencio.
        *
-       * `role="tablist"` de verdad y no dos botones sueltos: es lo que hace que un lector de
-       * pantalla anuncie «pestaña 1 de 2» y que las flechas del teclado sirvan.
+       * **`aria-pressed` y no `role="tab"`**, y esto se escribió al revés primero.
+       *
+       * Un `tablist` de verdad exige más de lo que se puso: cada pestaña con `aria-controls`, un
+       * `role="tabpanel"` con `aria-labelledby` en cada mitad, y las flechas del teclado
+       * moviéndose entre ellas. Con solo `role="tab"` y `aria-selected`, un lector de pantalla
+       * anuncia «pestaña 1 de 2» y **no encuentra el panel que dice controlar**: promete una
+       * estructura que no está, que es peor que no prometerla.
+       *
+       * Y hay un motivo más para no completarlo: a partir de `lg` no hay pestañas, se ven las
+       * dos mitades a la vez. Unos `tabpanel` permanentes en el marcado describirían una
+       * navegación que en escritorio no existe.
+       *
+       * Dos botones que dejan pulsado el elegido es exactamente lo que son, y es el patrón que
+       * este panel ya usa para los tamaños de la vista previa.
        */}
-      <div role="tablist" aria-label="Qué se ve" className="flex gap-1 lg:hidden">
+      <div role="group" aria-label="Qué se ve" className="flex gap-1 lg:hidden">
         {(
           [
             ['formulario', 'Escribir', 'escribir'],
@@ -397,8 +409,7 @@ export function EntryEditor({
           <button
             key={cual}
             type="button"
-            role="tab"
-            aria-selected={mitadVisible === cual}
+            aria-pressed={mitadVisible === cual}
             onClick={() => {
               setMitadVisible(cual);
             }}
