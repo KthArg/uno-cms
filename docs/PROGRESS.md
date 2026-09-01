@@ -833,10 +833,120 @@ ninguno. Lo único que aparecía eran literales falsos de tests y el hash señue
 ### Lo que sigue sin hacerse
 
 - **No hay etiqueta `v0.1.0`.** Sigue sin etiquetar.
-- **Los criterios §11.1 y §11.4 siguen marcados como no verificados** más arriba en este mismo
-  documento. Lo que hay es un despliegue de prueba con datos de prueba; nadie ha hecho el
-  recorrido de §11 sobre él con la lista delante.
+- **Los criterios sin verificar son §11.1 y §11.6**, como dice la tabla más arriba. Este
+  documento llegó a decir «§11.1 y §11.4» y **era falso**: §11.4 es la suite verde en CI, que sí
+  está. El error se escribió aquí mismo al cerrar el despliegue y sobrevivió a dos revisiones.
+- **§11.1 sigue sin verificarse, y el despliegue no lo cierra.** Dice «deploy limpio _siguiendo
+  `docs/SETUP.md`_», y este despliegue no siguió la guía paso a paso: se fue resolviendo sobre la
+  marcha, que es precisamente lo que la guía tiene que evitar. Lo que hay es la prueba de que el
+  producto **funciona** desplegado, no de que la guía **lleve** hasta ahí.
 - **Las capturas de `SETUP.md`** ([#157](https://github.com/KthArg/uno-cms/issues/157)), que
   ahora sí se pueden hacer.
-- **Tres objetos huérfanos en el almacén**, de depurar todo esto
-  ([#206](https://github.com/KthArg/uno-cms/issues/206)).
+- **Cinco objetos huérfanos en el almacén**, de depurar todo esto
+  ([#206](https://github.com/KthArg/uno-cms/issues/206)). Este documento y varios mensajes
+  dijeron «tres» durante días: era una cuenta de memoria. Cruzando `vercel blob list` con la
+  biblioteca del panel salen **nueve objetos y cuatro filas**, así que sobran cinco — los dos de
+  nombre crudo anteriores a #199 y otros tres `media/…`.
+
+---
+
+## Recorrer el panel a mano, con el despliegue delante
+
+Con el CMS ya en línea, el recorrido completo de `SPEC.md` §11.2 —entrar, editar viendo la vista
+previa, publicar, verlo en la web, revertir— se hizo **con un navegador de verdad contra el
+despliegue**, no contra un servidor local. Es la primera vez.
+
+### Lo que funciona, verificado
+
+- **§11.2 entero.** La vista previa cambia al escribir, el `Guardado ✓` aparece al salir del
+  campo, publicar deja la landing actualizada **al instante** contra un presupuesto de 60 s, y
+  revertir avisa antes: «Quedará como borrador. Tu web no cambia hasta que lo publiques».
+- **Colecciones**: crear, publicar, ver en la web y borrar. La confirmación de borrado sabe si el
+  elemento está publicado y lo dice — «también desaparecerá de tu web».
+- **Las guardas, en vivo**: `/admin` sin sesión redirige con `?next=`, una mutación sin sesión da
+  401, `/preview` sin token da 404, una clave inexistente da 404, la ruta de borradores remotos
+  con la fase apagada da 404, `X-Robots-Tag: noindex` está en el admin y **no** en la landing.
+- **No puedes dejarte fuera solo**: tu propia cuenta aparece sin selector de rol y sin botón de
+  quitar acceso.
+
+### Lo que apareció, y ninguna suite lo veía
+
+- **No se podía cerrar sesión.** `signOut` estaba exportado y sin usar en todo el proyecto
+  (#211). No lo cazó nada porque **`SPEC.md` no lo menciona ni una vez**: sin caso en la spec no
+  hay caso en la suite. Y los e2e no iban a notarlo — cada uno abre un contexto limpio y entra;
+  nadie **termina** de usar el panel en un test.
+- **El dueño del sitio aparecía como que nunca había entrado** (#212). `/setup` creaba su cuenta
+  sin tocar `password_version`, y la etiqueta se deduce de que valga 0. Pasaba en todos los
+  despliegues, desde el primer minuto, en la pantalla que sirve para saber a quién falta mandarle
+  su enlace.
+- **Un test que dependía del disco de quien lo ejecuta** (#213). Salió verificando lo anterior:
+  la suite falló una vez y pasó cuatro seguidas.
+
+### Lo que se midió y no es un fallo
+
+- **`/api/content/:key` se cachea 60 s en el CDN**, con `stale-while-revalidate=300`. Es
+  deliberado (`SPEC.md` §5.3, #82) y publicar no lo purga. La landing propia ve el cambio al
+  instante porque la pinta el servidor; **una web remota (ADR-701) puede tardar hasta un
+  minuto**, y se llegó a medir `Age: 71`. Justo en el límite del presupuesto de §11.2.
+- **Huérfanos en el almacén: cinco**, no tres.
+
+### Lo que enseñó
+
+- **Usar el producto en el sitio donde vive encuentra cosas que no encuentra nada más.** Los dos
+  fallos de arriba llevaban meses ahí, con 790 tests rápidos, 287 de integración y 66 e2e en
+  verde. Ninguno era un descuido de implementación: eran **preguntas que nadie había hecho**.
+- **La spec es el techo de lo que la suite puede cubrir.** «No se puede cerrar sesión» no es un
+  test que falte: es una funcionalidad que nadie pidió, y por eso ningún test la echaba de menos.
+  Una suite completa sobre una spec incompleta se ve exactamente igual que una suite completa.
+- **Un flake que pasa a la segunda no es un flake.** #213 falló una vez y pasó cuatro veces
+  seguidas, y estuve a punto de anotarlo como irreproducible citando #167. Lo era solo porque el
+  propio `afterEach` había arreglado el estado del disco.
+
+---
+
+## La estética del panel — en marcha, y con la dirección cambiada
+
+Spec: [`docs/specs/10-estetica-del-panel.md`](specs/10-estetica-del-panel.md), con su enmienda.
+
+### El diagnóstico del que se parte, medido
+
+| En un móvil de 390 px                            | Valor                                       |
+| ------------------------------------------------ | ------------------------------------------- |
+| Ancho útil del contenido en `/admin`             | **103 px** — el menú fijo se lleva 192      |
+| Desbordamiento horizontal                        | **sí**, la página mide 495 px de ancho real |
+| Ancho del campo «Título principal» en el editor  | **103 px**                                  |
+| Zonas pulsables por debajo de 44 px en el editor | **11 de 14**                                |
+
+### Hecho
+
+- **#219 — fichas de color y los dos modos.** El color estaba en ~250 clases literales repartidas
+  por veintitrés ficheros; ahora se define una vez como fichas semánticas y cada modo les da un
+  valor. **Cero variantes `dark:`**, con guardas que lo exigen. El modo va en cookie, así que el
+  servidor lo pinta en el primer byte: cero parpadeo y cero JavaScript. Sin preferencia guardada
+  manda el sistema operativo.
+- **21 parejas texto/fondo comprobadas con la fórmula de WCAG**, en los dos modos. Es lo que
+  sostiene el listón de accesibilidad ≥ 95 de CI, y a ojo no se distingue de 3:1.
+
+### Lo que enseñó esta pieza
+
+- **Un cambio de estética se comprueba mirándolo.** La primera versión ponía las fichas oscuras
+  bajo `:root[data-tema='oscuro']` y **no cambiaba ni un color**: Tailwind emite las fichas en
+  `:root` y el atributo se pinta en el contenedor del panel, no en el `<html>` —que se comparte
+  con la landing—. Todos los tests pasaban, porque cada uno miraba el CSS o el DOM por separado y
+  ninguno el resultado de aplicar uno al otro.
+- **Una mutación sobrevivió por elegir mal los valores de referencia.** El caso que protege la
+  fórmula de contraste usaba solo grises, y en un gris los tres canales pesan igual: sustituir
+  los pesos de WCAG por una media aritmética no cambiaba ni un resultado.
+- **Y una guarda cazó una deriva de verdad**, cometida por quien la acababa de escribir: una
+  ficha añadida a un bloque oscuro y no al otro.
+
+### Abierto
+
+- **#220 — el panel en un móvil.** Es funcionalidad, no acabado: hoy no se puede usar.
+- **#224 — la dirección visual cambia.** Tras entregar #219 la valoración fue «todavía no se ve
+  bien»: se pide algo más único, tirando a **liquid glass**, y **iconos de librerías existentes**.
+  Decaen §1 y §6 de la spec; el resto sigue en pie, y las fichas de #219 son justamente lo que
+  permite cambiar de dirección sin volver a tocar veintitrés ficheros.
+- La tensión que hay que resolver antes del CSS: **sobre superficies translúcidas el contraste
+  deja de ser calculable**, porque el fondo efectivo depende de lo que haya debajo. La guarda
+  actual pasaría comprobando un color que no es el que se ve.
