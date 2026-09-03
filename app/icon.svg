@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!--
+    El icono del sitio (issue #233), y con él se cierra la deuda del favicon que estaba anotada
+    en `docs/PENDIENTES.md`: hasta ahora cada carga del panel y de la landing dejaba un 404 de
+    `/favicon.ico` en los registros y una pestaña sin identidad.
+
+    Next lo recoge por convención desde `app/icon.svg`; no hay que enlazarlo en ningún sitio.
+
+    **Aquí los colores van fijos y no heredados**, al revés que en `cms/ui/Logotipo.tsx`: una
+    pestaña no tiene `currentColor` ni sabe en qué modo está el panel. El naranja es el de marca
+    del modo oscuro, que es el que funciona sobre las dos barras de pestañas.
+  -->
+  <path fill="#f97c2f" fill-rule="evenodd" d="M9 0h14a9 9 0 0 1 9 9v14a9 9 0 0 1-9 9H9a9 9 0 0 1-9-9V9a9 9 0 0 1 9-9Zm11.5 7H16l-6 3.9v4.8l4.8-3V25h5.7V7Z"/>
+</svg>

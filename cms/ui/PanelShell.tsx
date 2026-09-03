@@ -1,8 +1,10 @@
-// isomorphic: solo presentación. El rol llega como prop desde el layout, que es quien tiene
-// la sesión — así este componente no arrastra `cms/auth` a ningún sitio.
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type { Tema } from '@/cms/tema';
 import { Icono, type NombreDeIcono } from './iconos';
+import { Logotipo } from './Logotipo';
 import { ANILLO_DE_FOCO } from './estilos';
 
 /**
@@ -25,19 +27,44 @@ import { ANILLO_DE_FOCO } from './estilos';
  * El fondo va en este contenedor y no en el `<body>` porque el `<body>` es compartido con la
  * landing pública, que está fuera de alcance. Es el mismo motivo por el que `data-tema` vive
  * aquí, y está contado en `cms/tema.ts`.
+ *
+ * ## Por qué esto es de cliente, y por qué antes no lo era
+ *
+ * Hasta #233 la ruta llegaba en una cabecera que pone el middleware, y el armazón era
+ * presentación isomorfa. El comentario de entonces decía que hacerlo cliente sería «descargar el
+ * panel entero en el navegador solo para pintar un fondo gris».
+ *
+ * **Ese razonamiento tenía un agujero y estaba en producción.** El layout de `(panel)` es común
+ * a todas las rutas de `/admin`, así que en una navegación de cliente Next **lo reutiliza y no
+ * lo vuelve a ejecutar**: `headers()` solo se lee en el render del servidor, y la ruta se
+ * quedaba congelada en la de la primera carga. Medido: entrando en `/admin` y pulsando
+ * «Imágenes», la URL cambiaba a `/admin/media` y el rail seguía marcando «Contenido» — con su
+ * color, con su icono relleno **y con su `aria-current`**, así que un lector de pantalla
+ * anunciaba la página equivocada.
+ *
+ * `usePathname()` sí se actualiza en cada navegación. Lo que cuesta es serializar este armazón
+ * al cliente; lo que se gana es que el menú diga dónde estás. El presupuesto que protegía aquel
+ * comentario es el de la **landing**, y la landing no monta esto.
  */
 
 export interface PanelShellProps {
   readonly children: React.ReactNode;
   readonly rol: 'admin' | 'editor';
   readonly nombreDeUsuario: string;
-  /** Para marcar la entrada activa. Es el `pathname`. */
+  /**
+   * La ruta con la que se pinta el **primer** render, del servidor.
+   *
+   * Manda `usePathname()` en cuanto hay cliente; esto solo evita que el menú aparezca sin nada
+   * marcado durante el primer pintado. Sale de la cabecera que pone el middleware.
+   */
   readonly rutaActual: string;
   /**
    * Cierra la sesión (issue #211).
    *
    * Baja como acción de servidor desde el layout, por lo mismo que bajan el rol y el nombre:
-   * este componente es presentación isomorfa y no puede arrastrar `cms/auth` al navegador.
+   * este componente es de cliente y no puede arrastrar `cms/auth` al navegador. Pasar una Server
+   * Action como prop a un componente de cliente es el patrón normal y sigue ejecutándose en el
+   * servidor; lo que no puede cruzar es el módulo que la define.
    */
   readonly onSalir: () => Promise<void>;
   /**
@@ -52,9 +79,10 @@ export interface PanelShellProps {
   /**
    * La clase que inyecta la letra del panel (`app/fuente.ts`).
    *
-   * Llega como prop en vez de importarse aquí porque `next/font` es de la aplicación y este
-   * módulo es presentación isomorfa: importarlo ataría `cms/ui` a Next para siempre, que es
-   * justo lo que la extracción del paquete (#17) tendría que deshacer.
+   * Llega como prop en vez de importarse aquí porque `next/font` es de la aplicación y esto es
+   * una pieza de `cms/ui`: importarlo la ataría a Next para siempre, que es justo lo que la
+   * extracción del paquete (#17) tendría que deshacer. Que el componente sea de cliente no
+   * cambia ese límite — sigue siendo código del CMS, no de la aplicación que lo monta.
    */
   readonly claseDeFuente?: string;
 }
@@ -110,6 +138,15 @@ export function PanelShell({
   const entradas = entradasVisibles(rol);
 
   /**
+   * **La ruta la manda el cliente.**
+   *
+   * `usePathname()` se actualiza en cada navegación; la prop es solo el respaldo del primer
+   * render y de los tests de componentes, donde no hay router. Sin este `??`, en jsdom el menú
+   * se quedaría sin nada marcado y los casos que comprueban `aria-current` medirían el vacío.
+   */
+  const ruta = usePathname() ?? rutaActual;
+
+  /**
    * **El panel usa toda la ventana**, y esto deroga el techo de lectura de #190.
    *
    * Aquel techo eran 1152 px centrados, con un motivo real: una línea de texto de 1900 píxeles
@@ -147,7 +184,7 @@ export function PanelShell({
           y en un teléfono solo quita ancho: medido, el contenido bajaba de 358 px a 332 de 390
           —del 92 % al 85 %— por un margen que ahí no se ve. A partir de `sm` sí flota. */}
       <div className="flex min-h-dvh w-full gap-0 p-0 sm:gap-4 sm:p-5 xl:gap-5 xl:p-7">
-        <NavegacionDelPanel entradas={entradas} rutaActual={rutaActual} />
+        <NavegacionDelPanel entradas={entradas} rutaActual={ruta} />
 
         {/* **El contenedor grande.** Todo el ancho que quede, que es la petición de #229: en una
             pantalla de 1920 sobraban casi cuatrocientos píxeles a cada lado, en una herramienta
@@ -159,9 +196,10 @@ export function PanelShell({
                 href="/admin"
                 className={`flex h-11 items-center gap-2.5 rounded-lg px-2 font-semibold text-tinta ${ANILLO_DE_FOCO}`}
               >
-                {/* El punto de acento es la única marca del panel. Decorativo de verdad: no dice
-                nada que el texto de al lado no diga. */}
-                <span aria-hidden="true" className="size-2 rounded-full bg-acento" />
+                {/* La marca. **Decorativa aquí a propósito**: va al lado del nombre del sitio,
+                y un lector de pantalla que dijera «UnoCMS Tu sitio» estaría leyendo dos cosas
+                donde hay una. */}
+                <Logotipo tamano={22} className="text-acento" />
                 Tu sitio
               </Link>
 
@@ -171,7 +209,7 @@ export function PanelShell({
                 está: no se administra la web desde ahí, se administra uno mismo. */}
                 <Link
                   href="/admin/account"
-                  aria-current={rutaActual.startsWith('/admin/account') ? 'page' : undefined}
+                  aria-current={ruta.startsWith('/admin/account') ? 'page' : undefined}
                   // **El nombre accesible lo lleva el enlace, no el texto de dentro**, y esa
                   // decisión salió de romper cuatro tests.
                   //

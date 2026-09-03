@@ -68,3 +68,56 @@ test('T-208-2 y T-208-3: al salir se cierra la sesión, y la cookie deja de vale
   await expect(page).toHaveURL(/\/admin\/login/);
   await expect(page.getByRole('heading', { name: 'Contenido', level: 1 })).toHaveCount(0);
 });
+
+/**
+ * T-233-1: **el menú marca la sección en la que estás, también al navegar** (issue #233).
+ *
+ * ## Por qué esto tiene que ser e2e
+ *
+ * Porque el fallo no estaba en el componente: estaba en de dónde salía la ruta. El layout de
+ * `(panel)` es común a todas las rutas de `/admin`, así que **Next no lo vuelve a ejecutar** al
+ * navegar entre ellas — y la ruta llegaba en una cabecera que solo se lee al renderizar en el
+ * servidor. Resultado: entrabas en `/admin`, pulsabas «Imágenes», la URL cambiaba y el menú
+ * seguía marcando «Contenido».
+ *
+ * Un test de componentes no lo habría visto nunca: allí la ruta llega como prop y siempre es la
+ * correcta. Hace falta un navegador que navegue de verdad.
+ *
+ * Y no es solo el color: **`aria-current` también se quedaba mal**, así que un lector de pantalla
+ * anunciaba la página equivocada. Por eso el caso mira el atributo y no la clase.
+ */
+test('T-233-1: la sección marcada cambia al navegar por el menú', async ({ page }) => {
+  await crearYEntrar(page, { email: 'menu-activo@ejemplo.com', role: 'admin' });
+
+  const secciones = page.getByRole('navigation', { name: 'Secciones del panel' });
+
+  /** Qué entrada del menú dice ser la página actual. Debe haber exactamente una. */
+  async function marcada(): Promise<string[]> {
+    return page.evaluate(() =>
+      [...document.querySelectorAll('nav[aria-label="Secciones del panel"] a')]
+        .filter((enlace) => enlace.getAttribute('aria-current') === 'page')
+        .map((enlace) => enlace.getAttribute('title') ?? '')
+    );
+  }
+
+  await expect(page).toHaveURL(/\/admin$/);
+  expect(await marcada()).toEqual(['Contenido']);
+
+  // **Con el enlace, no con `goto`**: una recarga volvería a ejecutar el layout y taparía el
+  // fallo. Lo que se prueba es la navegación de cliente, que es la que hace una persona.
+  await secciones.getByRole('link', { name: 'Imágenes' }).click();
+  await expect(page).toHaveURL(/\/admin\/media/);
+  await expect
+    .poll(marcada, { message: 'el menú no siguió a la navegación' })
+    .toEqual(['Imágenes']);
+
+  await secciones.getByRole('link', { name: 'Personas' }).click();
+  await expect(page).toHaveURL(/\/admin\/users/);
+  await expect.poll(marcada).toEqual(['Personas']);
+
+  // Y de vuelta: el caso que comprueba que la anterior **se deselecciona**, que era la otra
+  // mitad de lo que se reportó.
+  await secciones.getByRole('link', { name: 'Contenido' }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect.poll(marcada).toEqual(['Contenido']);
+});

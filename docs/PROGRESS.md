@@ -1262,3 +1262,55 @@ Se deja **sin cerrar y sin arreglo inventado**, que es la lección de #134: una 
 plausible no es una explicación. Lo que falta es saber qué se ve exactamente — si la barra no
 aparece, si la rueda mueve el panel en vez de la web, o si la página de dentro sencillamente no
 tiene más contenido que enseñar porque el resto de secciones están sin publicar.
+
+---
+
+## El logotipo, y el menú que no seguía a la navegación ✅
+
+**Cerrado** el 1 de septiembre de 2026, issue [#233](https://github.com/KthArg/uno-cms/issues/233).
+
+### El fallo, que era de verdad y llevaba tiempo
+
+Se reportó que **los iconos del rail no cambiaban de color al cambiar de sección**, y que el
+anterior no se deseleccionaba, mientras el resto de la aplicación sí respondía. Reproducido en el
+navegador: entrando en `/admin` y pulsando «Imágenes», la URL pasaba a `/admin/media` y el menú
+seguía marcando «Contenido».
+
+**La causa no estaba en el componente.** La ruta llegaba en una cabecera que pone el middleware,
+y el layout de `(panel)` es común a todas las rutas de `/admin`: en una navegación de cliente
+Next **no lo vuelve a ejecutar**, así que `headers()` no se leía otra vez y la ruta se quedaba
+congelada en la de la primera carga.
+
+Y era peor que un color: **`aria-current` también se quedaba mal**, así que un lector de pantalla
+anunciaba la página equivocada.
+
+El armazón pasa a ser de cliente y la ruta la da `usePathname()`, que sí se actualiza en cada
+navegación. El comentario que justificaba lo anterior —«hacerlo cliente sería descargar el panel
+entero en el navegador»— **tenía un agujero y estaba en producción**; el presupuesto que
+protegía es el de la landing, y la landing no monta el panel.
+
+Hay un caso e2e que lo fija, y **tiene que ser e2e**: con la ruta como prop, un test de
+componentes siempre la recibe correcta y no vería nunca este fallo.
+
+### El logotipo
+
+Un «1» recortado de un cuadrado redondeado, del nombre. Va **en negativo**, lo que tiene una
+consecuencia práctica: el dibujo entero es un solo color y hereda `currentColor`, así que sirve
+igual en el naranja del oscuro, en el celeste del claro o en blanco sobre una foto, sin una
+segunda versión que mantener.
+
+Se dibujaron cuatro y se miraron a 64, 32 y **16 píxeles**, que es donde se decide. La versión de
+trazo fino era la más bonita en grande y a 16 se emborronaba hasta ser una mancha.
+
+**Con él se cierra la deuda del favicon** que estaba anotada: `app/icon.svg`, que Next recoge por
+convención. Hasta ahora cada carga del panel y de la landing dejaba un 404 en los registros.
+
+### Lo que enseñó
+
+- **Un comentario puede justificar un fallo durante meses.** El de la cabecera explicaba muy bien
+  por qué el armazón no era de cliente, y esa explicación era correcta salvo en el detalle que
+  importaba: que el layout no se reejecuta al navegar. Ningún test lo miraba porque el
+  razonamiento sonaba bien.
+- **Y volví a caer en la trampa del propio repositorio.** Ejecuté la suite e2e con el servidor de
+  desarrollo levantado, `.next` se reescribió por debajo, y la siguiente captura salió sin CSS.
+  Parece un fallo del código y no lo es — está en `CLAUDE.md` con todas las letras, y van tres.
