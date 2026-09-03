@@ -5,8 +5,11 @@ import {
   autenticarConGoogle,
   credencialesDeGoogle,
   decidirAcceso,
-  googleConfigurado,
 } from '@/cms/auth/google';
+
+/** Lo que antes preguntaba `googleConfigurado`; ver por qué ya no existe en `cms/auth/google.ts`. */
+const configurado = (entorno: Record<string, string | undefined>) =>
+  credencialesDeGoogle(entorno) !== null;
 
 /**
  * Los casos de `docs/specs/13-acceso-con-google.md` que no necesitan base de datos.
@@ -27,29 +30,29 @@ const CUENTA: CuentaDelPanel = {
 
 describe('T-233-1 — Google es opcional, y hacen falta las dos variables', () => {
   it('sin ninguna de las dos, no está configurado', () => {
-    expect(googleConfigurado({})).toBe(false);
+    expect(configurado({})).toBe(false);
   });
 
   it('con solo el identificador, tampoco', () => {
-    expect(googleConfigurado({ AUTH_GOOGLE_ID: 'abc.apps.googleusercontent.com' })).toBe(false);
+    expect(configurado({ AUTH_GOOGLE_ID: 'abc.apps.googleusercontent.com' })).toBe(false);
   });
 
   it('con solo el secreto, tampoco', () => {
-    expect(googleConfigurado({ AUTH_GOOGLE_SECRET: 'un-secreto' })).toBe(false);
+    expect(configurado({ AUTH_GOOGLE_SECRET: 'un-secreto' })).toBe(false);
   });
 
   it('definidas pero vacías cuenta como no definidas', () => {
     // Es exactamente lo que llega de una variable creada en Vercel y sin rellenar. Tratarla
     // como un valor daría un cliente de OAuth con el identificador vacío: el botón aparecería
     // y llevaría a un error de Google, que es peor que no tener botón.
-    expect(googleConfigurado({ AUTH_GOOGLE_ID: '', AUTH_GOOGLE_SECRET: '' })).toBe(false);
-    expect(googleConfigurado({ AUTH_GOOGLE_ID: 'abc', AUTH_GOOGLE_SECRET: '' })).toBe(false);
+    expect(configurado({ AUTH_GOOGLE_ID: '', AUTH_GOOGLE_SECRET: '' })).toBe(false);
+    expect(configurado({ AUTH_GOOGLE_ID: 'abc', AUTH_GOOGLE_SECRET: '' })).toBe(false);
   });
 
   it('con las dos, sí, y las devuelve tal cual', () => {
     const entorno = { AUTH_GOOGLE_ID: 'abc', AUTH_GOOGLE_SECRET: 'un-secreto' };
 
-    expect(googleConfigurado(entorno)).toBe(true);
+    expect(configurado(entorno)).toBe(true);
     expect(credencialesDeGoogle(entorno)).toEqual({ id: 'abc', secreto: 'un-secreto' });
   });
 });
@@ -308,5 +311,53 @@ describe('el callback `signIn` es la puerta que devuelve el mensaje de ADR-902',
     // credentials como a Google, **ningún acceso por contraseña funcionaría**: no traen
     // `acceso` dentro.
     expect(await permite({ id: 'x', email: 'ana@ejemplo.com' }, 'credentials')).toBe(true);
+  });
+});
+
+describe('la pantalla y el proveedor salen de la misma decisión', () => {
+  /**
+   * El hallazgo 2 de la autorrevisión de #233.
+   *
+   * La pantalla llamaba a una función que leía `process.env` en cada petición, mientras la lista
+   * de proveedores se congela al cargar el módulo. Podían discrepar, y en la dirección mala:
+   * quien definiera las variables sin reiniciar veía **el botón pintado y el proveedor
+   * inexistente** — una puerta que no está.
+   *
+   * El arreglo no fue sincronizar las dos lecturas: fue **quitar la segunda**. Lo que este caso
+   * protege es que la constante que consulta la pantalla diga siempre lo mismo que la lista, en
+   * los dos estados. Un `ACCESO_CON_GOOGLE_DISPONIBLE` que se quedara fijo en `true` —o que
+   * volviera a leer el entorno por su cuenta— lo pondría en rojo.
+   */
+  async function estado(entorno: Record<string, string>) {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    for (const [clave, valor] of Object.entries(entorno)) vi.stubEnv(clave, valor);
+
+    const { ACCESO_CON_GOOGLE_DISPONIBLE, authConfig } = await import('@/cms/auth');
+
+    return {
+      loQueDiceLaPantalla: ACCESO_CON_GOOGLE_DISPONIBLE,
+      hayProveedor: authConfig.providers.some((p) => 'id' in p && p.id === 'google'),
+    };
+  }
+
+  it('sin Google, las dos dicen que no', async () => {
+    const { loQueDiceLaPantalla, hayProveedor } = await estado({
+      AUTH_GOOGLE_ID: '',
+      AUTH_GOOGLE_SECRET: '',
+    });
+
+    expect(hayProveedor).toBe(false);
+    expect(loQueDiceLaPantalla).toBe(hayProveedor);
+  });
+
+  it('con Google, las dos dicen que sí', async () => {
+    const { loQueDiceLaPantalla, hayProveedor } = await estado({
+      AUTH_GOOGLE_ID: 'abc.apps.googleusercontent.com',
+      AUTH_GOOGLE_SECRET: 'un-secreto',
+    });
+
+    expect(hayProveedor).toBe(true);
+    expect(loQueDiceLaPantalla).toBe(hayProveedor);
   });
 });

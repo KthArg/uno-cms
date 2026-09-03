@@ -80,4 +80,27 @@ test.describe('entrar con Google', () => {
     await page.goto('/admin/login?error=CredentialsSignin');
     await expect(aviso).toContainText('Revisa el correo y la contraseña');
   });
+
+  test('un error que no es ni de credenciales ni de Google no manda a revisar la contraseña', async ({
+    page,
+  }) => {
+    /**
+     * El hallazgo 1 de la autorrevisión de #233.
+     *
+     * `pages.error` apunta a esta pantalla, así que aquí caen también `Configuration` y los
+     * `OAuth*` — lo que sale, por ejemplo, si el secreto de Google está mal copiado. Con dos
+     * ramas, todos ellos leían «revisa el correo y la contraseña»: quien lo viera iría a
+     * cambiar una contraseña que no tiene nada que ver.
+     *
+     * Y no debe decir **qué** falló: quien lo lee no puede arreglarlo, y nombrar la pieza rota
+     * solo sirve a quien esté tanteando.
+     */
+    const aviso = page.locator('main').getByRole('alert');
+
+    await page.goto('/admin/login?error=Configuration');
+
+    await expect(aviso).toContainText('No se ha podido entrar');
+    await expect(aviso).not.toContainText('contraseña');
+    await expect(aviso).not.toContainText('Google');
+  });
 });

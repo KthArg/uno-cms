@@ -105,12 +105,18 @@ export function credencialesDeGoogle(
   return { id, secreto };
 }
 
-/** Si el acceso con Google está disponible. Lo consulta la pantalla para pintar el botón. */
-export function googleConfigurado(
-  entorno: Record<string, string | undefined> = delEntorno()
-): boolean {
-  return credencialesDeGoogle(entorno) !== null;
-}
+/**
+ * **No hay aquí una función «¿está Google disponible?»**, y es a propósito.
+ *
+ * La hubo, y la autorrevisión de #233 la quitó. El problema era que leía el entorno **vivo**
+ * mientras la lista de proveedores se congela al cargar `cms/auth/index.ts`: la pantalla decía
+ * una cosa y la configuración otra, y en la dirección mala — el botón pintado sobre un proveedor
+ * que no existe.
+ *
+ * Quien necesite saberlo usa `ACCESO_CON_GOOGLE_DISPONIBLE` de `cms/auth`, que sale de la
+ * **misma** lectura que decidió los proveedores. Dejar aquí una segunda forma de preguntarlo
+ * sería dejar que la discrepancia siguiera siendo posible, solo que menos probable.
+ */
 
 /**
  * Las tres puertas de spec 13 §3, sin tocar nada de fuera.

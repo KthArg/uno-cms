@@ -1,10 +1,39 @@
 import { redirect } from 'next/navigation';
-import { auth, signIn } from '@/cms/auth';
-import { googleConfigurado } from '@/cms/auth/google';
+import { ACCESO_CON_GOOGLE_DISPONIBLE, auth, signIn } from '@/cms/auth';
 import { EnvoltorioDeTema } from '@/app/envoltorio-de-tema';
 import { AccesoConGoogle } from '@/cms/ui/AccesoConGoogle';
 import { Icono } from '@/cms/ui/iconos';
 import { AVISO_ALARMA, AVISO_PUBLICADO, BOTON_PRINCIPAL, CAMPO } from '@/cms/ui/estilos';
+
+/**
+ * Qué se lee cuando el acceso falla.
+ *
+ * ## Por qué son tres mensajes y no uno, ni dos
+ *
+ * - **`CredentialsSignin`** es el mensaje único de SPEC §7.1, que no distingue entre correo
+ *   inexistente, contraseña incorrecta y cuenta bloqueada. No se toca: es lo que cierra la
+ *   enumeración de cuentas.
+ * - **`AccessDenied`** es el rechazo de Google, y sí dice lo que pasa (ADR-902): para llegar
+ *   aquí hay que haberse autenticado antes **en Google**, así que el único correo que se puede
+ *   poner a prueba es uno del que ya se tienen las llaves.
+ * - **Todo lo demás** salió de la autorrevisión de #233 y es un arreglo, no una rama de adorno.
+ *   Al apuntar `pages.error` a esta pantalla empezaron a caer aquí errores que no son de
+ *   credenciales —`Configuration`, que es lo que sale si falta `AUTH_SECRET` o si el secreto de
+ *   Google está mal copiado— y todos leían «revisa el correo y la contraseña». Quien lo viera
+ *   iba a revisar su contraseña, a cambiarla, y el problema estaría en una variable de entorno.
+ *
+ * Ese tercer mensaje **no dice qué falló**, a propósito: quien lo lee no puede arreglarlo y
+ * nombrar la pieza rota solo sirve a quien esté tanteando.
+ */
+function mensajeDeError(error: string): string {
+  if (error === 'AccessDenied') {
+    return 'Esa cuenta de Google no puede entrar aquí. Pide a quien administra el sitio que te invite con ese mismo correo.';
+  }
+
+  if (error === 'CredentialsSignin') return 'Revisa el correo y la contraseña.';
+
+  return 'No se ha podido entrar. Vuelve a intentarlo, y si sigue pasando avísale a quien administra el sitio.';
+}
 
 /**
  * Página de acceso (SPEC §3).
@@ -22,8 +51,9 @@ import { AVISO_ALARMA, AVISO_PUBLICADO, BOTON_PRINCIPAL, CAMPO } from '@/cms/ui/
  * es uno del que ya se tienen las llaves. La regla del mensaje único protege al formulario de
  * contraseña, que acepta el correo de cualquiera; esta otra puerta no.
  *
- * O sea que son dos mensajes con dos razones distintas, y el caso T-233-17 amarra los dos para
- * que a nadie le dé por unificarlos por limpieza.
+ * O sea que son mensajes distintos con razones distintas, y el caso T-233-17 amarra dos de ellos
+ * para que a nadie le dé por unificarlos por limpieza. El tercero —el de cualquier otro error—
+ * salió de la autorrevisión y está explicado en `mensajeDeError`, aquí arriba.
  *
  * ## Lo que sí cambió (#224)
  *
@@ -134,7 +164,7 @@ export default async function LoginPage({
             </button>
           </form>
 
-          <AccesoConGoogle disponible={googleConfigurado()} entrar={entrarConGoogle} />
+          <AccesoConGoogle disponible={ACCESO_CON_GOOGLE_DISPONIBLE} entrar={entrarConGoogle} />
 
           {/* `role="alert"` y no un párrafo cualquiera: quien falla al entrar puede estar
               usando un lector de pantalla, y este mensaje aparece **después** de enviar. Sin
@@ -142,9 +172,7 @@ export default async function LoginPage({
           {params.error !== undefined && (
             <p role="alert" className={`${AVISO_ALARMA} mt-5`}>
               <Icono de="alerta" tamano={16} className="mt-0.5" />
-              {params.error === 'AccessDenied'
-                ? 'Esa cuenta de Google no puede entrar aquí. Pide a quien administra el sitio que te invite con ese mismo correo.'
-                : 'Revisa el correo y la contraseña.'}
+              {mensajeDeError(params.error)}
             </p>
           )}
         </div>

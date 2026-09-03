@@ -49,6 +49,22 @@ declare module 'next-auth' {
 const GOOGLE = credencialesDeGoogle();
 
 /**
+ * Si el acceso con Google está disponible, **según la misma lectura** que decidió la lista de
+ * proveedores.
+ *
+ * Existe por un hallazgo de la autorrevisión de #233: la pantalla de acceso preguntaba con una
+ * función que leía `process.env` **en cada petición**, mientras el proveedor se decide una sola
+ * vez arriba. Casi siempre da igual, y donde muerde es justo en el caso que documenta `GOOGLE`:
+ * quien define las dos variables en un servidor propio y no reinicia veía **el botón pintado y
+ * el proveedor inexistente**, o sea una puerta que no está.
+ *
+ * El arreglo no fue sincronizar las dos lecturas —eso las deja pudiendo discrepar, solo que
+ * menos— sino **quitar la segunda**: esa función ya no existe. Aquí hay una decisión y de ella
+ * salen las dos cosas.
+ */
+export const ACCESO_CON_GOOGLE_DISPONIBLE = GOOGLE !== null;
+
+/**
  * Lo que este proyecto guarda dentro del `user` de Auth.js cuando quien entra viene de Google.
  *
  * No es un capricho de estructura: es el único sitio donde cabe. `profile()` no puede rechazar
