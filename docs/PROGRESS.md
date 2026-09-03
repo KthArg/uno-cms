@@ -1341,8 +1341,9 @@ decía "sin proveedor externo" y ahora dice "sin **depender** de uno".
 - **El viaje a Google no lo bloquea la CSP**, y eso está comprobado **en un navegador**
   (T-233-18), no razonado: `form-action 'self'` era el riesgo real y era invisible desde Node.
 
-24 casos unitarios, 8 de integración contra Postgres real, 4 de componente y 3 de e2e. La suite
-entera —75 casos de e2e incluidos— pasa en las condiciones de CI.
+26 casos unitarios, 8 de integración contra Postgres real, 4 de componente y 4 de e2e. La suite
+entera —77 casos de e2e incluidos— pasa en las condiciones de CI, y en CI de verdad: los diez jobs
+en verde.
 
 ### Lo que enseñó esta pieza
 
