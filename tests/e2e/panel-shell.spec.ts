@@ -70,7 +70,7 @@ test('T-208-2 y T-208-3: al salir se cierra la sesión, y la cookie deja de vale
 });
 
 /**
- * T-233-1: **el menú marca la sección en la que estás, también al navegar** (issue #233).
+ * T-233-1: **el menú marca la sección en la que estás, también al navegar** (issue #234).
  *
  * ## Por qué esto tiene que ser e2e
  *

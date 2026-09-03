@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
   <!--
-    El icono del sitio (issue #233), y con él se cierra la deuda del favicon que estaba anotada
+    El icono del sitio (issue #234), y con él se cierra la deuda del favicon que estaba anotada
     en `docs/PENDIENTES.md`: hasta ahora cada carga del panel y de la landing dejaba un 404 de
     `/favicon.ico` en los registros y una pestaña sin identidad.
 

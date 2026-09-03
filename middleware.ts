@@ -142,7 +142,7 @@ export default auth((request) => {
   //
   // Antes esta cabecera era la única fuente, y eso estaba roto: el layout de `(panel)` es común
   // a todas las rutas de `/admin`, así que en una navegación de cliente Next no lo vuelve a
-  // ejecutar y la ruta se quedaba congelada en la de la primera carga (#233).
+  // ejecutar y la ruta se quedaba congelada en la de la primera carga (#234).
   headers.set('x-pathname', request.nextUrl.pathname);
 
   const response = NextResponse.next({ request: { headers } });

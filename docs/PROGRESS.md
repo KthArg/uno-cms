@@ -1267,7 +1267,7 @@ tiene más contenido que enseñar porque el resto de secciones están sin public
 
 ## El logotipo, y el menú que no seguía a la navegación ✅
 
-**Cerrado** el 1 de septiembre de 2026, issue [#233](https://github.com/KthArg/uno-cms/issues/233).
+**Cerrado** el 1 de septiembre de 2026, issue [#234](https://github.com/KthArg/uno-cms/issues/233).
 
 ### El fallo, que era de verdad y llevaba tiempo
 

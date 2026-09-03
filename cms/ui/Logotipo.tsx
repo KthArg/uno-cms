@@ -1,7 +1,7 @@
 // isomorphic: solo presentación. Un dibujo, sin estado y sin acceso a nada del servidor.
 
 /**
- * La marca de UnoCMS (issue #233).
+ * La marca de UnoCMS (issue #234).
  *
  * ## De dónde sale la forma
  *

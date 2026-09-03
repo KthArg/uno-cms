@@ -32,7 +32,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   // La ruta actual se lee de la cabecera que pone el middleware, y sirve **solo para el primer
   // render**: este layout es común a todas las rutas de `/admin` y Next no lo vuelve a ejecutar
   // al navegar entre ellas, así que a partir de ahí manda `usePathname()` dentro del armazón.
-  // Está contado en `cms/ui/PanelShell.tsx`; era un fallo real (#233), no una optimización.
+  // Está contado en `cms/ui/PanelShell.tsx`; era un fallo real (#234), no una optimización.
   const rutaActual = (await headers()).get('x-pathname') ?? '/admin';
 
   /**

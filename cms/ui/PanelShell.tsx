@@ -30,7 +30,7 @@ import { ANILLO_DE_FOCO } from './estilos';
  *
  * ## Por qué esto es de cliente, y por qué antes no lo era
  *
- * Hasta #233 la ruta llegaba en una cabecera que pone el middleware, y el armazón era
+ * Hasta #234 la ruta llegaba en una cabecera que pone el middleware, y el armazón era
  * presentación isomorfa. El comentario de entonces decía que hacerlo cliente sería «descargar el
  * panel entero en el navegador solo para pintar un fondo gris».
  *
