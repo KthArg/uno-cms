@@ -1314,3 +1314,89 @@ convención. Hasta ahora cada carga del panel y de la landing dejaba un 404 en l
 - **Y volví a caer en la trampa del propio repositorio.** Ejecuté la suite e2e con el servidor de
   desarrollo levantado, `.next` se reescribió por debajo, y la siguiente captura salió sin CSS.
   Parece un fallo del código y no lo es — está en `CLAUDE.md` con todas las letras, y van tres.
+
+---
+
+## Entrar con Google ✅
+
+**Cerrado** el 3 de septiembre de 2026, issue [#233](https://github.com/KthArg/uno-cms/issues/233),
+ADR-900, ADR-901 y ADR-902. Es el primer cambio que **toca una decisión de la serie 0xx**: ADR-004
+decía "sin proveedor externo" y ahora dice "sin **depender** de uno".
+
+### Qué funciona
+
+- **El botón aparece solo si hay con qué.** Sin `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET`, el
+  proveedor no entra en la configuración de Auth.js — no es que el botón se esconda, es que la
+  ruta `/api/auth/callback/google` no existe. Con una sola de las dos, apagado igual.
+- **Google no crea cuentas.** Tres puertas: el correo tiene que venir verificado por Google,
+  corresponder a una fila de `users` y estar activa. Un intento denegado no escribe nada en
+  `users`, y hay un test que lo cuenta.
+- **La identidad sale de la fila.** De Google salen el correo y su verificación; el
+  identificador, el nombre, el rol y `pwdV`, de `users`.
+- **ADR-301 alcanza a esta puerta.** Cambiar la contraseña o desactivar la cuenta echa igual a
+  quien entró por Google: no hay una segunda ruta de sesión, hay dos formas de conseguir el mismo
+  token.
+- **Cero migraciones.** La sesión es JWT y no hay adaptador, así que no había nada del proveedor
+  que guardar.
+- **El viaje a Google no lo bloquea la CSP**, y eso está comprobado **en un navegador**
+  (T-233-18), no razonado: `form-action 'self'` era el riesgo real y era invisible desde Node.
+
+26 casos unitarios, 8 de integración contra Postgres real, 4 de componente y 4 de e2e. La suite
+entera —77 casos de e2e incluidos— pasa en las condiciones de CI, y en CI de verdad: los diez jobs
+en verde.
+
+### Lo que enseñó esta pieza
+
+**La mutación volvió a cazar un test de adorno, y van seis.** T-233-11 decía comprobar que el
+correo se compara sin distinguir mayúsculas, y pasaba con el `lower()` de la consulta **quitado**.
+El motivo, una vez visto, es obvio: el test guardaba la fila en minúsculas y mandaba el correo con
+mayúsculas, pero `autenticarConGoogle` ya normaliza lo que llega de Google — así que los dos lados
+de la comparación eran minúsculas y el `lower()` no hacía nada.
+
+Lo que protege el `lower()` es lo que hay **guardado**, no lo que llega. Son dos defensas
+distintas en dos sitios distintos, y el test cubría una creyendo cubrir la otra. Ahora hay un caso
+por cada una, y la mutación de una no mata el test de la otra — que es la comprobación de que de
+verdad son dos.
+
+**Y una guarda avisó de algo que no se veía venir:** al encender Google en la suite de e2e, el
+selector `getByRole('button', { name: /entrar/i })` de `crearYEntrar` pasó a casar con dos
+botones. No es un fallo del producto, pero habría puesto en rojo media suite con un mensaje sobre
+"strict mode" que no menciona a Google por ninguna parte. Ahora el selector es exacto, en los tres
+sitios donde estaba — incluida la suite de humo, que corre contra un despliegue donde Google
+**puede** estar configurado.
+
+### Qué es frágil
+
+1. **Nadie ha entrado con una cuenta de Google de verdad.** Lo que está comprobado es todo lo que
+   se puede comprobar sin una: las tres puertas contra Postgres real, la identidad que acaba en el
+   token, y que el navegador llega a `accounts.google.com` con nuestro identificador. Lo que
+   **no** está comprobado es la vuelta: que el `id_token` que firma Google se valide y que
+   `email_verified` llegue donde se espera. Eso necesita un cliente de OAuth real y está en "qué
+   probaría a mano".
+2. **`AUTH_URL` pasa a importar más.** La dirección de retorno la construye Auth.js, y en un
+   despliegue fuera de Vercel sin `AUTH_URL` sale de la cabecera `Host`. Antes eso solo afectaba a
+   los enlaces de invitación; ahora, además, un `Host` inyectado da un `redirect_uri` que Google
+   rechazará — con suerte. Está dicho en `.env.example` desde M2 y ahora muerde en un sitio más.
+3. **Las credenciales se leen una vez, al cargar el módulo.** Definirlas en un despliegue ya
+   arrancado no enciende Google hasta que el proceso se reinicia. En Vercel pasa solo; en un
+   servidor propio hay que acordarse. Está escrito junto a la constante.
+4. **El e2e no ejercita el estado "sin Google".** La suite arranca con las variables puestas para
+   poder probar el viaje, así que la rama apagada solo la cubren los unitarios y el de componente.
+   Es una asimetría declarada en `playwright.config.ts`, no un olvido.
+5. **La correspondencia es por correo y nada más.** Quien cambie su correo en el panel cambia con
+   qué cuenta de Google entra. Es lo esperable y está en spec 13 §9, pero no lo avisa ninguna
+   pantalla.
+
+### Qué probaría a mano
+
+- **Crear un cliente de OAuth de verdad** y entrar en el despliegue con una cuenta invitada. Es lo
+  único que cierra el punto 1 de arriba.
+- **Intentarlo con una cuenta de Google que no esté invitada**, para ver el mensaje de ADR-902 con
+  los ojos y comprobar que no se ha creado ninguna fila en `users`.
+- **Desactivar a alguien desde el panel de personas y que intente entrar con Google.** Debería
+  quedarse fuera igual que por contraseña.
+- **Fallar la contraseña cinco veces y entrar entonces con Google.** Debería dejarle pasar
+  (ADR-901); es la decisión menos evidente de las tres y la que más conviene ver funcionando.
+- **Escribir mal la URI de retorno en la consola de Google** a propósito, para ver qué se ve. La
+  guía de `docs/SETUP.md` avisa del `redirect_uri_mismatch`, y ese aviso está escrito sin haberlo
+  visto en pantalla.

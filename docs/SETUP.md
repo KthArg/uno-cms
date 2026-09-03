@@ -145,6 +145,43 @@ Lo que escribes y no publicas **no lo ve nadie**. Puedes dejar algo a medias y v
 Y si te arrepientes: **«Ver versiones anteriores»** guarda cada publicación. Volver a una de
 ellas la deja como borrador — tu web no cambia hasta que la publiques.
 
+## Si prefieres entrar con Google (opcional)
+
+Se puede añadir un botón «Entrar con Google» a la pantalla de acceso. **Es opcional de verdad**:
+si no haces nada de esto, tu panel funciona exactamente igual que hasta ahora, con tu correo y tu
+contraseña.
+
+Dos cosas antes de decidirte:
+
+- **El acceso por contraseña no desaparece.** El botón se añade al formulario, no lo sustituye.
+  Si Google se cae, sigues pudiendo entrar.
+- **Google no da de alta a nadie.** Solo entra quien ya tiene su cuenta creada en el panel de
+  personas, activa, y con **ese mismo correo**. Sustituye a la contraseña, no a la invitación —
+  si no fuera así, cualquiera con una cuenta de Google entraría en tu panel.
+
+Los pasos, en <https://console.cloud.google.com/apis/credentials>:
+
+1. **Crear credenciales → ID de cliente de OAuth**, tipo **Aplicación web**.
+2. En **URI de redireccionamiento autorizados**, añade la de tu sitio, tal cual:
+
+   ```
+   https://tu-web.vercel.app/api/auth/callback/google
+   ```
+
+   Tiene que coincidir carácter por carácter, incluido el `https://` y sin barra al final. Es el
+   error más común y Google lo dice con un `redirect_uri_mismatch`.
+
+3. Copia el **ID de cliente** y el **secreto de cliente**.
+4. En Vercel: **Settings → Environment Variables**, añade `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET`
+   con esos dos valores.
+5. **Deployments → … → Redeploy**. El botón aparece al terminar.
+
+**Hacen falta las dos variables.** Con una sola puesta, el botón no aparece — a propósito: es
+preferible a que aparezca y lleve a un error de Google.
+
+Para quitarlo, borra las dos variables y vuelve a desplegar. No se pierde ninguna cuenta: nunca
+hubo nada guardado de Google, solo la correspondencia por correo.
+
 ## Si tu web no vive en este proyecto
 
 Todo lo de arriba supone que la web que se administra es la que trae el proyecto. Si la tuya está

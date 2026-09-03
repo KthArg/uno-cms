@@ -86,7 +86,7 @@ test('T-E-5 y T-E-6: invitar, canjear, entrar, y que el enlace no valga dos vece
     // T-E-5: la cuenta entra de verdad. Es la única prueba de que la invitación sirvió.
     await invitada.getByLabel('Correo').fill(INVITADA);
     await invitada.getByLabel('Contraseña').fill(CONTRASENA_ELEGIDA);
-    await invitada.getByRole('button', { name: /entrar/i }).click();
+    await invitada.getByRole('button', { name: 'Entrar', exact: true }).click();
     await invitada.waitForURL(/\/admin(?!\/login)/);
 
     // T-E-6: el mismo enlace, otra vez. Da 404 igual que uno inventado: distinguir "ya usado"
