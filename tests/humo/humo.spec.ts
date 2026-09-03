@@ -61,7 +61,7 @@ async function entrar(page: import('@playwright/test').Page): Promise<void> {
   await page.goto(`${destino.url}/admin/login`);
   await page.getByLabel('Correo').fill(destino.email);
   await page.getByLabel('Contraseña').fill(destino.password);
-  await page.getByRole('button', { name: /entrar/i }).click();
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
 
   // El mensaje del formulario, no un `waitForURL` a secas: si las credenciales están mal, el
   // rojo tiene que decir «no entró», no «tardó 30 segundos» (spec 09 §4.4).

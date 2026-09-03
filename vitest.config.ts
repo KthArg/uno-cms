@@ -50,6 +50,19 @@ export default defineConfig({
           name: 'unit',
           environment: 'node',
           include: ['tests/unit/**/*.test.ts', 'tests/unit/**/*.test.tsx'],
+          /**
+           * `next-auth` se transforma en vez de cargarse tal cual (issue #233).
+           *
+           * Por omisión Vitest externaliza lo que hay en `node_modules` y lo deja a Node,
+           * que resuelve ESM sin extensiones: `next-auth/lib/env.js` importa `next/server`
+           * y Node contesta «Did you mean "next/server.js"?». O sea que
+           * `import '@/cms/auth'` era imposible desde un test unitario.
+           *
+           * Sin esto, el caso T-233-2 —que el proveedor de Google **no** esté en la
+           * configuración cuando no hay variables— tendría que comprobarse sobre una copia
+           * de la lista en vez de sobre la de verdad, y una copia no es la puerta.
+           */
+          server: { deps: { inline: ['next-auth'] } },
           // Tests de tipos (`expectTypeOf`): los exige M1 para verificar la inferencia
           // de `cms.config.ts`.
           typecheck: {

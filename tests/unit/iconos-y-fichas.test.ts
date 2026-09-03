@@ -51,6 +51,17 @@ describe('T-215-2 — los iconos vienen de una librería, no pegados a mano', ()
           'decide si se anuncian— aquí lo cumple por su cuenta: el `<svg>` lleva `role="img"` ' +
           'con nombre, y cada barra su `<title>`.',
       },
+      {
+        ruta: 'cms/ui/MarcaDeGoogle.tsx',
+        motivo:
+          'No es un icono de interfaz: es **el logotipo de un tercero** (spec 13 §6). ADR-801 ' +
+          'manda sobre los dibujos nuestros —de trazo, que heredan el color del texto y ' +
+          'significan una acción del panel— y Lucide no trae marcas, porque es una librería de ' +
+          'iconos. Sus cuatro colores están escritos y no salen de fichas a propósito: un ' +
+          'logotipo de Google recoloreado por el modo oscuro deja de ser el logotipo de Google. ' +
+          'Lo que esta guarda protege lo cumple por su cuenta: va `aria-hidden`, porque la ' +
+          'palabra «Google» está escrita al lado y anunciarlo lo leería dos veces.',
+      },
     ];
 
     const exentas = new Set(EXCEPCIONES.map((excepcion) => excepcion.ruta));

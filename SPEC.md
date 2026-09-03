@@ -57,6 +57,22 @@ El contenido NO se modela como tablas por tipo (eso obligaría a migraciones cad
 - Bootstrap del primer admin vía `SETUP_TOKEN` de un solo uso (ver §7.3), nunca con credenciales por defecto.
 - 2FA TOTP: post-MVP (hito v1.1), el esquema ya reserva las columnas.
 
+> **Enmienda — ADR-900 (issue #233).** Se admite **un** proveedor externo, Google, con tres
+> condiciones que son la decisión y no matices de ella:
+>
+> 1. **Es opcional y se apaga entero.** Sin `AUTH_GOOGLE_ID` **y** `AUTH_GOOGLE_SECRET`, el
+>    proveedor no entra en la configuración de Auth.js. El motivo de este ADR —que nadie
+>    **dependa** de configurar OAuth— queda intacto: quien no las define tiene el mismo producto
+>    que tenía.
+> 2. **El acceso por correo y contraseña no se retira nunca**, ni con Google configurado. Es el
+>    único camino que no depende de un tercero.
+> 3. **Google autentica, no autoriza.** El correo tiene que corresponder a una fila de `users` que
+>    ya exista y esté activa; no se crea ninguna cuenta. Sin esto, §7.3 —"nunca existen
+>    credenciales por defecto"— dejaría de ser cierto.
+>
+> El detalle está en [`docs/specs/13-acceso-con-google.md`](docs/specs/13-acceso-con-google.md);
+> el bloqueo por intentos fallidos y el mensaje de rechazo se deciden en ADR-901 y ADR-902.
+
 ### ADR-005 — Media: Vercel Blob
 
 Uploads directos desde el navegador con URL firmada de un solo uso (`@vercel/blob/client` + handler `onBeforeGenerateToken` que valida sesión, MIME y tamaño). Metadatos en tabla `media`. Optimización de imágenes delegada a `next/image` (el CMS no re-procesa).
@@ -425,6 +441,7 @@ Para `richtext`, se provee `<RichText value={...} />` que convierte el JSON Pros
 | Robo de sesión | Cookies `httpOnly Secure SameSite=Lax`, JWT firmado con `AUTH_SECRET`, expiración 7 d, invalidación al cambiar contraseña (claim `pwdV`) |
 | Abuso de uploads | Sesión requerida para token, allowlist MIME + sniff de magic bytes en `finalizeUpload`, límite 10 MB, pathname namespaced |
 | Enumeración | Mensajes de error genéricos en auth y recursos (404 uniforme) |
+| Acceso por proveedor externo | Opcional y apagado por omisión (ADR-900); se exige `email_verified`; el correo debe corresponder a una cuenta **ya existente y activa** — el proveedor nunca crea cuentas ni decide roles; la identidad de la sesión se toma de `users`, nunca del perfil |
 | Secretos en cliente | `import 'server-only'` en `cms/core`, `cms/db`, `cms/auth`, `cms/security`; CI falla si un bundle de cliente importa esos módulos |
 | Dependencias | Dependabot + `pnpm audit` en CI (falla en high/critical) |
 
@@ -465,6 +482,7 @@ APP_SECRET=              # firma de preview/setup/reset tokens
 SETUP_TOKEN=             # solo para el primer arranque
 BLOB_READ_WRITE_TOKEN=   # inyectada por integración Vercel Blob
 KV_REST_API_URL=/TOKEN=  # opcional (rate limit distribuido); sin esto, fallback in-memory
+AUTH_GOOGLE_ID=/SECRET=  # opcional (ADR-900); hacen falta las dos o Google se queda apagado
 ```
 
 > **Enmienda — ADR-701 (issue #177).** Dos variables más, las dos **opcionales** y las dos del
