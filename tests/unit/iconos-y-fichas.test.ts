@@ -44,6 +44,14 @@ describe('T-215-2 — los iconos vienen de una librería, no pegados a mano', ()
     // sin explicación crece hasta vaciar el test de sentido.
     const EXCEPCIONES: readonly { readonly ruta: string; readonly motivo: string }[] = [
       {
+        ruta: 'cms/ui/Logotipo.tsx',
+        motivo:
+          'No es un icono de interfaz: es **la marca**. `cms/ui/iconos.tsx` existe para que los ' +
+          'dibujos de la interfaz salgan de una librería y pasen por el envoltorio que decide si ' +
+          'se anuncian; una marca no sale de ninguna librería. Y cumple por su cuenta lo que la ' +
+          'guarda protege: o lleva nombre accesible, o se oculta.',
+      },
+      {
         ruta: 'cms/ui/PublicacionesPorDia.tsx',
         motivo:
           'No es un icono: es una visualización de datos, y su forma sale de la serie. Lo que ' +

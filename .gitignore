@@ -46,3 +46,8 @@ yarn-error.log*
 
 # Las imágenes del almacén local de desarrollo (spec 07). Nunca se versionan.
 .uploads/
+
+# Los árboles de trabajo y el estado de las herramientas de asistencia. Viven dentro del
+# repositorio y son copias del propio proyecto: versionarlos metería el código dos veces, y
+# `git add -A` llega a añadirlos como repositorio embebido — que es lo que rompió un commit.
+.claude/
