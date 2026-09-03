@@ -55,6 +55,15 @@ export default tseslint.config(
       'playwright-report/**',
       'test-results/**',
       'next-env.d.ts',
+      // Los árboles de trabajo que crean las herramientas de asistencia viven **dentro** del
+      // repositorio. Son copias del propio proyecto, así que sin esta línea `pnpm lint` recorre
+      // el código dos veces y falla con avisos de ficheros que nadie está editando — con
+      // `--max-warnings=0`, basta uno para poner el comando en rojo.
+      //
+      // Pasó de verdad: con un worktree abierto, `pnpm lint` daba 57 avisos y ni uno era del
+      // trabajo en curso. En CI no se ve, porque allí no hay worktrees; se ve en la máquina de
+      // quien desarrolla, que es donde más confunde.
+      '.claude/**',
     ],
   },
 
