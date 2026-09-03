@@ -137,9 +137,12 @@ export default auth((request) => {
   // los componentes de servidor.
   const headers = new Headers(request.headers);
   headers.set('x-nonce', nonce);
-  // La ruta, por el mismo camino. Un layout de servidor no tiene `usePathname`, y volver
-  // cliente el armazón del panel solo para marcar la entrada activa del menú sería descargar
-  // ese código en el navegador de quien visita la landing (SPEC §8).
+  // La ruta, por el mismo camino. La usa el layout del panel para pintar el **primer** render
+  // con la sección correcta; a partir de ahí manda `usePathname()` en el cliente.
+  //
+  // Antes esta cabecera era la única fuente, y eso estaba roto: el layout de `(panel)` es común
+  // a todas las rutas de `/admin`, así que en una navegación de cliente Next no lo vuelve a
+  // ejecutar y la ruta se quedaba congelada en la de la primera carga (#234).
   headers.set('x-pathname', request.nextUrl.pathname);
 
   const response = NextResponse.next({ request: { headers } });

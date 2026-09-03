@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { auth, signIn } from '@/cms/auth';
 import { EnvoltorioDeTema } from '@/app/envoltorio-de-tema';
 import { Icono } from '@/cms/ui/iconos';
+import { Logotipo } from '@/cms/ui/Logotipo';
 import { AVISO_ALARMA, AVISO_PUBLICADO, BOTON_PRINCIPAL, CAMPO } from '@/cms/ui/estilos';
 
 /**
@@ -53,7 +54,7 @@ export default async function LoginPage({
             da la primera impresión de qué clase de herramienta es esto. */}
         <div className="lamina-tarjeta rounded-3xl p-7">
           <div className="flex items-center gap-2.5">
-            <span aria-hidden="true" className="size-2 rounded-full bg-acento" />
+            <Logotipo tamano={26} className="text-acento" />
             <span className="font-semibold text-tinta">Tu sitio</span>
           </div>
 
