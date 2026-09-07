@@ -117,6 +117,14 @@ La dirección de retorno que hay que dar de alta en la consola de Google es
 
 ## 8. Casos de prueba
 
+> **La función se entregó apagada** (#240), y eso parte esta lista en dos. Lo que sigue vivo es
+> todo lo que no necesita la pantalla encendida —que es casi todo, porque la lógica no depende del
+> interruptor—. Lo aparcado va marcado caso por caso, con lo que hay que recuperar al reactivar.
+>
+> Se marca en vez de borrarse porque **esta sección es la definición de "hecho"**: una lista que
+> presenta como cubierto algo que no se ejecuta promete una cobertura que no existe, y es más
+> difícil de detectar que un hueco.
+
 ### Que sea opcional de verdad
 
 - **T-233-1** — `googleConfigurado` es falso si falta cualquiera de las dos variables, y también
@@ -124,7 +132,13 @@ La dirección de retorno que hay que dar de alta en la consola de Google es
 - **T-233-2** — Sin las variables, `authConfig.providers` **no contiene** el proveedor de Google.
   La comprobación es sobre la configuración, no sobre la pantalla: un botón escondido con un
   proveedor vivo detrás seguiría siendo una puerta abierta.
-- **T-233-3** — Con las dos, sí lo contiene, y el proveedor de credenciales sigue estando.
+- **T-233-19** — Con las dos variables definidas **tampoco** lo contiene: manda el interruptor
+  `ACCESO_CON_GOOGLE_HABILITADO`. Se comprueba con las variables puestas a propósito — sin ellas
+  se estaría comprobando que no pasa nada cuando no hay nada. El proveedor de credenciales sigue
+  estando, apagado Google o no.
+- **T-233-3** — _Aparcado con la función (#240)._ Con las dos, sí lo contiene. Es el caso que
+  T-233-19 sustituye mientras esté apagada, y al reactivar hay que hacer el cambio inverso: si
+  T-233-19 sobreviviera al encendido, no estaría comprobando el apagado.
 
 ### Quién entra
 
@@ -158,16 +172,27 @@ La dirección de retorno que hay que dar de alta en la consola de Google es
 
 - **T-233-15** — Sin Google, la pantalla de acceso no ofrece el botón y el formulario sigue
   entero.
-- **T-233-16** — Con Google, aparece el botón **y** el formulario sigue entero.
+- **T-233-16** — Con Google, aparece el botón **y** el formulario sigue entero. _Vivo a nivel de
+  componente_ —`AccesoConGoogle` recibe la decisión como propiedad, así que sus dos ramas se
+  ejercitan igual— y _aparcada su mitad de e2e_ (#240), que necesitaba el botón en la pantalla
+  real.
 - **T-233-17** — `?error=AccessDenied` dice que esa cuenta no puede entrar; cualquier otro error
   sigue diciendo el mensaje único de §7.1.
 
 ### De extremo a extremo
 
-- **T-233-18** — Pulsar «Entrar con Google» acaba en una petición a `accounts.google.com` con
-  nuestro identificador de cliente y nuestra dirección de retorno. Es lo que demuestra que la CSP
-  de §7.2 —`form-action 'self'`— no bloquea el viaje, que es la parte que ningún test unitario
-  puede ver.
+- **T-233-18** — _Aparcado con la función (#240), y es el que más duele._ Pulsar «Entrar con
+  Google» acaba en una petición a `accounts.google.com` con nuestro identificador de cliente y
+  nuestra dirección de retorno. Es lo único que demuestra que la CSP de §7.2 —`form-action
+'self'`— no bloquea el viaje, y eso **ningún test unitario puede verlo**. Estuvo escrito y en
+  verde antes de apagar; está en el historial de `tests/e2e/acceso-con-google.spec.ts`.
+
+### Con la función apagada
+
+- **T-233-19** — Con las dos variables definidas no hay botón en la pantalla de acceso, y
+  `/api/auth/providers` —la lista que Auth.js publica, y lo primero que consultaría quien fuera
+  tanteando qué puertas hay— no anuncia `google`. El de credenciales sí, que es la otra mitad:
+  apagar Google no puede apagar el acceso.
 
 ## 9. Lo que este hito no hace
 
