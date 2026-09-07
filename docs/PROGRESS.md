@@ -1604,3 +1604,56 @@ y eso está razonado en el ADR.
   y falla con el mismo mensaje que tenía el flake original.
 - **Los dos fallos venían de un comentario o de una suposición**, no de código difícil. El de #246
   estaba descrito con precisión encima de la línea que no lo hacía.
+
+---
+
+## El rojo que no era de nadie ✅
+
+**Cerrado** el 7 de septiembre de 2026, issue [#167](https://github.com/KthArg/uno-cms/issues/167).
+Llevaba abierto desde el 21 de agosto con una nota honesta: un test falló una vez, el nombre se
+perdió al filtrar la salida, y no se reprodujo en ocho intentos.
+
+### Lo que se encontró
+
+El comando que documenta `CLAUDE.md` para la suite rápida —`vitest run --project unit --project
+ui`— **sale con código 1 sin que falle ningún test**. En esta máquina, con 2 GB libres de 16:
+
+| Invocación                          | Resultado                           |
+| ----------------------------------- | ----------------------------------- |
+| Los dos proyectos juntos, sin tope  | **8 de 8 en rojo**, una con SIGABRT |
+| Los dos juntos, con cuatro procesos | 6 de 6 en verde                     |
+| Cada proyecto por separado          | 6 de 6 en verde cada uno            |
+
+La causa es memoria: sin tope, Vitest levanta un fork por núcleo menos uno —once aquí— y juntar
+`unit` (Node) con `ui` (jsdom) mete todos esos entornos a la vez. Un worker muere con
+`FATAL ERROR: Zone Allocation failed - process out of memory` y lo que se ve arriba es un
+`Channel closed`.
+
+**Y por eso CI nunca lo vio**: ejecuta `test:unit` y `test:ui` como dos comandos separados. La
+asimetría estaba en el comando local, no en la máquina.
+
+Arreglado con `maxWorkers: 4` en la configuración. Ocho pasadas del comando que fallaba, ahora en
+verde. Cuesta un 22 % en el proyecto `unit`; en los runners de CI, con dos núcleos, no llega a
+aplicarse.
+
+### Lo que NO se ha demostrado, y hay que decirlo
+
+**Que esto sea lo que pasó en agosto.** Aquel día la línea fue `1 failed | 498 passed`, o sea un
+test **reportado como fallido**. Lo que se reproduce aquí es un rojo **sin** test fallido.
+
+Se intentó forzar la otra presentación matando un worker a propósito con un heap de 40 MB: salieron
+los mismos `Channel closed` y ni un test marcado como fallido. O sea que la inferencia razonable
+—«el worker murió mientras corría un test y por eso salió con nombre»— **no está comprobada**.
+
+Se cierra igualmente porque lo que se ha arreglado es un fallo real de la misma familia: rojos que
+no significan nada, en ese mismo comando, sin cambio de código. Si vuelve a aparecer uno **con** el
+nombre de un test, es otra cosa y merece su issue.
+
+### Lo que enseñó
+
+- **Un rojo sin fallos es peor que un rojo con fallos.** Enseña a ignorar los rojos, que es
+  exactamente lo que el issue temía y por lo que se negó a cerrarse como «cosas que pasan».
+- **La asimetría local/CI vuelve a ser la pista.** Es la tercera vez en este repositorio: el flake
+  de #227, la trampa de `.next/cache` y ahora esto. Cuando algo falla en local y pasa en CI, lo
+  primero que hay que mirar es si están ejecutando lo mismo — aquí no lo estaban, y la diferencia
+  llevaba escrita en `CLAUDE.md` desde el principio sin que nadie la leyera como una diferencia.

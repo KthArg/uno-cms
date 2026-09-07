@@ -37,6 +37,34 @@ export default defineConfig({
     },
   },
   test: {
+    /**
+     * **Como mucho cuatro procesos a la vez** (issue #167).
+     *
+     * Sin tope, Vitest levanta un fork por núcleo menos uno — doce núcleos, once forks— y con los
+     * proyectos `unit` y `ui` en la misma invocación eso mete a la vez entornos de Node y de
+     * jsdom en memoria. En una máquina con poca libre, uno de los workers muere con
+     * `FATAL ERROR: Zone Allocation failed - process out of memory`, y lo que se ve arriba es un
+     * `Channel closed`.
+     *
+     * Lo peor de ese fallo es cómo se presenta: **la suite sale con código 1 sin que falle ni un
+     * test**. Un rojo sin nada roto es lo que enseña a ignorar los rojos, y es lo que #167
+     * llevaba abierto desde agosto sin nombre.
+     *
+     * Medido en esta máquina con 2 GB libres de 16:
+     *
+     * | Invocación                              | Resultado   |
+     * | --------------------------------------- | ----------- |
+     * | `--project unit --project ui` sin tope   | **8 de 8 en rojo**, una con SIGABRT |
+     * | lo mismo con cuatro procesos             | 6 de 6 en verde |
+     * | cada proyecto por separado, sin tope     | 6 de 6 en verde cada uno |
+     *
+     * Por eso CI nunca lo vio: ejecuta `test:unit` y `test:ui` como dos comandos.
+     *
+     * Cuesta un 22 % en el proyecto `unit` —de 5,4 s a 6,6 s— y es lo que vale que la suite no
+     * dé rojos que no significan nada. En los runners de CI, con dos núcleos, este tope no llega
+     * a aplicarse.
+     */
+    maxWorkers: 4,
     coverage: {
       provider: 'v8',
       reporter: ['text-summary', 'lcov'],
