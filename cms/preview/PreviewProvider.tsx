@@ -68,6 +68,21 @@ export function PreviewProvider({ initial, objetivo, children }: PreviewProvider
           const lista = previo[objetivo.coleccion];
           if (!Array.isArray(lista)) return previo;
 
+          /*
+           * **Una posición que no existe no se escribe** (#246, segunda cerradura).
+           *
+           * `siguiente[7] = data` sobre una lista de cinco no falla: la alarga y deja huecos, y
+           * el elemento acaba pintado dos veces —una en su sitio y otra al final—. Eso es lo que
+           * se vio, y su causa estaba en el servidor: el índice se calculaba sobre una lista que
+           * incluía los elementos sin publicar y la pintada los deja fuera.
+           *
+           * Aquello está arreglado en `collectionKeysInOrder`. Esto es la segunda cerradura, y no
+           * sobra: vive en otro proceso, y el día que el servidor vuelva a mandar un índice que
+           * no corresponde, la vista previa se quedará quieta en vez de inventarse un elemento.
+           * Quedarse quieta se nota y se puede contar; duplicar en silencio no.
+           */
+          if (objetivo.indice < 0 || objetivo.indice >= lista.length) return previo;
+
           const siguiente = [...lista];
           siguiente[objetivo.indice] = data;
           return { ...previo, [objetivo.coleccion]: siguiente };

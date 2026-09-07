@@ -1540,3 +1540,67 @@ la función encendida. Al retirarla, esos mismos cuatro documentos se van solos 
 O sea que el estado intermedio, «está pero apagado», es el caro de mantener: obliga a que cada
 documento diga a la vez qué hace y que no está haciéndolo. Tenía sentido mientras la decisión
 estaba abierta; en cuanto se cierra, cuesta menos no tenerlo.
+
+---
+
+## Los dos fallos de la vista previa y de salir ✅
+
+**Cerrados** el 7 de septiembre de 2026, issues
+[#246](https://github.com/KthArg/uno-cms/issues/246) y
+[#249](https://github.com/KthArg/uno-cms/issues/249). Los dos llegaron como sospechas de flake y
+**ninguno lo era**.
+
+### #246 — el elemento duplicado no era una carrera
+
+El issue lo tituló «cuando alguien más publica a la vez», y eso era una suposición mía. La causa es
+determinista y estaba escrita en un comentario que mentía.
+
+`collectionKeysInOrder` llevaba encima: «se descartan los mismos que descarta la lectura: un
+elemento sin publicar no está en la lista». El código pedía la columna `published` y **no la
+miraba**. `readCollectionForPreview` sí los descarta, así que **cada elemento sin publicar por
+delante corría el índice una posición**.
+
+El proveedor escribía entonces el borrador en el hueco de al lado. Si caía dentro de la lista,
+sustituía al vecino **en silencio**; si caía fuera, `siguiente[5] = data` sobre una lista de cinco
+la alargaba y el elemento salía dos veces. Eso último es lo que se vio.
+
+Arreglado en el servidor —el filtro que el comentario prometía, con el elemento autorizado exento
+porque la lectura también lo conserva— y con una segunda cerradura en el cliente: un índice fuera
+de la lista ya no se escribe. Tres casos de integración contra Postgres real y tres de componente;
+tres mutaciones, las tres muertas.
+
+### #249 — salir no cerraba la sesión, y eso sí era un fallo de producto
+
+Se abrió como «falló dos veces y no se reproduce». Se reprodujo: **2 de 140** pasadas del caso
+aislado. Y con la sonda puesta, lo que se vio no era un test nervioso:
+
+| Comprobación en el momento del fallo | Resultado                |
+| ------------------------------------ | ------------------------ |
+| `authjs.session-token` tras salir    | **presente**             |
+| `GET /admin`                         | **200**, sin redirección |
+| El panel en pantalla                 | **sí**                   |
+
+La causa está en `@auth/core`: **cada lectura de sesión reemite la cookie**, sin throttling —
+comprobado con una sonda, un `GET /admin` responde con `set-cookie` y un valor nuevo—. Así que una
+petición en vuelo al pulsar «Salir» llega después del borrado y devuelve la cookie a su sitio. El
+panel deja varias en vuelo: Next prefetcha los enlaces del menú.
+
+Fuera de la suite eso significa que alguien pulsa «Salir», ve la pantalla de acceso, se levanta de
+un ordenador compartido, y la sesión sigue viva.
+
+Arreglado subiendo `password_version` al salir (ADR-910): una cookie resucitada lleva el `pwdV`
+viejo y la rechaza el guard del panel. Cuesta que salir cierre la sesión en todos los dispositivos,
+y eso está razonado en el ADR.
+
+### Lo que enseñó
+
+- **«No se reproduce» quería decir «no lo he intentado bastante».** El issue se abrió tras verlo
+  dos veces en ejecuciones completas. Con `--repeat-each=30` sobre el caso aislado apareció a la
+  primera tanda. La diferencia entre un flake y un fallo es a veces solo cuántas veces se ejecuta.
+- **Y el test que lo cierra no reproduce la carrera: reconstruye su resultado.** Guarda la cookie
+  de antes de salir y la vuelve a poner después, que es exactamente lo que consigue una respuesta
+  que llega tarde. Un caso que esperara a la carrera tardaría cincuenta pasadas en decir algo y
+  fallaría en CI una vez al mes; este falla siempre que el arreglo no esté — comprobado quitándolo,
+  y falla con el mismo mensaje que tenía el flake original.
+- **Los dos fallos venían de un comentario o de una suposición**, no de código difícil. El de #246
+  estaba descrito con precisión encima de la línea que no lo hacía.

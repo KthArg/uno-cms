@@ -251,23 +251,42 @@ export async function readCollectionForPreview<K extends CollectionKey>(
 }
 
 /**
- * Las claves de una colección, en el mismo orden en que las devuelve la lectura.
+ * Las claves de una colección, en el mismo orden **y con los mismos elementos** que devuelve la
+ * lectura de la vista previa.
  *
  * Existe para que la vista previa pueda decir "el elemento que se está editando es el tercero"
- * sin mandarle al navegador las claves de todos (#115). El orden **tiene que ser el mismo** que
- * el de `readCollectionForPreview`, y por eso comparte su `orderBy` en vez de repetirlo de
- * memoria.
+ * sin mandarle al navegador las claves de todos (#115). El orden tiene que ser el mismo que el de
+ * `readCollectionForPreview`, y por eso comparte su `orderBy` en vez de repetirlo de memoria.
+ *
+ * ## El filtro, que faltaba (#246)
+ *
+ * Aquí había un comentario que decía «se descartan los mismos que descarta la lectura» encima de
+ * un `rows.map` que **no descartaba nada** — la columna `published` se pedía y no se miraba. O
+ * sea, la mentira exacta que este proyecto persigue: al releerlo desactivaba la sospecha justo en
+ * la línea donde hacía falta.
+ *
+ * Y no era teórico. `readCollectionForPreview` sí deja fuera lo que nunca se publicó, así que
+ * **un elemento sin publicar antes del que se edita corría todos los índices una posición**. El
+ * proveedor escribía el borrador en el hueco de al lado: si caía dentro de la lista, sustituía el
+ * elemento equivocado en silencio; si caía fuera, la lista **crecía** y el elemento aparecía dos
+ * veces. Eso último es lo que se vio en `vista-previa.spec.ts`.
+ *
+ * `itemKey` es el elemento autorizado por el token, que la lectura conserva aunque no esté
+ * publicado — se está editando, y su borrador es justo lo que hay que enseñar. Se recibe en vez
+ * de deducirse para que el filtro sea **el mismo dato** en las dos funciones y no dos
+ * interpretaciones de la misma frase.
  */
-export async function collectionKeysInOrder(key: CollectionKey): Promise<string[]> {
+export async function collectionKeysInOrder(
+  key: CollectionKey,
+  itemKey: string | null = null
+): Promise<string[]> {
   const rows = await getDb()
     .select({ key: contentEntries.key, published: contentEntries.published })
     .from(contentEntries)
     .where(eq(contentEntries.type, key))
     .orderBy(asc(contentEntries.sortOrder), asc(contentEntries.key));
 
-  // Se descartan los mismos que descarta la lectura: un elemento sin publicar no está en la
-  // lista, salvo que sea el autorizado — y ese caso lo resuelve quien llama comparando claves.
-  return rows.map((row) => row.key);
+  return rows.filter((row) => row.published !== null || row.key === itemKey).map((row) => row.key);
 }
 
 /** Ídem que `getContent`: caché entre peticiones y deduplicación dentro de una. */
