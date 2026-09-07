@@ -1477,3 +1477,70 @@ provoca.
 - **Un arreglo verificado ocho veces puede seguir siendo el arreglo equivocado.** Si me hubiera
   parado en «T-E-3 pasa», habría cerrado el issue y entregado una suite que falla siempre por otro
   sitio.
+
+---
+
+## Con la web fuera, la raíz lleva al panel ✅
+
+**Cerrado** el 7 de septiembre de 2026, issue [#248](https://github.com/KthArg/uno-cms/issues/248),
+spec [14](specs/14-la-raiz-lleva-al-panel.md). Sin ADR nuevo: no contradice nada, aplica ADR-701.
+
+### Qué funciona
+
+- **Con `PREVIEW_URL` coherente, `/` responde 307 al panel** y el sitemap se queda vacío. Antes ese
+  despliegue servía una copia de la landing de ejemplo **con el contenido real dentro**, en el
+  dominio del panel, y un buscador podía encontrarla.
+- **La condición es la misma que decide a dónde apunta el iframe** (`laWebViveFuera` es
+  `urlDeVistaPreviaRemota() !== null` con nombre). No hay dos interruptores que puedan discrepar, y
+  hay un caso que lo amarra recorriendo los cuatro estados.
+- **Una configuración incoherente no redirige**: `PREVIEW_URL` con el origen fuera de
+  `PREVIEW_ORIGINS` ya se trataba como no configurada desde la spec 08, y lo hereda.
+- **Un despliegue recién hecho sigue enseñando el camino a `/setup`**, aunque la web remota esté
+  puesta. Es la razón de que esto viva en la página y no en el middleware: la comprobación depende
+  de la base de datos, y en edge no hay base de datos.
+
+Nueve casos unitarios, tres mutaciones —el orden de las dos comprobaciones, la condición y el corte
+del sitemap—, las tres muertas.
+
+### Comprobado a mano, porque ningún e2e lo cubre
+
+La suite arranca **un** servidor con la fase remota apagada (`playwright.config.ts`), que es lo que
+mantiene válidos los casos de la vista previa local. Así que esto se verificó contra un build de
+producción, cuatro arranques:
+
+| Configuración                                  | `GET /`                                 | Sitemap     |
+| ---------------------------------------------- | --------------------------------------- | ----------- |
+| Sin `PREVIEW_URL`                              | 200, la landing                         | anuncia `/` |
+| `PREVIEW_URL` coherente                        | **307 → `/admin`**                      | vacío       |
+| `PREVIEW_URL` con origen fuera de la lista     | 200, la landing                         | anuncia `/` |
+| Base recién creada, sin cuenta, con web remota | 200, «Este sitio todavía no está listo» | —           |
+
+### Lo que enseñó
+
+**Casi doy por roto un caso que estaba bien.** La cuarta comprobación falló la primera vez: un
+despliegue con la base recién creada redirigía al panel en vez de enseñar el camino a `/setup`. El
+código era correcto y el fallo era **mío**: `unstable_cache` persiste en `.next/cache`, y yo había
+arrancado cuatro servidores sobre el mismo build apuntando a bases distintas, así que el cuarto
+contestó con lo que cacheó el primero. Con `rm -rf .next/cache` en medio, pasa.
+
+Va a `CLAUDE.md` como tercera trampa del entorno local, junto a las dos que ya estaban. Y deja una
+lección sobre la anterior: **el test unitario de ese caso miraba el orden de dos líneas en el
+fichero, no el comportamiento**, así que habría seguido verde en las dos direcciones. Es lo que
+está escrito en su propia cabecera —que es análisis de texto y qué detecta— y es exactamente por
+eso que la comprobación a mano no era opcional aquí.
+
+### Y una segunda vez, con la misma trampa
+
+Al correr la suite de e2e después de las comprobaciones a mano, dos casos de la landing se
+pusieron en rojo. **El mismo `.next/cache`**: el arranque contra la base vacía había dejado
+cacheado que el sitio no estaba configurado, y `pnpm build` no borra esa caché. Con
+`rm -rf .next/cache`, verde.
+
+Dos diagnósticos falsos por la misma causa en la misma tarde. Por eso está en `CLAUDE.md` y no
+solo aquí.
+
+Queda además una cosa que **no** se pudo reproducir: el e2e de cerrar sesión falló una vez de seis,
+y también había fallado una vez en el control sobre `main` limpio. No depende del paralelismo, no
+se capturó el mensaje, y cuatro pasadas completas posteriores salieron verdes. Se abre en
+[#249](https://github.com/KthArg/uno-cms/issues/249) en vez de explicarlo, que es la lección de
+#134.

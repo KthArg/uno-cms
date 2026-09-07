@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { direccionDelSitio } from '@/cms/auth/panel';
+import { laWebViveFuera } from '@/cms/vista-previa-remota';
 
 /**
  * El sitemap (SPEC §7.2, issue #146).
@@ -30,6 +31,16 @@ import { direccionDelSitio } from '@/cms/auth/panel';
 export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  /**
+   * Con la web fuera (ADR-701, spec 14), este despliegue **no sirve contenido público**: `/`
+   * lleva al panel, que es `noindex` por SPEC §7.2.
+   *
+   * Anunciarla igualmente sería invitar al buscador a una redirección hacia una página que le
+   * pedimos no indexar — el mismo error, en pequeño, que este fichero existe para no cometer con
+   * `/preview`. Un sitemap vacío es una respuesta honesta; uno que apunta a una redirección no.
+   */
+  if (laWebViveFuera()) return [];
+
   const sitio = await direccionDelSitio();
 
   return [
