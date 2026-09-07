@@ -29,6 +29,24 @@ import { audit } from '@/cms/security/audit';
  * cuenta de Google se entra.
  */
 
+/**
+ * **El acceso con Google está apagado a mano, y esto gana a las variables de entorno.**
+ *
+ * No es que falte configurarlo: es que está decidido que no se use todavía. Se apaga aquí y no
+ * borrando `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET` porque «no pongas la variable» no es un
+ * apagado — es una convención, y basta con que alguien las defina en Vercel para que una función
+ * que **nunca se ha probado contra Google de verdad** (#237) empiece a emitir sesiones.
+ *
+ * Con esto en `false` no hay proveedor, no hay botón y `/api/auth/callback/google` no existe,
+ * aunque las dos variables estén puestas. El caso T-233-19 lo comprueba con las variables
+ * definidas a propósito, que es la única forma de afirmar que el interruptor manda.
+ *
+ * **Para reactivarlo**: poner esto en `true`, definir las dos variables, y correr los casos a
+ * mano de #237 antes de dar por bueno nada. Todo lo demás ya está escrito y probado — la lógica
+ * de quién entra no depende de este interruptor y sus tests siguen corriendo.
+ */
+export const ACCESO_CON_GOOGLE_HABILITADO = false;
+
 /** Los tres motivos por los que se rechaza. La pantalla solo muestra uno (ADR-902). */
 export type MotivoDeRechazo = 'correo-sin-verificar' | 'cuenta-inexistente' | 'cuenta-desactivada';
 

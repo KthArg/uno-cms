@@ -145,9 +145,17 @@ Lo que escribes y no publicas **no lo ve nadie**. Puedes dejar algo a medias y v
 Y si te arrepientes: **«Ver versiones anteriores»** guarda cada publicación. Volver a una de
 ellas la deja como borrador — tu web no cambia hasta que la publiques.
 
-## Si prefieres entrar con Google (opcional)
+## Si prefieres entrar con Google (opcional) — todavía no disponible
 
-Se puede añadir un botón «Entrar con Google» a la pantalla de acceso. **Es opcional de verdad**:
+> **Esto está apagado a propósito y no se puede activar aún.** El código está escrito y probado,
+> pero nadie ha entrado nunca con una cuenta de Google de verdad, así que se queda desconectado
+> hasta que eso se compruebe ([#237](https://github.com/KthArg/uno-cms/issues/237)). Poner las
+> variables de entorno **no lo enciende**.
+>
+> Se deja escrito porque las credenciales de Google se piden una vez y tardan, y porque cuando se
+> active, estos son los pasos.
+
+Se podrá añadir un botón «Entrar con Google» a la pantalla de acceso. **Es opcional de verdad**:
 si no haces nada de esto, tu panel funciona exactamente igual que hasta ahora, con tu correo y tu
 contraseña.
 

@@ -1,96 +1,70 @@
 import { expect, test } from '@playwright/test';
 
 /**
- * T-233-18: el viaje a Google, en un navegador de verdad (spec 13 §8).
+ * T-233-19: **el acceso con Google está apagado, y se comprueba con las variables puestas**.
  *
- * ## Qué comprueba esto que no comprueba ningún test unitario
+ * El servidor de esta suite arranca con `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET` definidas (ver
+ * `playwright.config.ts`), y eso es lo que hace que estos casos digan algo: si el apagado fuera
+ * «no pongas las variables», comprobarlo sin ellas sería comprobar que no pasa nada cuando no hay
+ * nada. Con ellas puestas, lo que se afirma es que **manda el interruptor**.
  *
- * Que **la CSP de `SPEC.md` §7.2 no bloquea el viaje**. La política fija `form-action 'self'`, y
- * el botón es un `<form>` que envía a nuestro propio servidor, que a su vez contesta con una
- * redirección a `accounts.google.com`. Si el navegador tratara esa redirección como el destino
- * del formulario, la política la cortaría y el botón no haría nada — sin error en pantalla, que
- * es la peor forma de estar roto.
+ * ## Lo que estaba aquí y ya no
  *
- * Eso no se ve leyendo el código ni montando Auth.js en Node: hace falta un navegador aplicando
- * la política. Es el mismo motivo por el que existe la suite de humo.
+ * T-233-16 y T-233-18 —que el botón se ve, y que pulsarlo llega a `accounts.google.com` sin que
+ * la CSP de §7.2 lo corte— **no se pueden ejercitar con la función apagada**, porque no hay botón
+ * que pulsar. Estuvieron escritos y en verde antes de apagarla; vuelven con ella. Quedan en el
+ * historial de este fichero y anotados en `docs/PENDIENTES.md`, junto al interruptor.
  *
- * ## Y por qué no hablamos con Google
- *
- * La petición a `accounts.google.com` se **intercepta y se corta** antes de salir. Lo que hay
- * que comprobar es que el navegador llegue a hacerla y con qué; completar el acceso exigiría
- * una cuenta de Google de verdad y dejaría la suite dependiendo de la red y de un tercero.
- *
- * Las credenciales que usa el servidor de la suite son de mentira y están en
- * `playwright.config.ts`.
+ * No se dejan como `test.skip`: un test saltado se queda saltado para siempre y da una sensación
+ * de cobertura que no existe. Lo que queda es el caso del estado real de hoy.
  */
 
-const CLIENT_ID_DE_LA_SUITE = 'e2e.apps.googleusercontent.com';
-
-test.describe('entrar con Google', () => {
-  test('T-233-16: el botón está, y el formulario de siempre también', async ({ page }) => {
+test.describe('entrar con Google, apagado', () => {
+  test('T-233-19: no hay botón de Google, con las dos variables definidas', async ({ page }) => {
     await page.goto('/admin/login');
 
-    await expect(page.getByRole('button', { name: 'Entrar con Google' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Entrar con Google' })).toHaveCount(0);
 
-    // ADR-900: el acceso por contraseña no se retira nunca. Comprobarlo aquí y no solo en los
-    // unitarios porque es la pantalla real la que podría perderlo en un rediseño.
+    // Y el acceso de siempre entero, que es lo que no puede faltar nunca (ADR-900).
     await expect(page.getByLabel('Correo')).toBeVisible();
     await expect(page.getByLabel('Contraseña')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeVisible();
   });
 
-  test('T-233-18: pulsarlo lleva a Google, con nuestro identificador y nuestra vuelta', async ({
-    page,
-  }) => {
-    let destino: URL | undefined;
+  test('T-233-19: y Auth.js no anuncia el proveedor', async ({ page }) => {
+    /**
+     * Esto es lo que separa «el botón no se ve» de «está apagado», y la primera versión de este
+     * caso **no lo separaba**: pedía `/api/auth/signin/google` y comprobaba que no redirigiera a
+     * Google. Al mutar el interruptor a `true` **siguió pasando**, porque esa ruta por GET pinta
+     * una página y solo redirige con un POST. O sea que no distinguía los dos estados: un test de
+     * adorno, cazado por la mutación como el de `lower()`.
+     *
+     * `/api/auth/providers` sí distingue: es la lista que Auth.js publica de lo que tiene
+     * configurado, y es lo primero que miraría quien fuera tanteando qué puertas hay.
+     */
+    const respuesta = await page.request.get('/api/auth/providers');
+    const proveedores = (await respuesta.json()) as Record<string, unknown>;
 
-    await page.route('https://accounts.google.com/**', async (route) => {
-      destino = new URL(route.request().url());
-      // Se corta aquí: la suite no habla con Google. Un cuerpo vacío basta — lo que se estaba
-      // comprobando ya ha pasado en cuanto el navegador ha intentado la petición.
-      await route.fulfill({ status: 200, contentType: 'text/html', body: '<p>Google</p>' });
-    });
-
-    await page.goto('/admin/login');
-    await page.getByRole('button', { name: 'Entrar con Google' }).click();
-
-    await expect
-      .poll(() => destino?.origin, { message: 'el navegador nunca llegó a pedirle nada a Google' })
-      .toBe('https://accounts.google.com');
-
-    expect(destino?.pathname).toContain('/o/oauth2');
-    expect(destino?.searchParams.get('client_id')).toBe(CLIENT_ID_DE_LA_SUITE);
-    // La vuelta tiene que ser **nuestra**. Si esto apuntara a otro sitio, el código de Google
-    // acabaría en manos de quien controle ese dominio.
-    expect(destino?.searchParams.get('redirect_uri')).toContain('/api/auth/callback/google');
+    expect(Object.keys(proveedores)).not.toContain('google');
+    // Y el de siempre anunciado, que es la otra mitad: apagar Google no puede apagar el acceso.
+    expect(Object.keys(proveedores)).toContain('credentials');
   });
 
-  test('T-233-17: un rechazo se cuenta con su motivo, sin tocar el mensaje único', async ({
-    page,
-  }) => {
-    // ADR-902: los dos mensajes conviven a propósito y con razones distintas. Se comprueban
-    // juntos para que a nadie le dé por unificarlos por limpieza.
+  test('T-233-17: el mensaje único de §7.1 sigue en pie', async ({ page }) => {
     // Acotado a `main`: Next mete su propio `role="alert"` en la página —el anunciador de
     // navegación— y `getByRole('alert')` a secas resuelve a dos elementos.
     const aviso = page.locator('main').getByRole('alert');
-
-    await page.goto('/admin/login?error=AccessDenied');
-    await expect(aviso).toContainText('no puede entrar aquí');
 
     await page.goto('/admin/login?error=CredentialsSignin');
     await expect(aviso).toContainText('Revisa el correo y la contraseña');
   });
 
-  test('un error que no es ni de credenciales ni de Google no manda a revisar la contraseña', async ({
-    page,
-  }) => {
+  test('un error que no es de credenciales no manda a revisar la contraseña', async ({ page }) => {
     /**
-     * El hallazgo 1 de la autorrevisión de #233.
-     *
-     * `pages.error` apunta a esta pantalla, así que aquí caen también `Configuration` y los
-     * `OAuth*` — lo que sale, por ejemplo, si el secreto de Google está mal copiado. Con dos
-     * ramas, todos ellos leían «revisa el correo y la contraseña»: quien lo viera iría a
-     * cambiar una contraseña que no tiene nada que ver.
+     * El hallazgo 1 de la autorrevisión de #233, y **sigue importando con Google apagado**:
+     * `pages.error` apunta a esta pantalla, así que aquí cae `Configuration` —lo que sale si
+     * falta `AUTH_SECRET`— venga de donde venga. Con dos ramas, todos leían «revisa el correo y
+     * la contraseña»: quien lo viera iría a cambiar una contraseña que no tiene nada que ver.
      *
      * Y no debe decir **qué** falló: quien lo lee no puede arreglarlo, y nombrar la pieza rota
      * solo sirve a quien esté tanteando.

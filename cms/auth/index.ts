@@ -3,7 +3,12 @@ import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import { authenticate, isSessionStillValid } from './authenticate';
-import { type AccesoDeGoogle, autenticarConGoogle, credencialesDeGoogle } from './google';
+import {
+  ACCESO_CON_GOOGLE_HABILITADO,
+  type AccesoDeGoogle,
+  autenticarConGoogle,
+  credencialesDeGoogle,
+} from './google';
 
 /**
  * Configuración de Auth.js (SPEC ADR-004).
@@ -38,7 +43,10 @@ declare module 'next-auth' {
 }
 
 /**
- * Las credenciales de Google, leídas **una vez**, al cargar el módulo.
+ * Las credenciales de Google, leídas **una vez**, al cargar el módulo — y solo si
+ * `ACCESO_CON_GOOGLE_HABILITADO` lo permite, que **hoy no lo permite**: la función está apagada
+ * a mano hasta que se pruebe contra Google de verdad (#237). Mientras eso siga así, esto es
+ * `null` aunque las dos variables estén definidas.
  *
  * Y eso tiene una consecuencia que conviene saber: definir las variables en un despliegue ya
  * arrancado no enciende Google hasta que el proceso se reinicia. En Vercel eso pasa solo —
@@ -46,7 +54,7 @@ declare module 'next-auth' {
  * reiniciar. Es el precio de que la lista de proveedores sea una constante y no algo que se
  * recalcule en cada petición.
  */
-const GOOGLE = credencialesDeGoogle();
+const GOOGLE = ACCESO_CON_GOOGLE_HABILITADO ? credencialesDeGoogle() : null;
 
 /**
  * Si el acceso con Google está disponible, **según la misma lectura** que decidió la lista de

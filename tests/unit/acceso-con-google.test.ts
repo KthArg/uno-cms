@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuditEvent } from '@/cms/security/audit';
 import {
+  ACCESO_CON_GOOGLE_HABILITADO,
   type CuentaDelPanel,
   autenticarConGoogle,
   credencialesDeGoogle,
@@ -57,15 +58,14 @@ describe('T-233-1 — Google es opcional, y hacen falta las dos variables', () =
   });
 });
 
-describe('T-233-2 y T-233-3 — el proveedor entra en la configuración solo si está configurado', () => {
+describe('T-233-2 y T-233-19 — el proveedor solo existe si lo permiten las dos cosas', () => {
   /**
-   * Se comprueba sobre `authConfig.providers` y **no** sobre la pantalla, que es lo que pide el
-   * caso: un botón escondido con un proveedor vivo detrás seguiría siendo una puerta abierta —
-   * `/api/auth/signin/google` responde exista o no el botón.
+   * Se comprueba sobre `authConfig.providers` y **no** sobre la pantalla: un botón escondido con
+   * un proveedor vivo detrás seguiría siendo una puerta abierta — `/api/auth/signin/google`
+   * responde exista o no el botón.
    *
-   * Hace falta `resetModules` porque la lista de proveedores se construye al cargar el módulo
-   * (ver el comentario de `GOOGLE` en `cms/auth/index.ts`), así que cambiar el entorno después
-   * de importarlo no cambiaría nada.
+   * Hace falta `resetModules` porque la lista se construye al cargar el módulo (ver el
+   * comentario de `GOOGLE` en `cms/auth/index.ts`).
    */
   async function proveedores(entorno: Record<string, string>): Promise<string[]> {
     vi.resetModules();
@@ -84,21 +84,35 @@ describe('T-233-2 y T-233-3 — el proveedor entra en la configuración solo si 
     vi.resetModules();
   });
 
-  it('sin las variables, no está', async () => {
+  it('T-233-2: sin las variables, no está', async () => {
     expect(await proveedores({ AUTH_GOOGLE_ID: '', AUTH_GOOGLE_SECRET: '' })).toEqual([
       'credentials',
     ]);
   });
 
-  it('con las dos, está — y el de credenciales sigue', async () => {
+  it('T-233-19: y con las dos variables puestas, tampoco — manda el interruptor', async () => {
+    /**
+     * El apagado de verdad.
+     *
+     * «No pongas la variable» no es un apagado: es una convención, y basta con que alguien las
+     * defina en Vercel para que una función que **nunca se ha probado contra Google de verdad**
+     * (#237) empiece a emitir sesiones. Por eso este caso pone las dos, que es la única forma de
+     * afirmar que el interruptor gana.
+     *
+     * **Este caso cambia de signo el día que se reactive**, y tiene que hacerlo: entonces con
+     * las dos variables el proveedor debe aparecer, y quien encienda `ACCESO_CON_GOOGLE_HABILITADO`
+     * verá esto en rojo y sabrá que le toca reescribirlo. Un test que sobreviviera al cambio no
+     * estaría comprobando el apagado.
+     */
+    expect(ACCESO_CON_GOOGLE_HABILITADO).toBe(false);
+
     const lista = await proveedores({
       AUTH_GOOGLE_ID: 'abc.apps.googleusercontent.com',
       AUTH_GOOGLE_SECRET: 'un-secreto',
     });
 
-    expect(lista).toContain('google');
-    // ADR-900: el acceso por contraseña no se retira nunca. Si algún día alguien lo sustituye
-    // en vez de añadirlo, una caída de Google deja a todo el mundo fuera de su propio panel.
+    expect(lista).not.toContain('google');
+    // Y lo que sí tiene que seguir estando, apagado Google o no: el acceso de siempre.
     expect(lista).toContain('credentials');
   });
 });
@@ -316,17 +330,13 @@ describe('el callback `signIn` es la puerta que devuelve el mensaje de ADR-902',
 
 describe('la pantalla y el proveedor salen de la misma decisión', () => {
   /**
-   * El hallazgo 2 de la autorrevisión de #233.
+   * El hallazgo 2 de la autorrevisión de #233: la pantalla preguntaba con una función que leía
+   * `process.env` en cada petición mientras la lista de proveedores se congela al cargar el
+   * módulo. Podían discrepar, y en la dirección mala — el botón pintado sobre un proveedor
+   * inexistente. El arreglo fue quitar la segunda lectura.
    *
-   * La pantalla llamaba a una función que leía `process.env` en cada petición, mientras la lista
-   * de proveedores se congela al cargar el módulo. Podían discrepar, y en la dirección mala:
-   * quien definiera las variables sin reiniciar veía **el botón pintado y el proveedor
-   * inexistente** — una puerta que no está.
-   *
-   * El arreglo no fue sincronizar las dos lecturas: fue **quitar la segunda**. Lo que este caso
-   * protege es que la constante que consulta la pantalla diga siempre lo mismo que la lista, en
-   * los dos estados. Un `ACCESO_CON_GOOGLE_DISPONIBLE` que se quedara fijo en `true` —o que
-   * volviera a leer el entorno por su cuenta— lo pondría en rojo.
+   * Con el acceso apagado (#237) las dos dicen que no en los dos estados del entorno, y eso es
+   * justo lo que hay que poder afirmar: **que no hay estado del entorno que pinte el botón**.
    */
   async function estado(entorno: Record<string, string>) {
     vi.unstubAllEnvs();
@@ -341,23 +351,24 @@ describe('la pantalla y el proveedor salen de la misma decisión', () => {
     };
   }
 
-  it('sin Google, las dos dicen que no', async () => {
+  it('sin variables, las dos dicen que no', async () => {
     const { loQueDiceLaPantalla, hayProveedor } = await estado({
       AUTH_GOOGLE_ID: '',
       AUTH_GOOGLE_SECRET: '',
     });
 
-    expect(hayProveedor).toBe(false);
     expect(loQueDiceLaPantalla).toBe(hayProveedor);
+    expect(loQueDiceLaPantalla).toBe(false);
   });
 
-  it('con Google, las dos dicen que sí', async () => {
+  it('con variables, las dos siguen diciendo que no, y siguen coincidiendo', async () => {
     const { loQueDiceLaPantalla, hayProveedor } = await estado({
       AUTH_GOOGLE_ID: 'abc.apps.googleusercontent.com',
       AUTH_GOOGLE_SECRET: 'un-secreto',
     });
 
-    expect(hayProveedor).toBe(true);
+    // Lo que se protege no es el `false`: es que **coincidan**. El día que se reactive, este
+    // caso pasa igual con las dos en `true` sin tocar una línea.
     expect(loQueDiceLaPantalla).toBe(hayProveedor);
   });
 });

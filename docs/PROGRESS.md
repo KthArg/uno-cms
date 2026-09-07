@@ -1323,6 +1323,20 @@ convención. Hasta ahora cada carga del panel y de la landing dejaba un 404 en l
 ADR-900, ADR-901 y ADR-902. Es el primer cambio que **toca una decisión de la serie 0xx**: ADR-004
 decía "sin proveedor externo" y ahora dice "sin **depender** de uno".
 
+> **Y se entrega apagado.** `ACCESO_CON_GOOGLE_HABILITADO = false` en `cms/auth/google.ts`, y ese
+> interruptor gana a las dos variables de entorno. El motivo es el punto 1 de "qué es frágil" de
+> aquí abajo: nadie ha entrado nunca con una cuenta de Google de verdad, y hasta que eso se
+> compruebe ([#237](https://github.com/KthArg/uno-cms/issues/237)) la puerta no se abre.
+>
+> No se apaga «no poniendo las variables», que es una convención y no un apagado: basta con que
+> alguien las defina en Vercel. Reactivarlo es [#240](https://github.com/KthArg/uno-cms/issues/240),
+> con la lista de lo que hay que recuperar.
+>
+> **Lo que sigue corriendo con la función apagada** es casi todo: las tres puertas contra Postgres
+> real, que no se cree ninguna cuenta, la identidad que acaba en el token y que ADR-301 alcance a
+> esa sesión. La lógica no depende del interruptor. Lo que se pierde son los dos casos de e2e que
+> necesitan el botón, y está anotado en `PENDIENTES.md`.
+
 ### Qué funciona
 
 - **El botón aparece solo si hay con qué.** Sin `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET`, el
@@ -1341,9 +1355,12 @@ decía "sin proveedor externo" y ahora dice "sin **depender** de uno".
 - **El viaje a Google no lo bloquea la CSP**, y eso está comprobado **en un navegador**
   (T-233-18), no razonado: `form-action 'self'` era el riesgo real y era invisible desde Node.
 
-26 casos unitarios, 8 de integración contra Postgres real, 4 de componente y 4 de e2e. La suite
-entera —77 casos de e2e incluidos— pasa en las condiciones de CI, y en CI de verdad: los diez jobs
-en verde.
+26 casos unitarios, 8 de integración contra Postgres real, 4 de componente y 4 de e2e, estos
+últimos ya reescritos para el estado apagado. La suite entera pasa en las condiciones de CI, y en
+CI de verdad: los diez jobs en verde.
+
+Todo lo de arriba se verificó **con la función encendida** antes de apagarla, incluido el viaje a
+Google en un navegador; lo que se entrega es el mismo código con la puerta cerrada.
 
 ### Lo que enseñó esta pieza
 
