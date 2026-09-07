@@ -123,7 +123,7 @@ export function entradasVisibles(rol: 'admin' | 'editor'): readonly EntradaMenu[
 }
 
 /** Lo que hace pulsable a un control de la cabecera. 44 px de alto, que es el mínimo de las guías. */
-const BOTON_DE_CABECERA = `flex h-11 items-center gap-2 rounded-lg px-3 text-sm text-tinta-suave transition hover:bg-superficie-suave hover:text-tinta ${ANILLO_DE_FOCO}`;
+const BOTON_DE_CABECERA = `flex h-11 items-center gap-2 rounded-lg px-3 text-sm text-tinta-suave pulsable hover:bg-superficie-suave hover:text-tinta ${ANILLO_DE_FOCO}`;
 
 export function PanelShell({
   children,
@@ -269,7 +269,22 @@ export function PanelShell({
             {/* El hueco de abajo es para la barra de secciones, que en el móvil va fija sobre el
             contenido: sin él, el último elemento de cualquier lista queda debajo y no se puede
             pulsar. */}
-            <main className="min-w-0 flex-1 pb-24 lg:pb-0">{children}</main>
+            {/*
+              La `key` es la que hace que esto se anime (issue #239).
+
+              Sin ella React reutiliza el mismo `<main>` al navegar, la animación no se vuelve a
+              disparar y el cambio de sección aparece de golpe. Con ella se remonta y el contenido
+              entra: seis píxeles hacia arriba en 220 ms.
+
+              **Remontar es exactamente lo que se quiere aquí y conviene decir por qué**, porque en
+              otro sitio sería un fallo: cada ruta de `/admin` es una pantalla distinta con su
+              propio estado de servidor, así que no hay nada dentro que valga la pena conservar
+              entre una y otra. Si algún día cuelga de aquí un formulario cuyo borrador deba
+              sobrevivir a la navegación, esta `key` es lo que hay que quitar primero.
+            */}
+            <main key={ruta} className="entra min-w-0 flex-1 pb-24 lg:pb-0">
+              {children}
+            </main>
           </div>
         </div>
       </div>
@@ -333,7 +348,7 @@ function NavegacionDelPanel({
                 // 56 px de alto en el móvil y **toda la celda** pulsable, no el icono. El
                 // mínimo de las guías es 44 y aquí sobra a propósito: es el control que más
                 // se usa y el que peor se apunta andando. En el rail es un cuadrado de 44.
-                className={`flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] transition lg:size-11 lg:justify-center lg:rounded-2xl lg:text-sm ${ANILLO_DE_FOCO} ${
+                className={`flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] pulsable lg:size-11 lg:justify-center lg:rounded-2xl lg:text-sm ${ANILLO_DE_FOCO} ${
                   activa
                     ? 'font-medium text-acento lg:bg-accion lg:text-sobre-accion'
                     : 'text-tinta-suave lg:hover:bg-superficie-suave lg:hover:text-tinta'

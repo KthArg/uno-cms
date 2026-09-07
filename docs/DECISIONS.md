@@ -1324,6 +1324,60 @@ Lo que lo hace defendible y no un capricho: **el ámbar significa el estado, no 
 
 ---
 
+## ADR-820 — El movimiento se declara una vez y se usa por nombre (resuelve #239)
+
+**Contexto.** Se pidió que las interacciones tuvieran pequeñas animaciones, «para que se sienta
+más cómodo y premium». El panel ya tenía movimiento: `transition` suelto en **veintisiete**
+sitios, cada uno heredando la duración por defecto de Tailwind.
+
+**Decisión.** Tres duraciones (90, 140, 220 ms), una curva, cuatro utilidades con nombre en
+`app/globals.css`. Ningún componente declara duración ni curva propias, y hay una guarda que lo
+comprueba fichero a fichero.
+
+**A cambio de qué.** De poder afinar una pantalla concreta. Si algún día una animación necesita
+250 ms por un motivo real, hay que añadir una ficha y justificarla, no escribirla ahí. Ese roce es
+deliberado: es lo que impide volver a los veintisiete valores distintos.
+
+**Y por qué esto es lo que se pidió.** Lo que hace que una interfaz se sienta cara no es la
+cantidad de movimiento, es que todo se mueva igual. Quince animaciones bien hechas y distintas se
+sienten desordenadas; cuatro repetidas se sienten de una pieza.
+
+## ADR-821 — Solo se anima lo que no cuesta maqueta, y hay una guarda porque el error es invisible (resuelve #239)
+
+**Contexto.** Animar `height` y animar `transform` producen la misma imagen. La diferencia es que
+lo primero obliga al navegador a recalcular la maqueta de la página en cada fotograma.
+
+**Decisión.** Se anima `transform`, `opacity`, colores y bordes. Nada más. Un test lee
+`app/globals.css` y falla si aparece una propiedad de la lista prohibida en una transición o en un
+bloque de fotogramas.
+
+**A cambio de qué.** De algunas animaciones que serían más fáciles con la propiedad directa —
+desplegar un acordeón con `height` es una línea; con `transform` hay que medir. Cuando llegue ese
+caso, la respuesta es medir.
+
+**Por qué una guarda y no una nota.** Porque el fallo **no se ve**: no en el diff, no en la
+pantalla, no en la revisión. Aparece semanas después como una caída del rendimiento en Lighthouse
+—que va en CI y bloquea el merge— sin nada que la ate a la animación que la causó.
+
+## ADR-822 — La escala al pulsar es para lo que tiene tamaño de botón; lo ancho responde con color (resuelve #239)
+
+**Contexto.** `pulsable` hunde un 2 % lo que se está pulsando. Se aplicó a todo lo pulsable,
+incluidas las filas de la lista de secciones del panel de inicio.
+
+**Decisión.** Los elementos que cruzan la pantalla —filas de lista, campos— no escalan: responden
+cambiando el fondo. La escala se queda en botones y tarjetas.
+
+**Cómo se vio.** **Capturando el estado pulsado**, no leyendo el código. En una fila de 1250 px, un
+2 % son unos veinticinco: los bordes se meten hacia dentro y la fila pulsada se desalinea de las
+de arriba y abajo. Se lee como un salto de maqueta, que es justo lo contrario de lo que la
+animación pretendía transmitir. En el código las dos cosas eran la misma clase.
+
+**A cambio de qué.** De una regla más que recordar. Está escrita en la spec 15 §3 y junto a la
+fila que la motivó, porque una regla que solo vive en un ADR no la lee quien escribe la próxima
+pantalla.
+
+---
+
 ## ADR-900 — Se acepta un proveedor externo, con la condición de que sea opcional y no cree cuentas (acota ADR-004, resuelve #233)
 
 > **Estado: decidido y en el repositorio, pero apagado.** `ACCESO_CON_GOOGLE_HABILITADO = false` en
@@ -1349,7 +1403,7 @@ La tercera es la que no es negociable. `SPEC.md` §7.3 promete que nunca hay cre
 
 **Consecuencias.**
 
-- **Hay dos caminos hasta la misma sesión**, y por eso la identidad se toma siempre de `users` y nunca del perfil de Google (spec 13 §4). El claim `pwdV` de ADR-301 sigue siendo el mismo, así que cambiar la contraseña o desactivar la cuenta echa igual a quien entró por Google.
+- **Hay dos caminos hasta la misma sesión**, y por eso la identidad se toma siempre de `users` y nunca del perfil de Google (spec 15 §4). El claim `pwdV` de ADR-301 sigue siendo el mismo, así que cambiar la contraseña o desactivar la cuenta echa igual a quien entró por Google.
 - **Cero migraciones.** La sesión es JWT y no hay adaptador, así que no se persiste nada del proveedor y no hace falta tabla `accounts`.
 - **Un equipo con Workspace no puede darse de alta solo.** Se acepta: el panel de personas ya existe y es donde se decide quién entra.
 - **`SPEC.md` queda enmendado**, en ADR-004 y en la tabla de §7.1, que gana una fila. Dejar el código contradiciendo la spec en silencio es exactamente lo que este repositorio no hace.

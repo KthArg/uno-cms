@@ -70,7 +70,7 @@ export function HistoryScreen({
       <div>
         <Link
           href={`/admin/content/${entryKey}`}
-          className={`inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave transition hover:text-tinta ${ANILLO_DE_FOCO}`}
+          className={`inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave pulsable hover:text-tinta ${ANILLO_DE_FOCO}`}
         >
           {/* La flecha era el carácter «←», que cambia de forma con la fuente y no se alinea
               con el texto. El nombre de la sección ya dice a dónde vuelve, así que el dibujo es

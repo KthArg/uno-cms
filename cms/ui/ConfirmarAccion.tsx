@@ -54,14 +54,14 @@ export function ConfirmarAccion({
       role="alertdialog"
       aria-modal="true"
       aria-label={titulo}
-      className="velo fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="velo se-desvanece fixed inset-0 z-50 flex items-center justify-center p-4"
       onKeyDown={(evento) => {
         // `Escape` cierra. Sin ello, quien navega con teclado se queda encerrado en un cuadro
         // que ha abierto sin querer.
         if (evento.key === 'Escape') onCancelar();
       }}
     >
-      <div className="lamina-tarjeta w-full max-w-md rounded-2xl p-6">
+      <div className="lamina-tarjeta aparece w-full max-w-md rounded-2xl p-6">
         <h2 className="flex items-start gap-2.5 text-lg font-semibold text-tinta">
           {/* El icono de alarma **sí** significa algo aquí: es lo primero que dice que esto no
               es un aviso más. Por eso lleva nombre accesible en vez de estar oculto. */}

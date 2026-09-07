@@ -315,7 +315,7 @@ export function EntryEditor({
           <h1 className={TITULO}>{nombreSeccion}</h1>
           <Link
             href={`/admin/history/${entryKey}`}
-            className={`mt-1 inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave transition hover:text-tinta ${ANILLO_DE_FOCO}`}
+            className={`mt-1 inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave pulsable hover:text-tinta ${ANILLO_DE_FOCO}`}
           >
             <Icono de="historial" tamano={16} />
             Ver versiones anteriores
@@ -413,7 +413,7 @@ export function EntryEditor({
             onClick={() => {
               setMitadVisible(cual);
             }}
-            className={`flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm transition ${ANILLO_DE_FOCO} ${
+            className={`flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm pulsable ${ANILLO_DE_FOCO} ${
               mitadVisible === cual
                 ? 'bg-accion font-medium text-sobre-accion'
                 : 'border border-linea bg-superficie text-tinta-suave'
@@ -472,7 +472,7 @@ export function EntryEditor({
           onKeyDown={alTeclear}
           className="group hidden cursor-col-resize items-center justify-center px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento lg:flex"
         >
-          <span className="h-16 w-1 rounded-full bg-linea-fuerte transition group-hover:bg-acento" />
+          <span className="h-16 w-1 rounded-full bg-linea-fuerte transicion group-hover:bg-acento" />
         </div>
 
         {urlDeVistaPrevia === undefined ? (
@@ -566,7 +566,7 @@ function RecuperarBorrador({
         <button
           type="button"
           onClick={onRecuperar}
-          className={`inline-flex h-11 items-center gap-2 rounded-xl bg-pendiente-accion px-4 text-sm font-medium text-sobre-pendiente transition hover:bg-pendiente-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta`}
+          className={`inline-flex h-11 items-center gap-2 rounded-xl bg-pendiente-accion px-4 text-sm font-medium text-sobre-pendiente pulsable hover:bg-pendiente-accion-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta`}
         >
           <Icono de="revertir" tamano={16} />
           Recuperar
@@ -574,7 +574,7 @@ function RecuperarBorrador({
         <button
           type="button"
           onClick={onDescartar}
-          className={`inline-flex h-11 items-center gap-2 rounded-xl border border-pendiente-linea px-4 text-sm font-medium text-pendiente-tinta transition hover:bg-superficie-suave focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta`}
+          className={`inline-flex h-11 items-center gap-2 rounded-xl border border-pendiente-linea px-4 text-sm font-medium text-pendiente-tinta pulsable hover:bg-superficie-suave focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pendiente-tinta`}
         >
           <Icono de="cerrar" tamano={16} />
           Descartar

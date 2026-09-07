@@ -1401,7 +1401,7 @@ sitios donde estaba — incluida la suite de humo, que corre contra un despliegu
    poder probar el viaje, así que la rama apagada solo la cubren los unitarios y el de componente.
    Es una asimetría declarada en `playwright.config.ts`, no un olvido.
 5. **La correspondencia es por correo y nada más.** Quien cambie su correo en el panel cambia con
-   qué cuenta de Google entra. Es lo esperable y está en spec 13 §9, pero no lo avisa ninguna
+   qué cuenta de Google entra. Es lo esperable y está en spec 15 §9, pero no lo avisa ninguna
    pantalla.
 
 ### Qué probaría a mano
@@ -1544,3 +1544,55 @@ y también había fallado una vez en el control sobre `main` limpio. No depende 
 se capturó el mensaje, y cuatro pasadas completas posteriores salieron verdes. Se abre en
 [#249](https://github.com/KthArg/uno-cms/issues/249) en vez de explicarlo, que es la lección de
 #134.
+
+## El movimiento de las interacciones ✅
+
+**Cerrado** el 3 de septiembre de 2026, issue [#239](https://github.com/KthArg/uno-cms/issues/239),
+spec [`15-movimiento.md`](specs/15-movimiento.md), ADR-820 a ADR-822.
+
+Se pidió «pequeñas animaciones con las interacciones, para que se sienta más cómodo y premium».
+Son dos peticiones: **cómodo** es información —el botón contesta antes que el servidor— y
+**premium** es coherencia. La segunda es la que decide el diseño: lo que separa una interfaz cara
+de una barata no es tener más movimiento, es que todo se mueva igual.
+
+### Qué funciona
+
+| Área                | Estado                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------ |
+| El vocabulario      | Tres duraciones y una curva, en fichas. Los veintisiete `transition` sueltos pasan a `pulsable`/`transicion` |
+| La pulsación        | 2 % de hundimiento en 90 ms, en botones y tarjetas                                                           |
+| La entrada          | El contenido sube 6 px y aparece al cambiar de sección, con la `key` que la rearma                           |
+| Los diálogos        | La caja crece un 2 % al llegar; el velo solo aparece — el fondo **no** escala                                |
+| Movimiento reducido | Nada se mueve, **medido en un navegador**, con su pareja que impide que ese caso mienta                      |
+| El coste            | Solo `transform` y `opacity`: todo va al compositor. Es CSS, así que la landing no cambia ni un byte         |
+
+### Qué es frágil
+
+1. **La `key={ruta}` del `<main>` remonta el contenido en cada navegación.** Es lo que se quiere
+   hoy —cada ruta es una pantalla con su propio estado de servidor— y sería un fallo el día que
+   cuelgue de ahí un borrador que deba sobrevivir a la navegación. Está escrito junto a la línea.
+2. **La regla de «lo ancho no escala» es una convención, no una guarda.** Un test no puede saber
+   cuánto mide un elemento sin renderizarlo. Está en la spec 15 §3 y junto a la fila que la
+   motivó.
+
+### Lo que enseñó
+
+- **Un test puede pasar por no casar con nada.** Las expresiones que revisan el CSS buscaban un
+  salto de línea seguido de llave, y en el árbol de trabajo de Windows el fichero está en CRLF:
+  **ningún** `@keyframes` casaba, los tres bloques pasaban sin que nadie los mirara, y el test
+  salía verde. Lo cazó una comprobación de que hubiera algo que revisar — que estaba puesta y
+  **era demasiado débil**: contaba las dos familias juntas, y como las transiciones sí casaban, la
+  suma daba «más de cero» igual. Ahora se cuentan por separado.
+- **Y volvió a pasar lo de siempre, que van seis.** El primer T-237-3 contaba animaciones en
+  marcha para comprobar que la entrada se rearma al navegar. Quitando la `key` del `<main>`
+  seguía verde: las utilidades llevan `animation-fill-mode: both`, y una animación con relleno
+  **no desaparece al terminar** — `getAnimations()` devolvía la de la carga inicial. El caso
+  medía que la página había cargado alguna vez. Ahora mira la identidad del nodo, que es el
+  mecanismo de verdad, y muere con la mutación.
+- **Lo pulsado hay que capturarlo, no imaginarlo.** El hundimiento del 2 % se veía bien en los
+  botones y en las filas de secciones desalineaba la fila pulsada de sus vecinas: en 1250 px de
+  ancho, un 2 % son veinticinco. En el código las dos cosas eran exactamente la misma clase, así
+  que solo se podía ver en una captura del estado pulsado (ADR-822).
+- **El fallo del test también puede ser del test.** El caso de movimiento reducido reventó
+  listando la página entera como culpable, y el corte funcionaba perfectamente: buscaba la cadena
+  `0.00001s` y Chromium escribe `1e-05s`. Ahora compara números.

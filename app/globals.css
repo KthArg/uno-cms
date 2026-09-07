@@ -124,6 +124,29 @@
      siendo el resultado real de componer las tres sobre el papel. */
   --color-fondo-claro: #89cee9;
 
+  /**
+   * **El movimiento, en fichas** (issue #239).
+   *
+   * Antes había `transition` suelto en veintisiete sitios, cada uno con la duración por defecto
+   * de Tailwind. Funcionaba y no se leía como un sistema: lo que hace que una interfaz se sienta
+   * de una pieza no es que todo se mueva, es que **todo se mueva igual**.
+   *
+   * Tres duraciones y no más. Por encima de 200 ms una interfaz de trabajo empieza a sentirse
+   * lenta en vez de suave, y este panel es una herramienta de escribir.
+   */
+  --duracion-instante: 90ms;
+  --duracion-corta: 140ms;
+  --duracion-media: 220ms;
+
+  /**
+   * La curva. Sale rápido y frena al llegar, que es como se mueve algo con peso.
+   *
+   * `ease-out` a secas frena demasiado pronto y se siente blando; esta mantiene la velocidad un
+   * poco más antes de asentarse. No lleva rebote: un rebote en un botón de publicar es un
+   * juguete, y esto administra el contenido de la web de alguien.
+   */
+  --curva: cubic-bezier(0.2, 0.8, 0.2, 1);
+
   /* Las opacidades, aquí y no dentro de las utilidades, para que la guarda pueda leerlas. */
   --opacidad-lamina: 68%;
   --opacidad-lamina-tarjeta: 58%;
@@ -380,6 +403,88 @@
   background-color: color-mix(in srgb, var(--color-papel) 72%, transparent);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+}
+
+/**
+ * La transición de todo lo que responde al puntero o al teclado (issue #239).
+ *
+ * **Solo `transform`, `opacity`, colores y bordes.** Ninguna es de las que obligan al navegador a
+ * recalcular la maqueta: eso es lo que separa una animación que se siente suave de una que se
+ * come el presupuesto de rendimiento que va en CI. Hay un caso que lo comprueba.
+ */
+@utility transicion {
+  transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+  transition-duration: var(--duracion-corta);
+  transition-timing-function: var(--curva);
+}
+
+/**
+ * Lo que se hunde un poco al pulsarlo.
+ *
+ * Es el detalle que más hace por que algo se sienta físico, y el más barato: `scale` va al
+ * compositor. Un 2 % es suficiente — más y parece que el botón se escapa.
+ */
+@utility pulsable {
+  transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+  transition-duration: var(--duracion-corta);
+  transition-timing-function: var(--curva);
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+    transition-duration: var(--duracion-instante);
+  }
+}
+
+/**
+ * La entrada de una pantalla: sube un poco y aparece.
+ *
+ * **Seis píxeles y 220 ms.** Lo justo para que el cambio de sección se lea como un movimiento y
+ * no como un parpadeo; lo bastante corto para que quien navega rápido no espere a nada. Se
+ * anima `transform` y `opacity`, así que no cuesta maqueta.
+ */
+@utility entra {
+  animation: entra var(--duracion-media) var(--curva) both;
+}
+
+@keyframes entra {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/**
+ * Lo que se superpone entra con una pizca de escala, no solo con opacidad.
+ *
+ * Un diálogo que solo aparece se lee como un cambio de estado; uno que crece un 2 % se lee como
+ * algo que llega y se pone delante, que es lo que de verdad hace.
+ */
+@utility aparece {
+  animation: aparece var(--duracion-corta) var(--curva) both;
+}
+
+@keyframes aparece {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+/**
+ * El fondo oscuro de un diálogo, apareciendo.
+ *
+ * Solo opacidad: **el velo no escala**. Si lo hiciera arrastraría la pantalla entera detrás del
+ * diálogo, que es exactamente el efecto que un diálogo tiene que evitar — lo que se mueve es lo
+ * que llega, no lo que se queda.
+ */
+@utility se-desvanece {
+  animation: se-desvanece var(--duracion-corta) var(--curva) both;
+}
+
+@keyframes se-desvanece {
+  from {
+    opacity: 0;
+  }
 }
 
 /**

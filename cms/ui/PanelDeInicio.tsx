@@ -193,7 +193,7 @@ export function PanelDeInicio({
 
             <Link
               href="/admin/media"
-              className={`mt-auto inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave transition hover:text-tinta ${ANILLO_DE_FOCO}`}
+              className={`mt-auto inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave pulsable hover:text-tinta ${ANILLO_DE_FOCO}`}
             >
               Ver la biblioteca
               <Icono de="volver" tamano={16} className="rotate-180" />
@@ -207,6 +207,17 @@ export function PanelDeInicio({
         <h2 className="px-5 pt-5 pb-3 text-sm font-medium text-tinta-suave">Tus secciones</h2>
 
         <ul>
+          {/*
+          Estas filas usan `transicion` y no `pulsable`, **y se vio mirándolo, no leyéndolo**.
+
+          El 2 % de `pulsable` en un botón se lee como que se hunde. En una fila que ocupa todo el
+          ancho son unos veinticinco píxeles: los bordes se meten hacia dentro y la fila pulsada
+          se desalinea de las de arriba y abajo, que es un salto, no una pulsación. La respuesta
+          al toque aquí la da el fondo, que cambia en la fila entera.
+
+          La regla, para la próxima: **la escala es para lo que tiene un tamaño de botón o de
+          tarjeta**; lo que cruza la pantalla responde con color (spec 15 §3).
+        */}
           {secciones.map((seccion) => (
             <li key={seccion.key} className="border-t border-linea">
               <Link
@@ -215,7 +226,7 @@ export function PanelDeInicio({
                     ? `/admin/collections/${seccion.key}`
                     : `/admin/content/${seccion.key}`
                 }
-                className={`group flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 transition hover:bg-superficie-suave ${ANILLO_DE_FOCO}`}
+                className={`group flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 transicion hover:bg-superficie-suave ${ANILLO_DE_FOCO}`}
               >
                 <span className="min-w-0 flex-1 font-medium text-tinta">{seccion.nombre}</span>
 
@@ -231,7 +242,7 @@ export function PanelDeInicio({
 
                 <span
                   aria-hidden="true"
-                  className="text-tinta-tenue transition group-hover:translate-x-0.5 group-hover:text-acento"
+                  className="text-tinta-tenue transicion group-hover:translate-x-0.5 group-hover:text-acento"
                 >
                   <Icono de="volver" tamano={18} className="rotate-180" />
                 </span>

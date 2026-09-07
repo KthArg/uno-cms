@@ -71,7 +71,7 @@ export function CampoImagen({ id, field, value, onChange, error, onElegir }: Ima
               onClick={() => {
                 onChange(undefined);
               }}
-              className={`inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave transition hover:text-tinta ${ANILLO_DE_FOCO}`}
+              className={`inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave pulsable hover:text-tinta ${ANILLO_DE_FOCO}`}
             >
               Quitar imagen
             </button>
