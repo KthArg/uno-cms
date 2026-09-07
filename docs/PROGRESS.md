@@ -1417,3 +1417,63 @@ sitios donde estaba — incluida la suite de humo, que corre contra un despliegu
 - **Escribir mal la URI de retorno en la consola de Google** a propósito, para ver qué se ve. La
   guía de `docs/SETUP.md` avisa del `redirect_uri_mismatch`, y ese aviso está escrito sin haberlo
   visto en pantalla.
+
+---
+
+## El flake de la suite en paralelo, con su mecanismo ✅
+
+**Cerrado** el 7 de septiembre de 2026, issue [#227](https://github.com/KthArg/uno-cms/issues/227).
+Llevaba abierto desde #220 con una nota honesta: «el mecanismo sigue sin identificarse». Ya está
+identificado, y resultó que la pregunta estaba mal planteada.
+
+### El mecanismo, medido y no razonado
+
+«Publicar todo» es una operación **global**: publica todas las entradas con cambios sin publicar,
+sean del test que sean. `historial.spec.ts` T-E-2 termina dejando su entrada con borrador distinto
+de lo publicado —que es exactamente lo que ese caso demuestra, que restaurar no publica— y T-E-3
+comprueba después que deshacer vuelve a lo publicado.
+
+En paralelo, el caso que pulsa ese botón se colaba entre los dos. Sobre `audit_log`:
+
+```
+11:03:38.421  restoreRevision  historial@…           faqs.historial-e2e
+11:03:41.033  publishAll       panel-publica@…       published: ["faqs.historial-e2e", …]
+11:03:42.160  revertDraft      historial-deshacer@…  faqs.historial-e2e
+```
+
+Lo publicado dejaba de ser lo que T-E-2 había dejado, y deshacer volvía a otra cosa. Eso explica
+las siete filas de la tabla del issue, incluida la que más despistaba: **dar a cada test su propia
+entrada no protege**, porque `historial` ya tenía la suya y aun así se la publicaron.
+
+### Y por qué el primer arreglo no era el arreglo
+
+Se sacó «Publicar todo» a un proyecto de Playwright que arranca cuando el resto ha terminado.
+Funcionó: T-E-3 pasó **ocho pasadas seguidas** donde antes fallaba tres de tres.
+
+Y entonces apareció otra cosa: `vista-previa.spec.ts` empezó a fallar **cinco de cinco**, con un
+elemento de colección repetido en el iframe. No lo rompió ese cambio — lo destapó: la publicación
+global lo venía tapando. Está medido y abierto aparte, en
+[#246](https://github.com/KthArg/uno-cms/issues/246).
+
+**Ahí se ve el error de planteamiento.** No había un flake: había una suite que reparte **un solo
+sitio** entre cuatro navegadores. Cada arreglo destapa la colisión siguiente, y en las tres pasadas
+de control sobre `main` limpio cayeron además `landing.spec.ts` y el cierre de sesión de
+`panel-shell.spec.ts`, cada uno por su cuenta.
+
+### Qué se hizo
+
+`workers: 1` siempre, no solo en CI. Cuatro pasadas locales seguidas, 77 casos verdes cada una.
+
+Se retira de `PENDIENTES.md` la deuda que defendía la asimetría diciendo que «la ejecución local es
+la exigente». Era falso: no es más exigente, es **inválida** — mide colisiones que ningún uso real
+provoca.
+
+### Lo que enseñó
+
+- **Una tabla de descartes no es un diagnóstico.** El issue tenía siete comprobaciones bien hechas
+  y ninguna miraba el sitio correcto, porque todas buscaban qué tenían de raro los casos nuevos. Lo
+  que lo resolvió fue preguntarle a `audit_log` **quién** había publicado, que es un dato que
+  llevaba meses ahí.
+- **Un arreglo verificado ocho veces puede seguir siendo el arreglo equivocado.** Si me hubiera
+  parado en «T-E-3 pasa», habría cerrado el issue y entregado una suite que falla siempre por otro
+  sitio.
