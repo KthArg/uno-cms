@@ -1429,3 +1429,28 @@ Un CMS multi-sitio de verdad es otra cosa: varios espacios de contenido aislados
 **A cambio de qué.** De que quien quiera dos landings tenga que desplegar dos veces. Es lo que ADR-001 ya aceptaba, y el coste sigue siendo el mismo: dos despliegues, dos bases, dos paneles.
 
 **Qué lo revertiría.** Que haga falta un segundo espacio de contenido **dentro** del mismo despliegue. Eso sí rompe §0 y no se resuelve con un ADR: cambia el esquema, los permisos y las claves.
+
+---
+
+## ADR-930 — La configuración se valida con el esquema de los ajustes, y falla al arrancar (resuelve #243)
+
+**Contexto.** `SETTINGS_SCHEMAS.site` exige `siteName` no vacío y de 120 caracteres como mucho. Ese esquema gobierna lo que se guarda desde la pantalla de ajustes. El valor **por defecto** —el que se usa mientras nadie ha guardado nada— salía de `cms.config.ts` y no pasaba por él, así que un `siteName: ''` se aceptaba y llegaba a `readSettings('site')` como si fuera válido.
+
+La misma cadena estaba prohibida por un camino y permitida por el otro.
+
+**La decisión no es «validar»: eso ya lo pedía el issue. La decisión es _cuándo falla y cómo_.** Había dos salidas con coste:
+
+- **Lanzar** convierte una errata de configuración en un sitio que no arranca.
+- **No lanzar** —tolerar y sustituir por algo— deja el problema donde estaba, con la incoherencia viva y ahora además silenciada.
+
+**Decisión: lanzar, y hacerlo en `defineConfig`.**
+
+El motivo de que el coste sea aceptable es _dónde_ se lanza. `defineConfig` corre al cargar `cms.config.ts`, o sea al arrancar el proyecto que monta el CMS sobre su landing: quien ve el error es **quien acaba de escribir la línea mala**, con el nombre del campo delante. No es un despliegue que se cae en producción por una errata vieja; es `pnpm dev` que no arranca el primer día.
+
+Y no es un modo de fallo nuevo: `defineConfig` ya lanza `ConfigError` por claves con punto, esquemas mal formados, `titleField` inexistente y colisiones entre singletons y colecciones. Un `siteName` vacío entra en esa misma familia.
+
+**Lo que lo hace verificable y no una intención.** Se valida con `SETTINGS_SCHEMAS.site.shape.siteName`, **el mismo objeto** que valida al guardar. Una comprobación escrita a mano —`length > 0`— habría pasado por buena y habría vuelto a divergir en cuanto cambiara el máximo. Hay un caso (T-243-2) que recorre seis cadenas por los dos caminos y exige que los dos den la misma respuesta.
+
+**A cambio de qué.** De un módulo nuevo, `cms/core/esquemas-de-ajustes.ts`. `settings.ts` importa `cms.config.ts`, que importa `config.ts`: para que `config.ts` use el esquema sin un ciclo, el esquema tiene que bajar a una hoja. Es un fichero que existe solo por eso, y lo dice en su cabecera.
+
+**Qué lo revertiría.** Que alguien necesite arrancar con una configuración a medias a propósito — un `siteName` vacío mientras prepara el sitio. Hoy eso no tiene sentido: el nombre es obligatorio en la pantalla de ajustes desde M4.
