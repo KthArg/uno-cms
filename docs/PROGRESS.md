@@ -1317,109 +1317,6 @@ convención. Hasta ahora cada carga del panel y de la landing dejaba un 404 en l
 
 ---
 
-## Entrar con Google ✅
-
-**Cerrado** el 3 de septiembre de 2026, issue [#233](https://github.com/KthArg/uno-cms/issues/233),
-ADR-900, ADR-901 y ADR-902. Es el primer cambio que **toca una decisión de la serie 0xx**: ADR-004
-decía "sin proveedor externo" y ahora dice "sin **depender** de uno".
-
-> **Y se entrega apagado.** `ACCESO_CON_GOOGLE_HABILITADO = false` en `cms/auth/google.ts`, y ese
-> interruptor gana a las dos variables de entorno. El motivo es el punto 1 de "qué es frágil" de
-> aquí abajo: nadie ha entrado nunca con una cuenta de Google de verdad, y hasta que eso se
-> compruebe ([#237](https://github.com/KthArg/uno-cms/issues/237)) la puerta no se abre.
->
-> No se apaga «no poniendo las variables», que es una convención y no un apagado: basta con que
-> alguien las defina en Vercel. Reactivarlo es [#240](https://github.com/KthArg/uno-cms/issues/240),
-> con la lista de lo que hay que recuperar.
->
-> **Lo que sigue corriendo con la función apagada** es casi todo: las tres puertas contra Postgres
-> real, que no se cree ninguna cuenta, la identidad que acaba en el token y que ADR-301 alcance a
-> esa sesión. La lógica no depende del interruptor. Lo que se pierde son los dos casos de e2e que
-> necesitan el botón, y está anotado en `PENDIENTES.md`.
-
-### Qué funciona
-
-- **El botón aparece solo si hay con qué.** Sin `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET`, el
-  proveedor no entra en la configuración de Auth.js — no es que el botón se esconda, es que la
-  ruta `/api/auth/callback/google` no existe. Con una sola de las dos, apagado igual.
-- **Google no crea cuentas.** Tres puertas: el correo tiene que venir verificado por Google,
-  corresponder a una fila de `users` y estar activa. Un intento denegado no escribe nada en
-  `users`, y hay un test que lo cuenta.
-- **La identidad sale de la fila.** De Google salen el correo y su verificación; el
-  identificador, el nombre, el rol y `pwdV`, de `users`.
-- **ADR-301 alcanza a esta puerta.** Cambiar la contraseña o desactivar la cuenta echa igual a
-  quien entró por Google: no hay una segunda ruta de sesión, hay dos formas de conseguir el mismo
-  token.
-- **Cero migraciones.** La sesión es JWT y no hay adaptador, así que no había nada del proveedor
-  que guardar.
-- **El viaje a Google no lo bloquea la CSP**, y eso está comprobado **en un navegador**
-  (T-233-18), no razonado: `form-action 'self'` era el riesgo real y era invisible desde Node.
-
-26 casos unitarios, 8 de integración contra Postgres real, 4 de componente y 4 de e2e, estos
-últimos ya reescritos para el estado apagado. La suite entera pasa en las condiciones de CI, y en
-CI de verdad: los diez jobs en verde.
-
-Todo lo de arriba se verificó **con la función encendida** antes de apagarla, incluido el viaje a
-Google en un navegador; lo que se entrega es el mismo código con la puerta cerrada.
-
-### Lo que enseñó esta pieza
-
-**La mutación volvió a cazar un test de adorno, y van seis.** T-233-11 decía comprobar que el
-correo se compara sin distinguir mayúsculas, y pasaba con el `lower()` de la consulta **quitado**.
-El motivo, una vez visto, es obvio: el test guardaba la fila en minúsculas y mandaba el correo con
-mayúsculas, pero `autenticarConGoogle` ya normaliza lo que llega de Google — así que los dos lados
-de la comparación eran minúsculas y el `lower()` no hacía nada.
-
-Lo que protege el `lower()` es lo que hay **guardado**, no lo que llega. Son dos defensas
-distintas en dos sitios distintos, y el test cubría una creyendo cubrir la otra. Ahora hay un caso
-por cada una, y la mutación de una no mata el test de la otra — que es la comprobación de que de
-verdad son dos.
-
-**Y una guarda avisó de algo que no se veía venir:** al encender Google en la suite de e2e, el
-selector `getByRole('button', { name: /entrar/i })` de `crearYEntrar` pasó a casar con dos
-botones. No es un fallo del producto, pero habría puesto en rojo media suite con un mensaje sobre
-"strict mode" que no menciona a Google por ninguna parte. Ahora el selector es exacto, en los tres
-sitios donde estaba — incluida la suite de humo, que corre contra un despliegue donde Google
-**puede** estar configurado.
-
-### Qué es frágil
-
-1. **Nadie ha entrado con una cuenta de Google de verdad.** Lo que está comprobado es todo lo que
-   se puede comprobar sin una: las tres puertas contra Postgres real, la identidad que acaba en el
-   token, y que el navegador llega a `accounts.google.com` con nuestro identificador. Lo que
-   **no** está comprobado es la vuelta: que el `id_token` que firma Google se valide y que
-   `email_verified` llegue donde se espera. Eso necesita un cliente de OAuth real y está en "qué
-   probaría a mano".
-2. **`AUTH_URL` pasa a importar más.** La dirección de retorno la construye Auth.js, y en un
-   despliegue fuera de Vercel sin `AUTH_URL` sale de la cabecera `Host`. Antes eso solo afectaba a
-   los enlaces de invitación; ahora, además, un `Host` inyectado da un `redirect_uri` que Google
-   rechazará — con suerte. Está dicho en `.env.example` desde M2 y ahora muerde en un sitio más.
-3. **Las credenciales se leen una vez, al cargar el módulo.** Definirlas en un despliegue ya
-   arrancado no enciende Google hasta que el proceso se reinicia. En Vercel pasa solo; en un
-   servidor propio hay que acordarse. Está escrito junto a la constante.
-4. **El e2e no ejercita el estado "sin Google".** La suite arranca con las variables puestas para
-   poder probar el viaje, así que la rama apagada solo la cubren los unitarios y el de componente.
-   Es una asimetría declarada en `playwright.config.ts`, no un olvido.
-5. **La correspondencia es por correo y nada más.** Quien cambie su correo en el panel cambia con
-   qué cuenta de Google entra. Es lo esperable y está en spec 15 §9, pero no lo avisa ninguna
-   pantalla.
-
-### Qué probaría a mano
-
-- **Crear un cliente de OAuth de verdad** y entrar en el despliegue con una cuenta invitada. Es lo
-  único que cierra el punto 1 de arriba.
-- **Intentarlo con una cuenta de Google que no esté invitada**, para ver el mensaje de ADR-902 con
-  los ojos y comprobar que no se ha creado ninguna fila en `users`.
-- **Desactivar a alguien desde el panel de personas y que intente entrar con Google.** Debería
-  quedarse fuera igual que por contraseña.
-- **Fallar la contraseña cinco veces y entrar entonces con Google.** Debería dejarle pasar
-  (ADR-901); es la decisión menos evidente de las tres y la que más conviene ver funcionando.
-- **Escribir mal la URI de retorno en la consola de Google** a propósito, para ver qué se ve. La
-  guía de `docs/SETUP.md` avisa del `redirect_uri_mismatch`, y ese aviso está escrito sin haberlo
-  visto en pantalla.
-
----
-
 ## El flake de la suite en paralelo, con su mecanismo ✅
 
 **Cerrado** el 7 de septiembre de 2026, issue [#227](https://github.com/KthArg/uno-cms/issues/227).
@@ -1596,3 +1493,50 @@ de una barata no es tener más movimiento, es que todo se mueva igual.
 - **El fallo del test también puede ser del test.** El caso de movimiento reducido reventó
   listando la página entera como culpable, y el corte funcionaba perfectamente: buscaba la cadena
   `0.00001s` y Chromium escribe `1e-05s`. Ahora compara números.
+
+---
+
+## El acceso con Google se retira entero ❌
+
+**Retirado** el 7 de septiembre de 2026, por decisión de producto. No se descartó por un fallo: se
+descartó porque **no se quiere todavía**, y una funcionalidad que no se quiere no se deja dormida
+en el árbol.
+
+### Qué se ha ido, y qué no
+
+Se revierten los dos PR que lo trajeron —[#238](https://github.com/KthArg/uno-cms/pull/238) y
+[#245](https://github.com/KthArg/uno-cms/pull/245)—: el módulo, el proveedor de Auth.js, el botón,
+el logotipo, sus cuatro ficheros de tests, la spec de fase, los ADR-900 a ADR-902, las enmiendas a
+`SPEC.md` y lo escrito en `.env.example`, `SETUP.md`, `SECURITY.md` y `PENDIENTES.md`.
+
+`SPEC.md` vuelve por tanto a decir lo que decía antes: **ADR-004 sin enmendar**, «sin proveedor
+externo», y su tabla de §7.1 vuelve a once filas.
+
+**Lo que no se toca** es lo que nunca fue de Google aunque llegara por ahí: el `workers: 1` de la
+suite (#227) y la tercera trampa de `CLAUDE.md` son de otras piezas y se quedan.
+
+### Por qué esto está aquí y no en `DECISIONS.md`
+
+Porque `DECISIONS.md` guarda las decisiones **en vigor**, y dejar los ADR-900 a ADR-902 allí diría
+que este producto acepta un proveedor externo, que es exactamente lo contrario de lo que pasa. El
+rastro va donde va lo que ocurrió.
+
+Y hay rastro: el código entero vive en el historial de los PR #238, #245 y en el commit de este
+mismo revert. Si algún día se retoma, no hay que reescribirlo — hay que **volver a probarlo**
+contra Google de verdad, que es lo que nunca llegó a hacerse ([#237](https://github.com/KthArg/uno-cms/issues/237)).
+
+### El hueco del 13
+
+`docs/specs/` pasa de la 12 a la 14: la 13 era la spec de Google. Se deja el hueco en vez de
+renumerar porque esos números están citados en ADR, tests, commits y PR ya cerrados, y moverlos
+convertiría un hueco visible en una docena de referencias equivocadas.
+
+### Lo que enseñó
+
+**Apagar y retirar no son lo mismo, y la diferencia se paga en documentación.** Cuando se apagó
+—con un interruptor, dos días antes— hubo que arreglar cuatro documentos que seguían describiendo
+la función encendida. Al retirarla, esos mismos cuatro documentos se van solos con el revert.
+
+O sea que el estado intermedio, «está pero apagado», es el caro de mantener: obliga a que cada
+documento diga a la vez qué hace y que no está haciéndolo. Tenía sentido mientras la decisión
+estaba abierta; en cuanto se cierra, cuesta menos no tenerlo.

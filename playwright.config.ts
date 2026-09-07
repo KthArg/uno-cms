@@ -98,29 +98,7 @@ export default defineConfig({
          *
          * Los tests no deben tocar nada que exista fuera de su máquina.
          */
-        /**
-         * Y las dos variables de Google **definidas a propósito, con la función apagada**
-         * (issues #233 y #240).
-         *
-         * Esto se leía antes como «la suite enciende Google», y desde el apagado es al revés y
-         * por un motivo mejor: `ACCESO_CON_GOOGLE_HABILITADO` está en `false` y gana a estas dos
-         * variables, así que **definirlas no enciende nada**.
-         *
-         * **Están aquí porque son lo que hace que T-233-19 diga algo.** Ese caso afirma que el
-         * interruptor manda sobre la configuración; comprobarlo sin las variables sería
-         * comprobar que no pasa nada cuando no hay nada, y pasaría en verde con el interruptor
-         * encendido. Quitarlas creyendo que sobran vacía el caso sin romperlo, que es la peor
-         * forma de perder una guarda.
-         *
-         * No hace falta que sirvan: nunca se llega a hablar con Google.
-         */
-        env: {
-          PREVIEW_ORIGINS: '',
-          PREVIEW_URL: '',
-          BLOB_READ_WRITE_TOKEN: '',
-          AUTH_GOOGLE_ID: 'e2e.apps.googleusercontent.com',
-          AUTH_GOOGLE_SECRET: 'un-secreto-de-mentira-para-la-suite',
-        },
+        env: { PREVIEW_ORIGINS: '', PREVIEW_URL: '', BLOB_READ_WRITE_TOKEN: '' },
         // Nunca reutilizar un servidor ajeno: daría verde contra otra aplicación.
         reuseExistingServer: false,
         timeout: 180_000,
