@@ -70,20 +70,20 @@ export default defineConfig({
          * Los tests no deben tocar nada que exista fuera de su máquina.
          */
         /**
-         * Y Google **encendido**, con credenciales de mentira (issue #233).
+         * Y las dos variables de Google **definidas a propósito, con la función apagada**
+         * (issues #233 y #240).
          *
-         * Al revés que las tres de arriba: aquí la suite enciende algo en vez de apagarlo,
-         * porque el caso T-233-18 no se puede comprobar de otra forma — que la CSP de §7.2 no
-         * bloquee el viaje a Google solo se ve en un navegador de verdad.
+         * Esto se leía antes como «la suite enciende Google», y desde el apagado es al revés y
+         * por un motivo mejor: `ACCESO_CON_GOOGLE_HABILITADO` está en `false` y gana a estas dos
+         * variables, así que **definirlas no enciende nada**.
          *
-         * **No hace falta que las credenciales sirvan.** Lo que se comprueba es que el
-         * navegador llegue a pedirle algo a `accounts.google.com` con nuestro identificador
-         * dentro; la petición se intercepta antes de salir, así que la suite no habla con
-         * Google ni depende de la red.
+         * **Están aquí porque son lo que hace que T-233-19 diga algo.** Ese caso afirma que el
+         * interruptor manda sobre la configuración; comprobarlo sin las variables sería
+         * comprobar que no pasa nada cuando no hay nada, y pasaría en verde con el interruptor
+         * encendido. Quitarlas creyendo que sobran vacía el caso sin romperlo, que es la peor
+         * forma de perder una guarda.
          *
-         * El precio, y conviene saberlo: con esto puesto, el estado **sin** Google no lo
-         * ejercita ningún test de e2e. Está en T-233-2 y T-233-15, que sí pueden tener las dos
-         * ramas.
+         * No hace falta que sirvan: nunca se llega a hablar con Google.
          */
         env: {
           PREVIEW_ORIGINS: '',

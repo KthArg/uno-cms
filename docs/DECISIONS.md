@@ -1326,6 +1326,15 @@ Lo que lo hace defendible y no un capricho: **el ámbar significa el estado, no 
 
 ## ADR-900 — Se acepta un proveedor externo, con la condición de que sea opcional y no cree cuentas (acota ADR-004, resuelve #233)
 
+> **Estado: decidido y en el repositorio, pero apagado.** `ACCESO_CON_GOOGLE_HABILITADO = false` en
+> `cms/auth/google.ts`, y ese interruptor gana a las dos variables de entorno. Nada de este ADR se
+> deroga —lo decidido sigue siendo lo que se hará— pero **no está en marcha**, y quien lo lea tiene
+> que poder saberlo sin ir a mirar el código.
+>
+> El motivo es que nadie ha entrado nunca con una cuenta de Google de verdad
+> ([#237](https://github.com/KthArg/uno-cms/issues/237)); reactivarlo es
+> [#240](https://github.com/KthArg/uno-cms/issues/240).
+
 **Contexto.** ADR-004 se llama «sin proveedor externo» y su motivo es de una línea: «un CMS auto-hospedado por un principiante no puede depender de configurar OAuth de Google». La petición de #233 es justamente añadir eso.
 
 **Lo primero es leer bien el motivo.** No dice que un proveedor externo esté mal: dice que no se puede **depender** de él. Todo el peso de ADR-004 está en esa palabra, y una versión opcional no la toca. Quien despliega esto sin saber qué es un cliente de OAuth tiene el mismo producto que tenía.
