@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { auth, signOut } from '@/cms/auth';
+import { invalidateSessions } from '@/cms/auth/authenticate';
 import { fuenteDelPanel } from '@/app/fuente';
 import { COOKIE_DE_TEMA, DURACION_DE_LA_COOKIE, elContrario, leerTema } from '@/cms/tema';
 import { PanelShell } from '@/cms/ui/PanelShell';
@@ -35,13 +36,11 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   // Está contado en `cms/ui/PanelShell.tsx`; era un fallo real (#234), no una optimización.
   const rutaActual = (await headers()).get('x-pathname') ?? '/admin';
 
-  /**
-   * Cerrar sesión (issue #211).
-   *
-   * `redirectTo` y no dejar que Auth.js decida: sin él vuelve a `/`, que es la landing
-   * pública, y quien acaba de salir del panel se queda mirando su propia web sin señal de
-   * que la sesión se cerró. A la pantalla de acceso sí se ve.
-   */
+  // Se captura aquí, donde `session` ya está estrechado: dentro de la acción de abajo
+  // TypeScript pierde ese estrechamiento y haría falta un `!`, que es afirmar a mano algo que
+  // el guard de arriba ya garantiza.
+  const usuarioId = session.user.id;
+
   const tema = leerTema((await cookies()).get(COOKIE_DE_TEMA)?.value);
 
   /**
@@ -62,9 +61,35 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     });
   }
 
+  /**
+   * Cerrar sesión (issue #211), **y de verdad** (issue #249, ADR-910).
+   *
+   * Borrar la cookie no basta, y esto no es una precaución: está medido. Cada lectura de sesión
+   * de Auth.js **reemite** `authjs.session-token` con una caducidad nueva —lo hace
+   * `lib/actions/session.js` de `@auth/core`, sin throttling—, así que cualquier petición que
+   * esté en vuelo cuando se pulsa «Salir» puede llegar **después** del borrado y devolver la
+   * cookie a su sitio. El panel deja varias en vuelo: Next prefetcha los enlaces del menú.
+   *
+   * Reproducido: 2 fallos en 140 pasadas del caso T-208-3, con la cookie de sesión presente
+   * después de salir, `/admin` respondiendo 200 y el panel en pantalla. O sea que quien pulsa
+   * «Salir», ve la pantalla de acceso y se levanta de un ordenador compartido puede dejar la
+   * sesión viva.
+   *
+   * Así que se sube `password_version` antes de salir, que es el mecanismo de ADR-301: una
+   * cookie resucitada lleva el `pwdV` viejo y `isSessionStillValid` la rechaza en la siguiente
+   * petición. **El borrado sigue estando** — esto es lo que lo hace fiable, no lo que lo
+   * sustituye.
+   *
+   * Lo que cuesta está en ADR-910: salir cierra **todas** las sesiones de esa persona, también
+   * las de otros dispositivos.
+   *
+   * Y el `redirectTo` es de #211: sin él Auth.js vuelve a `/`, que es la landing pública, y quien
+   * acaba de salir del panel se queda mirando su propia web sin señal de que la sesión se cerró.
+   */
   async function salir(): Promise<void> {
     'use server';
 
+    await invalidateSessions(usuarioId);
     await signOut({ redirectTo: '/admin/login' });
   }
 

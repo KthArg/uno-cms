@@ -1375,3 +1375,23 @@ animación pretendía transmitir. En el código las dos cosas eran la misma clas
 **A cambio de qué.** De una regla más que recordar. Está escrita en la spec 15 §3 y junto a la
 fila que la motivó, porque una regla que solo vive en un ADR no la lee quien escribe la próxima
 pantalla.
+
+---
+
+## ADR-910 — Salir cierra **todas** las sesiones de esa persona (resuelve #249)
+
+**Contexto.** «Salir» borraba la cookie de sesión, y eso no basta. Cada lectura de sesión de Auth.js la **reemite**: está en `lib/actions/session.js` de `@auth/core`, que reencoda el JWT y lo vuelve a poner en cada petición, sin throttling. Comprobado con una sonda: un `GET /admin` responde con `set-cookie` y un valor nuevo.
+
+Así que cualquier petición en vuelo al pulsar «Salir» puede llegar **después** del borrado y devolver la cookie a su sitio. El panel deja varias en vuelo, porque Next prefetcha los enlaces del menú.
+
+No es teórico: el caso T-208-3 falló **2 veces de 140** con la cookie presente tras salir, `/admin` respondiendo 200 y el panel en pantalla. Lo que eso significa fuera de la suite es que alguien pulsa «Salir», ve la pantalla de acceso, se levanta de un ordenador compartido — y la sesión sigue viva.
+
+**Decisión.** Salir sube `password_version`, que es el mecanismo de ADR-301. Una cookie resucitada lleva el `pwdV` viejo y `isSessionStillValid` la rechaza en la petición siguiente.
+
+**El borrado de la cookie sigue estando.** Esto no lo sustituye: lo hace fiable. Sin el borrado, cerrar sesión dejaría de funcionar en el caso normal; sin esto, funciona el 98 % de las veces, que en una puerta es no funcionar.
+
+**A cambio de qué.** De que salir en un dispositivo cierre la sesión **en todos**. Es la consecuencia real y no se puede acotar: con sesión en JWT y sin tabla de sesiones (ADR-004), el único contador que existe es por usuario, no por sesión.
+
+Se acepta, y no solo por resignación: en un CMS que se usa desde ordenadores compartidos, «salir cierra todo» es la lectura que no sorprende a nadie por el lado peligroso. Sorprende por el lado inofensivo — volver a entrar en el otro dispositivo.
+
+**Qué lo revertiría.** Que haga falta distinguir sesiones: un claim `jti` por sesión y una lista de las revocadas. Eso es una tabla nueva y un trabajo periódico de poda, y son muchas piezas para una asimetría que hoy no molesta a nadie.

@@ -70,6 +70,51 @@ test('T-208-2 y T-208-3: al salir se cierra la sesión, y la cookie deja de vale
 });
 
 /**
+ * T-249-1: **una cookie de sesión resucitada no sirve** (issue #249, ADR-910).
+ *
+ * ## Por qué hace falta, y por qué así
+ *
+ * Borrar la cookie al salir **no basta**. Cada lectura de sesión de Auth.js la reemite —está en
+ * `lib/actions/session.js` de `@auth/core`, sin throttling, y comprobado con una sonda: un
+ * `GET /admin` devuelve `set-cookie` con un valor nuevo—. Así que cualquier petición en vuelo al
+ * pulsar «Salir» puede llegar después del borrado y devolver la cookie a su sitio. El panel deja
+ * varias en vuelo: Next prefetcha los enlaces del menú.
+ *
+ * Eso hacía fallar a T-208-3 **2 veces de 140**, y no era un flake del test: en las dos, la
+ * cookie estaba presente después de salir, `/admin` respondía 200 y el panel se pintaba.
+ *
+ * **La carrera no se reproduce a voluntad, así que este caso no la reproduce: reconstruye su
+ * resultado.** Se guarda la cookie de antes de salir y se vuelve a poner después, que es
+ * exactamente lo que consigue una petición que llega tarde. Si la sesión solo dependiera de la
+ * cookie, esto entraría en el panel.
+ *
+ * Un caso que esperara a que la carrera ocurriera sola tardaría cincuenta pasadas en decir algo y
+ * fallaría en CI una vez al mes. Este falla siempre que el arreglo no esté.
+ */
+test('T-249-1: volver a poner la cookie de sesión después de salir no devuelve el panel', async ({
+  page,
+}) => {
+  await crearYEntrar(page, { email: 'panel-resucitar@ejemplo.com', role: 'editor' });
+
+  const sesion = (await page.context().cookies()).find((c) => c.name === 'authjs.session-token');
+  expect(
+    sesion,
+    'no se encontró la cookie de sesión: el resto del caso no probaría nada'
+  ).toBeDefined();
+
+  await page.getByRole('button', { name: 'Salir' }).click();
+  await expect(page).toHaveURL(/\/admin\/login/);
+
+  // La resurrección, a mano. Es lo que hace una respuesta que se cruzó con la salida.
+  await page.context().addCookies([sesion!]);
+
+  await page.goto('/admin');
+
+  await expect(page).toHaveURL(/\/admin\/login/);
+  await expect(page.getByRole('heading', { name: 'Contenido', level: 1 })).toHaveCount(0);
+});
+
+/**
  * T-233-1: **el menú marca la sección en la que estás, también al navegar** (issue #234).
  *
  * ## Por qué esto tiene que ser e2e

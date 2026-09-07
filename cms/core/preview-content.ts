@@ -121,7 +121,12 @@ export async function previewContentConObjetivo(key: string): Promise<ContenidoD
 
   // La posición se busca por la clave del elemento, que `readCollectionForPreview` conserva en
   // el orden de la lista: es el mismo índice que verá el componente.
-  const claves = await collectionKeysInOrder(coleccion as CollectionKey);
+  //
+  // **Se le pasa `key`**, y de eso dependía #246: sin ello, esta lista traía también los
+  // elementos sin publicar —que la que se pinta deja fuera— y cada uno anterior corría el índice
+  // una posición. El resultado era el borrador escrito en el hueco de al lado: o sustituyendo al
+  // vecino en silencio, o creciendo la lista y enseñando el elemento dos veces.
+  const claves = await collectionKeysInOrder(coleccion as CollectionKey, key);
   const indice = claves.indexOf(key);
 
   // Si no está —lo borraron entre emitir el token y abrir la vista previa— no hay dónde aplicar
