@@ -504,6 +504,17 @@ KV_REST_API_URL=/TOKEN=  # opcional (rate limit distribuido); sin esto, fallback
 - Confirmaciones destructivas con texto explícito; historial con "Restaurar" que lleva a borrador, nunca publica directo.
 - `docs/SETUP.md`: guía con capturas para desplegar con el Deploy Button de Vercel (fork → botón → agregar integraciones Neon y Blob → definir 3 secretos → abrir `/setup`). Meta: 15 minutos sin tocar una terminal.
 
+> **Enmienda — ADR-920 (issue #157).** «Con capturas» se retira: la guía se queda **en texto**.
+>
+> Se escribió pensando en que una imagen se reconoce más rápido que un párrafo, y sigue siendo
+> verdad. Lo que pesa más es que una captura de una interfaz ajena —Vercel, Neon, la consola de
+> Google— **caduca sin avisar**: el botón cambia de sitio, la captura sigue enseñando el de antes,
+> y quien la mira busca algo que ya no está. Una guía con capturas viejas es peor que una sin
+> ellas, porque la de texto envejece diciendo la verdad a medias y la otra miente con seguridad.
+>
+> La meta de esta línea —quince minutos sin tocar una terminal— **no cambia** y la sostiene el
+> texto de `docs/SETUP.md`, que describe cada pantalla y cada campo por su nombre.
+
 ---
 
 ## 10. Fuera de alcance del MVP (backlog priorizado)
