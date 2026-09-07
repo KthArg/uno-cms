@@ -1,4 +1,5 @@
 import 'server-only';
+import { SETTINGS_SCHEMAS } from './esquemas-de-ajustes';
 
 /**
  * `defineConfig` y `s.*`: el contrato del desarrollador (SPEC §5.1).
@@ -452,6 +453,31 @@ export function defineConfig<
           `Campos disponibles: ${Object.keys(definition.schema.fields).join(', ') || '(ninguno)'}.`
       );
     }
+  }
+
+  /**
+   * El nombre del sitio se valida **con el esquema que lo guarda** (issue #243, ADR-930).
+   *
+   * `SETTINGS_SCHEMAS.site` exige `siteName` no vacío y de 120 caracteres como mucho. Ese
+   * esquema gobierna lo que se guarda desde la pantalla de ajustes — pero el valor por defecto,
+   * el que se usa mientras nadie ha guardado nada, sale de aquí y no pasaba por él. La misma
+   * cadena estaba prohibida por un camino y permitida por el otro.
+   *
+   * Se comprueba aquí, y no al leer los ajustes, porque **aquí es donde está el error**: en
+   * `cms.config.ts`, del proyecto que monta el CMS sobre su landing. Un fallo al leer aparecería
+   * en una página cualquiera, lejos de la línea que hay que cambiar.
+   *
+   * Se valida solo el campo, no el objeto entero: lo que `defineConfig` aporta a los ajustes de
+   * `site` es `siteName` y nada más, y pasarle un objeto de mentira para validarlo completo
+   * comprobaría cosas que no vienen de aquí.
+   */
+  const nombre = SETTINGS_SCHEMAS.site.shape.siteName.safeParse(input.siteName);
+  if (!nombre.success) {
+    throw new ConfigError(
+      `siteName: ${nombre.error.issues[0]?.message ?? 'no es válido'}. ` +
+        'Es el nombre del sitio y lo exige el mismo esquema que valida la pantalla de ajustes ' +
+        `(${SETTINGS_SCHEMAS.site.shape.siteName.description ?? 'texto de 1 a 120 caracteres'}).`
+    );
   }
 
   // Singletons y colecciones comparten el espacio de claves de `content_entries` (SPEC §4).

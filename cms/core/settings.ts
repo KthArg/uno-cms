@@ -1,10 +1,8 @@
 import 'server-only';
 import { eq, sql } from 'drizzle-orm';
-import { z } from 'zod';
 import appConfig from '@/cms.config';
 import { unstable_cache } from 'next/cache';
 import { getDb, settings, users } from '@/cms/db';
-import { isSafeLink } from '@/cms/links';
 
 /**
  * Ajustes del sitio (SPEC §4, tabla `settings`).
@@ -29,33 +27,11 @@ import { isSafeLink } from '@/cms/links';
  * separación que hay entre `cms/core/content.ts` y `content.actions.ts`.
  */
 
-/** Esquemas de los ajustes editables. Ver ADR-410. */
-export const SETTINGS_SCHEMAS = {
-  site: z
-    .object({
-      siteName: z.string().trim().min(1).max(120),
-    })
-    .strict(),
-  seo: z
-    .object({
-      defaultTitle: z.string().trim().max(60).optional(),
-      defaultDescription: z.string().trim().max(160).optional(),
-      // Sin `url()` **y con `isSafeLink`**: aquí caben rutas internas (`/og.png`) además de
-      // absolutas, y el criterio de qué destino es aceptable ya está escrito en un sitio.
-      // Reutilizarlo evita que dos validaciones del mismo concepto acaben discrepando; no
-      // ponerlo dejaría entrar cualquier cadena, `javascript:` incluido, en una URL que sale
-      // en el HTML de todas las páginas.
-      ogImageUrl: z
-        .string()
-        .trim()
-        .max(2048)
-        .refine(isSafeLink, 'Usa una ruta interna o una dirección http(s).')
-        .optional(),
-    })
-    .strict(),
-} as const;
+import { SETTINGS_SCHEMAS, type SettingsKey } from './esquemas-de-ajustes';
 
-export type SettingsKey = keyof typeof SETTINGS_SCHEMAS;
+// Se reexportan porque `cms/actions/settings.actions.ts` los pide aquí desde M4, y mover ese
+// import no aportaría nada: este sigue siendo el módulo de los ajustes.
+export { SETTINGS_SCHEMAS, type SettingsKey };
 
 /**
  * El tag de caché de los ajustes.
