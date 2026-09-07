@@ -117,7 +117,10 @@ describeIntegration('ajustes y vista previa', () => {
     const site = await readSettings('site');
 
     expect(site['siteName']).toBe('Mi Empresa');
-    expect(errores).toHaveBeenCalled();
+    // Y el aviso dice **qué** campo falla: es el único caso en el que ahora salta, así que si
+    // no sirve para arreglar nada no sirve para nada. Solo el nombre, nunca el valor.
+    expect(errores).toHaveBeenCalledWith(expect.stringContaining('Campos: siteName'));
+    expect(errores).not.toHaveBeenCalledWith(expect.stringContaining('12345'));
     errores.mockRestore();
   });
 

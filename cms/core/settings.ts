@@ -93,7 +93,14 @@ export async function readSettings(key: SettingsKey): Promise<Record<string, unk
   // encaja con su esquema —porque el esquema cambió— no puede tumbar el sitio entero. Se cae
   // a los valores por defecto y se registra.
   if (!parsed.success) {
-    console.error(`[settings:${key}] el valor guardado no pasa su esquema; se usan los defectos`);
+    // Se dice **qué campos** fallan, y solo sus nombres. Hasta ahora el aviso no daba nada con
+    // lo que actuar, y ahora que solo salta cuando hay algo de verdad roto es cuando alguien va
+    // a leerlo esperando poder arreglarlo. Los nombres salen de `path`, que lo pone el esquema
+    // —no el valor guardado—, así que no puede arrastrar a los registros lo que escribió nadie.
+    const campos = parsed.error.issues.map((issue) => issue.path.join('.') || '(raíz)').join(', ');
+    console.error(
+      `[settings:${key}] el valor guardado no pasa su esquema; se usan los defectos. Campos: ${campos}`
+    );
     return defaultSettings(key);
   }
 
