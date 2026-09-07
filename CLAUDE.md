@@ -145,7 +145,7 @@ export AUTH_SECRET="...más de treinta y dos caracteres..."
 export APP_SECRET="...otro distinto, también largo..."
 ```
 
-### Dos trampas del entorno local
+### Tres trampas del entorno local
 
 **No construyas nada mientras el servidor de desarrollo está levantado.** `pnpm build` y
 `pnpm test:e2e` reescriben `.next` por debajo y el servidor empieza a dar
@@ -155,6 +155,12 @@ antes.
 
 **`.env.local` está en `.gitignore` y no se versiona.** Sin `BLOB_READ_WRITE_TOKEN`, las
 imágenes van al disco en `.uploads/` (ADR-700), que es lo normal en local.
+
+**`.next/cache` sobrevive a cambiar de base de datos, y miente.** `unstable_cache` escribe en
+disco, así que si arrancas `next start` varias veces sobre **el mismo build** apuntando a bases
+distintas, la segunda contesta con lo que cacheó la primera. Me costó un diagnóstico falso
+comprobando #248 a mano: un despliegue con la base recién creada decía estar configurado porque el
+arranque anterior, contra otra base, ya lo había cacheado. Entre pruebas así, `rm -rf .next/cache`.
 
 ---
 
