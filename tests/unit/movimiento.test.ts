@@ -55,6 +55,61 @@ const CUESTAN_MAQUETA = [
 const TRANSICIONES = [...CSS.matchAll(/transition-property:\s*([^;]+);/g)];
 const FOTOGRAMAS = [...CSS.matchAll(/@keyframes[^{]*\{([\s\S]*?)\n\}/g)];
 
+/**
+ * Si un bloque de CSS anima esa propiedad.
+ *
+ * ## El agujero que tenía, encontrado por mutación
+ *
+ * La primera versión exigía que la propiedad fuera seguida de `:` o `,`, y eso deja fuera **la
+ * última de una lista**, que va seguida de `;`. O sea que
+ * `transition-property: color, transform, height;` pasaba en verde — y añadir al final es
+ * exactamente cómo se añade una propiedad a una lista.
+ *
+ * Ahora el final se reconoce con `:`, `,`, `;`, `}` o el fin del texto, y los casos de abajo lo
+ * comprueban en las tres posiciones. Una guarda que solo mira el medio de la lista es peor que
+ * ninguna: da por revisado justo el sitio donde se escribe lo nuevo.
+ *
+ * ## Las barras dobladas
+ *
+ * Van **a propósito**: esto es un template literal, y en JavaScript `\s` dentro de uno se queda en
+ * la letra `s`. Con una sola barra la clase pasaría a ser «s, coma, punto y coma o llave» y
+ * dejaría de reconocer la sangría de las declaraciones del CSS — la guarda no encontraría nada y
+ * saldría verde igual. Ya pasó una vez.
+ *
+ * `propiedad` sale de `CUESTAN_MAQUETA`, una lista literal de este mismo fichero: no hay ningún
+ * dato de fuera que llegue al constructor. Escribir las diez expresiones a mano es justo lo que
+ * hace que la próxima propiedad se añada a la lista y se olvide en la expresión.
+ */
+function anima(bloque: string, propiedad: string): boolean {
+  // eslint-disable-next-line security/detect-non-literal-regexp
+  return new RegExp(`(?:^|[\\s,;{])${propiedad}\\s*(?=[:,;}]|$)`, 'm').test(bloque);
+}
+
+describe('la guarda de maqueta reconoce la propiedad en cualquier posición', () => {
+  // Verificación del propio detector, y no sobra: su versión anterior solo veía la primera y las
+  // centrales, así que la suite decía «ninguna anima height» sin haber mirado el sitio donde se
+  // escribe una propiedad nueva.
+  it.each([
+    ['al principio de la lista', 'height, color, transform'],
+    ['en el medio', 'color, height, transform'],
+    ['al final, que es la que se escapaba', 'color, transform, height'],
+    ['sola y terminada en punto y coma', 'height;'],
+    ['dentro de un bloque de fotogramas', '  from { height: 0; }'],
+  ])('lo caza %s', (_caso, bloque) => {
+    expect(anima(bloque, 'height')).toBe(true);
+  });
+
+  it('y no confunde `line-height` con `height`', () => {
+    // El límite de la izquierda es lo que lo impide: en `line-height`, delante de `height` hay un
+    // guion, que no cuenta como principio para esta expresión.
+    expect(anima('color, line-height', 'height')).toBe(false);
+  });
+
+  it('ni marca lo que sí se puede animar', () => {
+    expect(anima('color, background-color, opacity, transform', 'height')).toBe(false);
+  });
+});
+
 describe('T-237-3 — no se anima nada que cueste maqueta', () => {
   // Las dos familias se cuentan **por separado**, porque ya falló contarlas juntas: las
   // transiciones casaban, los fotogramas no, y la suma daba «más de cero» exactamente igual.
@@ -73,20 +128,7 @@ describe('T-237-3 — no se anima nada que cueste maqueta', () => {
 
   for (const propiedad of CUESTAN_MAQUETA) {
     it(`ninguna anima ${propiedad}`, () => {
-      /*
-       * `propiedad` recorre CUESTAN_MAQUETA, que es una lista literal de este mismo fichero: no
-       * hay ningún dato de fuera que pueda llegar al constructor. Escribir las diez expresiones a
-       * mano es justo lo que hace que la próxima propiedad se añada a la lista y se olvide en la
-       * expresión, y entonces la guarda deja de mirarla sin que nada falle.
-       */
-      const culpables = declaraciones.filter((bloque) =>
-        // Las barras van dobladas **a propósito**: esto es un template literal, y en JavaScript
-        // `\s` dentro de uno se queda en la letra `s`. Con una sola barra la clase pasaría a ser
-        // «s, coma, punto y coma o llave» y dejaría de reconocer la sangría de las declaraciones
-        // del CSS — o sea que la guarda no encontraría nada y saldría verde igual. Ya pasó.
-        // eslint-disable-next-line security/detect-non-literal-regexp
-        new RegExp(`(?:^|[\\s,;{])${propiedad}\\s*[:,]`, 'm').test(bloque)
-      );
+      const culpables = declaraciones.filter((bloque) => anima(bloque, propiedad));
 
       expect(
         culpables,
