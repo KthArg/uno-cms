@@ -1395,3 +1395,37 @@ No es teórico: el caso T-208-3 falló **2 veces de 140** con la cookie presente
 Se acepta, y no solo por resignación: en un CMS que se usa desde ordenadores compartidos, «salir cierra todo» es la lectura que no sorprende a nadie por el lado peligroso. Sorprende por el lado inofensivo — volver a entrar en el otro dispositivo.
 
 **Qué lo revertiría.** Que haga falta distinguir sesiones: un claim `jti` por sesión y una lista de las revocadas. Eso es una tabla nueva y un trabajo periódico de poda, y son muchas piezas para una asimetría que hoy no molesta a nadie.
+
+---
+
+## ADR-920 — La guía de despliegue se queda en texto, sin capturas (resuelve #157)
+
+**Contexto.** `SPEC.md` §9 pedía que `docs/SETUP.md` llevara capturas, con una meta detrás: quince minutos sin tocar una terminal. La guía está completa como texto y las imágenes nunca se hicieron, porque exigen desplegar de verdad y fotografiar cada pantalla.
+
+**Decisión.** No se hacen. La línea de §9 queda enmendada.
+
+**El motivo no es el coste de hacerlas, es el de mantenerlas.** Todas las pantallas que habría que fotografiar son **de otros**: Vercel, Neon, el almacén de Blob. Esas interfaces cambian sin avisarnos, y una captura desfasada no envejece como un texto desfasado: el texto dice «busca el botón de importar» y sigue orientando aunque haya cambiado de sitio; la captura enseña un botón que ya no existe y **manda a buscar lo que no está**. Miente con más seguridad que el texto.
+
+Y no hay forma de detectarlo: ninguna guarda de este repositorio puede saber que Vercel movió un botón.
+
+**A cambio de qué.** De que reconocer una pantalla sea más lento que verla. Se acepta porque la guía nombra cada campo y cada botón por su etiqueta, que es lo que se busca con los ojos en la pantalla de al lado.
+
+**Qué lo revertiría.** Que alguien se atasque en un paso concreto de la guía. Ahí la captura de **ese** paso vale su mantenimiento, y son una o dos, no las quince que pedía la línea original.
+
+---
+
+## ADR-921 — La web que vive fuera no convierte esto en multi-sitio (resuelve #176)
+
+**Contexto.** `SPEC.md` §0 dice: «No es headless multi-sitio: un despliegue = una landing = un CMS». ADR-701 dejó después que la web a la que alimenta el CMS **viva fuera** del despliegue, y #176 preguntó si eso contradice §0 — o si el producto que se quiere es, de hecho, headless multi-sitio.
+
+**Decisión.** **No lo es, y §0 se queda como está.** Lo que ADR-701 movió es _dónde se pinta_ la web, no _cuántas_ hay.
+
+La cuenta de §0 sigue intacta: un despliegue sigue sirviendo **un** conjunto de contenido, con **un** `cms.config.ts`, **una** base de datos y **un** equipo de personas. Que el HTML lo genere otro proyecto no añade un segundo sitio a este despliegue; lo que hace es separar el renderizado del contenido, que es una frontera distinta de la que §0 declara.
+
+Un CMS multi-sitio de verdad es otra cosa: varios espacios de contenido aislados dentro del mismo despliegue, con permisos por espacio y claves que no se pisan. Nada de eso existe aquí, y ADR-001 lo descartó con su motivo.
+
+**Y hay una consecuencia que ya está en el código, que es lo que hace verificable esta decisión:** con la web fuera, este despliegue deja de servir una web propia — `/` lleva al panel y el sitemap se queda vacío (spec 14, #248). Si esto fuera multi-sitio, la raíz tendría que elegir **cuál** de los sitios enseñar. No tiene que elegir porque no hay más que uno.
+
+**A cambio de qué.** De que quien quiera dos landings tenga que desplegar dos veces. Es lo que ADR-001 ya aceptaba, y el coste sigue siendo el mismo: dos despliegues, dos bases, dos paneles.
+
+**Qué lo revertiría.** Que haga falta un segundo espacio de contenido **dentro** del mismo despliegue. Eso sí rompe §0 y no se resuelve con un ADR: cambia el esquema, los permisos y las claves.
