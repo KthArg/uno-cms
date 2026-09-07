@@ -193,7 +193,7 @@ function BarraDeFormato({ editor }: { editor: Editor | null }) {
           // del mínimo de las guías. Los cazó el e2e de #220 al usar una sección con texto
           // enriquecido — con `hero`, que no lo tiene, esta barra no se pintaba y nadie la
           // medía nunca.
-          className={`inline-flex h-11 items-center rounded-xl px-3 text-sm font-medium transition ${ANILLO_DE_FOCO} ${
+          className={`inline-flex h-11 items-center rounded-xl px-3 text-sm font-medium pulsable ${ANILLO_DE_FOCO} ${
             editor.isActive(boton.activo)
               ? 'bg-accion text-sobre-accion'
               : 'bg-superficie-suave text-tinta-suave hover:bg-superficie hover:text-tinta'

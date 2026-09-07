@@ -261,7 +261,7 @@ export function UsersScreen({
                     onClick={() => {
                       setADesactivar(persona);
                     }}
-                    className={`inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm text-alarma transition hover:bg-alarma-fondo ${ANILLO_DE_FOCO_ALARMA}`}
+                    className={`inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm text-alarma pulsable hover:bg-alarma-fondo ${ANILLO_DE_FOCO_ALARMA}`}
                   >
                     <Icono de="cerrar" tamano={16} />
                     Quitar acceso
@@ -336,7 +336,7 @@ function EnlaceDeInvitacion({ enlace }: { enlace: string }) {
               setCopiado(true);
             });
           }}
-          className={`inline-flex h-11 items-center gap-2 rounded-xl bg-publicado-tinta px-4 text-sm font-medium text-sobre-publicado transition hover:bg-publicado-tinta ${ANILLO_DE_FOCO}`}
+          className={`inline-flex h-11 items-center gap-2 rounded-xl bg-publicado-tinta px-4 text-sm font-medium text-sobre-publicado pulsable hover:bg-publicado-tinta ${ANILLO_DE_FOCO}`}
         >
           <Icono de={copiado ? 'publicado' : 'anadir'} tamano={16} />
           {copiado ? 'Copiado' : 'Copiar'}

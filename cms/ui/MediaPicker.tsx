@@ -151,14 +151,14 @@ export function MediaPicker({
       role="dialog"
       aria-modal="true"
       aria-label="Elegir una imagen"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-tinta/40 p-4"
+      className="se-desvanece fixed inset-0 z-50 flex items-center justify-center bg-tinta/40 p-4"
       onKeyDown={(evento) => {
         // `Escape` cierra: es lo que espera cualquiera que abra algo encima de lo que estaba
         // haciendo, y sin ello quien navega con teclado se queda atrapado.
         if (evento.key === 'Escape') onCerrar();
       }}
     >
-      <div className="lamina-tarjeta max-h-[80vh] w-full max-w-3xl overflow-auto rounded-2xl p-6">
+      <div className="lamina-tarjeta aparece max-h-[80vh] w-full max-w-3xl overflow-auto rounded-2xl p-6">
         <div className="flex items-start justify-between gap-4">
           <h2 className="text-lg font-semibold text-tinta">Elegir una imagen</h2>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" className={BOTON_ICONO}>

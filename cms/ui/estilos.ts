@@ -21,6 +21,22 @@
  */
 
 /**
+ * El movimiento vive aquí por el mismo motivo que el resto (issue #239).
+ *
+ * `pulsable` y `transicion` están definidas en `app/globals.css`. La diferencia entre las dos no
+ * es de intensidad, es de qué se está tocando:
+ *
+ * - **`pulsable`** es lo que se pulsa una vez y hace algo: se hunde un 2 % mientras el dedo o el
+ *   botón del ratón está abajo. Ese hundimiento es la confirmación de que el toque se registró,
+ *   que en un móvil llega antes que cualquier respuesta del servidor.
+ * - **`transicion`** es lo que cambia de aspecto sin ser un disparador: los campos. Un campo que
+ *   se encogiera al escribir dentro sería ruido, no respuesta.
+ *
+ * Ninguna de las dos anima nada que obligue a recalcular la maqueta, y hay un caso que lo
+ * comprueba leyendo este fichero — porque la tentación al añadir la próxima es animar un alto.
+ */
+
+/**
  * El foco visible.
  *
  * Sobre el vidrio el anillo por defecto del navegador se pierde entre el desenfoque y el filo, así
@@ -41,7 +57,7 @@ export const ANILLO_DE_FOCO_ALARMA =
  * plataformas móviles y lo que hoy incumplen once de catorce zonas pulsables del editor (spec 10
  * §5). Va en la base y no en cada botón para que la próxima no nazca ya incumpliéndolo.
  */
-const BOTON_BASE = `inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${ANILLO_DE_FOCO}`;
+const BOTON_BASE = `inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium pulsable disabled:cursor-not-allowed disabled:opacity-60 ${ANILLO_DE_FOCO}`;
 
 /** La acción principal de una pantalla. Sólida, nunca de vidrio: tiene que leerse a la primera. */
 export const BOTON_PRINCIPAL = `${BOTON_BASE} bg-accion text-sobre-accion hover:bg-accion-hover`;
@@ -71,7 +87,7 @@ export const BOTON_SUAVE = `${BOTON_BASE} border border-linea bg-superficie text
 export const BOTON_LLANO = `${BOTON_BASE} text-tinta-suave hover:bg-superficie-suave hover:text-tinta`;
 
 /** Lo destructivo. */
-export const BOTON_ALARMA = `inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-alarma-accion px-4 text-sm font-medium text-sobre-alarma transition hover:bg-alarma-accion-hover disabled:cursor-not-allowed disabled:opacity-60 ${ANILLO_DE_FOCO_ALARMA}`;
+export const BOTON_ALARMA = `inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-alarma-accion px-4 text-sm font-medium text-sobre-alarma pulsable hover:bg-alarma-accion-hover disabled:cursor-not-allowed disabled:opacity-60 ${ANILLO_DE_FOCO_ALARMA}`;
 
 /**
  * Un control pequeño y cuadrado: mover en una lista, cerrar un diálogo.
@@ -79,7 +95,7 @@ export const BOTON_ALARMA = `inline-flex h-11 items-center justify-center gap-2 
  * Sigue midiendo 44 píxeles. Un icono de 20 dentro de una caja de 44 parece desproporcionado en
  * una maqueta y es exactamente lo que hace que se pueda pulsar con el pulgar.
  */
-export const BOTON_ICONO = `inline-flex size-11 items-center justify-center rounded-xl text-tinta-suave transition hover:bg-superficie-suave hover:text-tinta disabled:cursor-not-allowed disabled:opacity-40 ${ANILLO_DE_FOCO}`;
+export const BOTON_ICONO = `inline-flex size-11 items-center justify-center rounded-xl text-tinta-suave pulsable hover:bg-superficie-suave hover:text-tinta disabled:cursor-not-allowed disabled:opacity-40 ${ANILLO_DE_FOCO}`;
 
 /**
  * Un campo de formulario.
@@ -93,7 +109,7 @@ export const BOTON_ICONO = `inline-flex size-11 items-center justify-center roun
  * mínimo de las guías de accesibilidad y no cumplirlo — el padding solo no basta porque depende
  * de la altura de línea de la letra, que cambió al cambiar la fuente.
  */
-export const CAMPO = `min-h-11 w-full rounded-xl border border-linea bg-superficie px-3 py-2.5 text-tinta transition placeholder:text-tinta-tenue hover:border-linea-fuerte focus:border-acento ${ANILLO_DE_FOCO}`;
+export const CAMPO = `min-h-11 w-full rounded-xl border border-linea bg-superficie px-3 py-2.5 text-tinta transicion placeholder:text-tinta-tenue hover:border-linea-fuerte focus:border-acento ${ANILLO_DE_FOCO}`;
 
 /** Un campo que además crece: el textarea y el editor de texto rico. */
 export const CAMPO_ALTO = `${CAMPO} min-h-28`;

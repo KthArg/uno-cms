@@ -197,12 +197,12 @@ function ConfirmarBorrado({
       role="alertdialog"
       aria-modal="true"
       aria-label={`Eliminar ${imagen.filename}`}
-      className="velo fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="velo se-desvanece fixed inset-0 z-50 flex items-center justify-center p-4"
       onKeyDown={(evento) => {
         if (evento.key === 'Escape') onCancelar();
       }}
     >
-      <div className="lamina-tarjeta w-full max-w-md rounded-2xl p-6">
+      <div className="lamina-tarjeta aparece w-full max-w-md rounded-2xl p-6">
         <h2 className="flex items-start gap-2.5 text-lg font-semibold text-tinta">
           <Icono de="alerta" etiqueta="Atención" className="mt-0.5 text-alarma" />
           ¿Eliminar «{imagen.filename}»?

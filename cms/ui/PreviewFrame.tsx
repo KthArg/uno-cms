@@ -472,7 +472,7 @@ export function PreviewFrame({
               className={
                 tamano === valor
                   ? 'rounded-md bg-accion px-2.5 py-1 text-xs font-medium text-sobre-accion'
-                  : 'rounded-md px-2.5 py-1 text-xs font-medium text-tinta-suave transition hover:bg-superficie-suave'
+                  : 'rounded-md px-2.5 py-1 text-xs font-medium text-tinta-suave pulsable hover:bg-superficie-suave'
               }
             >
               {nombre}

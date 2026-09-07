@@ -40,7 +40,7 @@ export function SectionCard({ nombre, href, estado, elementos }: SectionCardProp
   return (
     <Link
       href={href}
-      className={`lamina-tarjeta group flex h-full flex-col gap-4 rounded-2xl p-5 transition hover:border-acento ${ANILLO_DE_FOCO}`}
+      className={`lamina-tarjeta group flex h-full flex-col gap-4 rounded-2xl p-5 pulsable hover:border-acento ${ANILLO_DE_FOCO}`}
     >
       {/* **El título tiene la línea entera, y la etiqueta va debajo.** Estaban en la misma fila
           y con la etiqueta al lado —que mide lo que mide su texto— «Sobre nosotros» se partía en
@@ -66,7 +66,7 @@ export function SectionCard({ nombre, href, estado, elementos }: SectionCardProp
             decir dos veces lo mismo. */}
         <span
           aria-hidden="true"
-          className="text-tinta-tenue transition group-hover:translate-x-0.5 group-hover:text-acento"
+          className="text-tinta-tenue transicion group-hover:translate-x-0.5 group-hover:text-acento"
         >
           <Icono de="volver" tamano={18} className="rotate-180" />
         </span>
