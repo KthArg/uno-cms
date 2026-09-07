@@ -21,7 +21,36 @@ export default defineConfig({
   // Un `.only` olvidado no debe colar un PR con la mitad de la suite sin ejecutar.
   forbidOnly: Boolean(process.env['CI']),
   retries: process.env['CI'] ? 1 : 0,
-  workers: process.env['CI'] ? 1 : undefined,
+  /**
+   * **Un solo worker, siempre** — no solo en CI (issue #227).
+   *
+   * Esta suite comparte **una base de datos y un sitio** entre todos sus tests, porque eso es lo
+   * que es el producto: un CMS acoplado 1:1 a una landing. Repartir los ficheros entre workers
+   * pone a varios editores a la vez sobre el mismo sitio, y eso no es "más exigente": es
+   * **inválido**. Lo que encuentra no son fallos del producto, son colisiones que ningún uso real
+   * provoca.
+   *
+   * Estaba en `undefined` fuera de CI, y la asimetría se defendía diciendo que la ejecución local
+   * era la estricta. #227 la puso a prueba y el resultado fue el contrario:
+   *
+   * - `historial.spec.ts` T-E-3 fallaba **3 de 3** en paralelo sobre `main` limpio, y el motivo
+   *   está medido sobre `audit_log`: el caso que pulsa «Publicar todo» —una operación **global**,
+   *   que publica las entradas con cambios de todo el sitio— se colaba entre dos casos del
+   *   historial y le publicaba su entrada. Aislar por entrada no protege de eso: `historial` ya
+   *   tenía la suya propia y aun así acabó publicada.
+   * - Y no era la única. En esas mismas tres pasadas cayeron además `landing.spec.ts` y el cierre
+   *   de sesión de `panel-shell.spec.ts`, cada uno por su cuenta.
+   *
+   * Sacar del paralelo solo «Publicar todo» se probó y **no basta**: con eso T-E-3 pasó ocho
+   * pasadas seguidas, y entonces apareció un elemento duplicado en la vista previa (#246) que la
+   * publicación global venía tapando. Cada arreglo destapa la siguiente colisión, porque el
+   * problema no es ningún test: es repartir un sitio entre cuatro navegadores.
+   *
+   * **Lo que cuesta:** la suite pasa de ~1 min a ~2 min en local. Lo que se gana es que local y
+   * CI ejecuten lo mismo, que es la asimetría que este fichero ya evita a mano en otras tres
+   * variables de entorno unas líneas más abajo.
+   */
+  workers: 1,
   reporter: process.env['CI'] ? [['github'], ['html', { open: 'never' }]] : [['list']],
   use: {
     baseURL,
