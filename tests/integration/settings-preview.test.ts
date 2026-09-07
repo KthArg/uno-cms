@@ -92,11 +92,19 @@ describeIntegration('ajustes y vista previa', () => {
     expect(filas[0]!.value).toMatchObject({ siteName: 'Segundo' });
   });
 
-  it('readSettings cae a los valores por defecto si no hay fila', async () => {
+  it('readSettings cae a los valores por defecto si no hay fila, y sin quejarse', async () => {
     // Una instalación recién desplegada no tiene ajustes guardados y tiene que renderizar.
+    const errores = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
     const site = await readSettings('site');
 
     expect(site['siteName']).toBe('Mi Empresa');
+    // El valor devuelto ya era el correcto antes de #241, así que este caso pasaba entrando
+    // por la rama de "lo guardado no encaja": validaba `{}` contra un esquema que exige
+    // `siteName`. El aviso es la mitad que de verdad distingue "no hay nada guardado" de
+    // "hay algo guardado y está roto", y sin comprobarlo el caso no probaba lo que dice.
+    expect(errores).not.toHaveBeenCalled();
+    errores.mockRestore();
   });
 
   it('readSettings no se cae si lo guardado ya no encaja con su esquema', async () => {
