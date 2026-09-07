@@ -1321,3 +1321,69 @@ Lo que lo hace defendible y no un capricho: **el ámbar significa el estado, no 
 - Las 21 parejas opacas y las dos pilas de vidrio siguen pasando en los dos modos, con el peor caso del claro en 4,68:1.
 
 **Qué lo revertiría.** Que el panel gane un segundo estado que también pida acción. Ahí el celeste y el ámbar tendrían que convivir con un tercero, y la lectura de un vistazo —que es lo que ADR-802 protegía— se acabaría igual.
+
+---
+
+## ADR-900 — Se acepta un proveedor externo, con la condición de que sea opcional y no cree cuentas (acota ADR-004, resuelve #233)
+
+**Contexto.** ADR-004 se llama «sin proveedor externo» y su motivo es de una línea: «un CMS auto-hospedado por un principiante no puede depender de configurar OAuth de Google». La petición de #233 es justamente añadir eso.
+
+**Lo primero es leer bien el motivo.** No dice que un proveedor externo esté mal: dice que no se puede **depender** de él. Todo el peso de ADR-004 está en esa palabra, y una versión opcional no la toca. Quien despliega esto sin saber qué es un cliente de OAuth tiene el mismo producto que tenía.
+
+**Decisión.** Google se añade con tres condiciones, y las tres son la decisión, no matices de ella:
+
+1. **Es opcional y se apaga entero.** Sin `AUTH_GOOGLE_ID` **y** `AUTH_GOOGLE_SECRET`, el proveedor no entra en la configuración de Auth.js. No es que el botón no se pinte: es que la ruta no existe. Con una sola de las dos, apagado igual — media configuración que funciona a medias falla al pulsar el botón y no al arrancar, que es la peor forma de fallar.
+2. **El formulario de correo y contraseña no se retira nunca.** Es el único camino que no depende de un tercero. Retirarlo convertiría una caída de Google en quedarse fuera del propio panel.
+3. **Google autentica, no autoriza.** El correo tiene que corresponder a una fila de `users` que ya exista y esté activa. No se crea nada.
+
+La tercera es la que no es negociable. `SPEC.md` §7.3 promete que nunca hay credenciales por defecto y que las cuentas nacen por invitación con su rol puesto por una persona (ADR-412). Un proveedor que creara la cuenta al entrar rompería las dos a la vez: bastaría tener una cuenta de Google para entrar al panel de cualquiera.
+
+**Consecuencias.**
+
+- **Hay dos caminos hasta la misma sesión**, y por eso la identidad se toma siempre de `users` y nunca del perfil de Google (spec 13 §4). El claim `pwdV` de ADR-301 sigue siendo el mismo, así que cambiar la contraseña o desactivar la cuenta echa igual a quien entró por Google.
+- **Cero migraciones.** La sesión es JWT y no hay adaptador, así que no se persiste nada del proveedor y no hace falta tabla `accounts`.
+- **Un equipo con Workspace no puede darse de alta solo.** Se acepta: el panel de personas ya existe y es donde se decide quién entra.
+- **`SPEC.md` queda enmendado**, en ADR-004 y en la tabla de §7.1, que gana una fila. Dejar el código contradiciendo la spec en silencio es exactamente lo que este repositorio no hace.
+
+**Qué lo revertiría.** Que alguien necesite dar de alta a un equipo entero por dominio. Eso es otra decisión —y bastante más peligrosa— y tendría su propio ADR, no una excepción metida en este.
+
+---
+
+## ADR-901 — El bloqueo por intentos fallidos no alcanza al acceso con Google (resuelve #233)
+
+**Contexto.** `SPEC.md` §7.1 bloquea una cuenta a los cinco fallos consecutivos, con espera exponencial. Al añadir una segunda puerta hay que decidir si esa puerta también se cierra, y la respuesta cómoda —«bloqueada es bloqueada»— es la equivocada.
+
+**Decisión.** **No.** Una cuenta con el bloqueo vigente puede entrar con Google.
+
+El motivo es lo que el bloqueo protege: **adivinar una contraseña a base de intentos**. Entrar con Google no usa la contraseña, así que el bloqueo no defiende nada aquí — solo estorba. Y estorba justo a quien menos conviene: quien acaba de fallar cinco veces es, casi siempre, quien no se acuerda de su contraseña, que es exactamente el caso en que la otra puerta sirve para algo.
+
+Dicho al revés, que es como se ve que la decisión es correcta: si el bloqueo cerrara también esta puerta, **cualquiera podría dejar a otro fuera del panel entero** tecleando cinco contraseñas malas con su correo. Hoy eso solo le quita el camino de la contraseña.
+
+**Y lo que sí sigue cerrado**, para que no se confunda con esto: la cuenta **desactivada** (ADR-409) no entra por ninguna de las dos puertas. El bloqueo se levanta solo con el tiempo; una desactivación es una decisión de una persona y no se levanta sola.
+
+**Consecuencias.**
+
+- **El límite por IP+correo tampoco se aplica** al acceso con Google, por lo mismo: cuenta intentos de contraseña. Lo que limita los intentos contra Google es Google.
+- **La auditoría sigue distinguiendo.** `login.locked` se sigue registrando en el camino de la contraseña; el de Google escribe sus propios motivos. Un administrador que lea la tabla ve las dos cosas.
+- **Queda una asimetría que hay que saber**: con Google configurado, bloquear una cuenta ya no la deja incomunicada. Es la consecuencia buscada, no un efecto lateral.
+
+**Qué lo revertiría.** Que aparezca un bloqueo administrativo —«congela esta cuenta ahora»— distinto del automático. Ese sí tendría que cerrar las dos puertas, y entonces la decisión sería cuál de los dos bloqueos es cuál.
+
+---
+
+## ADR-902 — El rechazo de Google sí dice su motivo, y por qué eso no rompe la regla de enumeración (resuelve #233)
+
+**Contexto.** `SPEC.md` §7.1 exige un mensaje único para todos los fallos de acceso, y en este repositorio se cumple hasta las últimas consecuencias: `authenticate.ts` verifica un hash señuelo contra un correo inexistente para que ni el **tiempo** de respuesta distinga. La pregunta es si el rechazo de Google tiene que decir «revisa el correo y la contraseña» como todo lo demás.
+
+**Decisión.** No. Quien intenta entrar con una cuenta de Google que no tiene acceso lee que **esa cuenta no puede entrar aquí**.
+
+**El motivo, que es lo que importa.** La regla de §7.1 existe porque el formulario de contraseña acepta **cualquier correo**: sin mensaje único, es un comprobador de cuentas ajenas, y se puede recorrer una lista entera. Para llegar al mensaje de Google hay que haber completado antes una autenticación **en Google**, así que el único correo que se puede poner a prueba es uno del que ya se tienen las llaves. Preguntar «¿tengo yo acceso a este panel?» sobre la propia cuenta no es enumerar a nadie.
+
+Y a cambio se gana lo que el mensaje único cuesta: quien es de la casa y usó el botón equivocado —o el correo personal en vez del del trabajo— entiende qué ha pasado a la primera. Con el mensaje genérico se quedaría mirando un formulario de contraseña que no es su problema.
+
+**Consecuencias.**
+
+- **La pantalla de acceso deja de tener un solo mensaje de error** y pasa a distinguir dos. El resto de errores —incluido el de credenciales— siguen con el texto único de siempre; el caso T-233-17 amarra las dos mitades para que nadie «unifique» esto por limpieza.
+- **La auditoría distingue tres motivos** (`correo-sin-verificar`, `cuenta-inexistente`, `cuenta-desactivada`) y la pantalla solo uno. Es a propósito: quien lee `audit_log` es el administrador, que ya puede consultar `users`. Es la misma restricción que ya anotaba `authenticate.ts` sobre `login.locked`.
+
+**Qué lo revertiría.** Que algún día se pudiera llegar a ese mensaje sin autenticarse en Google — por ejemplo, si se aceptara un proveedor que permita afirmar un correo sin verificarlo. Ahí la premisa de este ADR se cae entera, y con ella la decisión.

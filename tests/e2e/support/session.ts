@@ -21,7 +21,7 @@ export async function crearYEntrar(
   await page.goto('/admin/login');
   await page.getByLabel('Correo').fill(opciones.email);
   await page.getByLabel('Contraseña').fill(CONTRASENA);
-  await page.getByRole('button', { name: /entrar/i }).click();
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await page.waitForURL(/\/admin(?!\/login)/);
 }
 

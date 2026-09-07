@@ -69,7 +69,29 @@ export default defineConfig({
          *
          * Los tests no deben tocar nada que exista fuera de su máquina.
          */
-        env: { PREVIEW_ORIGINS: '', PREVIEW_URL: '', BLOB_READ_WRITE_TOKEN: '' },
+        /**
+         * Y Google **encendido**, con credenciales de mentira (issue #233).
+         *
+         * Al revés que las tres de arriba: aquí la suite enciende algo en vez de apagarlo,
+         * porque el caso T-233-18 no se puede comprobar de otra forma — que la CSP de §7.2 no
+         * bloquee el viaje a Google solo se ve en un navegador de verdad.
+         *
+         * **No hace falta que las credenciales sirvan.** Lo que se comprueba es que el
+         * navegador llegue a pedirle algo a `accounts.google.com` con nuestro identificador
+         * dentro; la petición se intercepta antes de salir, así que la suite no habla con
+         * Google ni depende de la red.
+         *
+         * El precio, y conviene saberlo: con esto puesto, el estado **sin** Google no lo
+         * ejercita ningún test de e2e. Está en T-233-2 y T-233-15, que sí pueden tener las dos
+         * ramas.
+         */
+        env: {
+          PREVIEW_ORIGINS: '',
+          PREVIEW_URL: '',
+          BLOB_READ_WRITE_TOKEN: '',
+          AUTH_GOOGLE_ID: 'e2e.apps.googleusercontent.com',
+          AUTH_GOOGLE_SECRET: 'un-secreto-de-mentira-para-la-suite',
+        },
         // Nunca reutilizar un servidor ajeno: daría verde contra otra aplicación.
         reuseExistingServer: false,
         timeout: 180_000,
