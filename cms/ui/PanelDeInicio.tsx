@@ -216,7 +216,7 @@ export function PanelDeInicio({
           al toque aquí la da el fondo, que cambia en la fila entera.
 
           La regla, para la próxima: **la escala es para lo que tiene un tamaño de botón o de
-          tarjeta**; lo que cruza la pantalla responde con color (spec 13 §3).
+          tarjeta**; lo que cruza la pantalla responde con color (spec 15 §3).
         */}
           {secciones.map((seccion) => (
             <li key={seccion.key} className="border-t border-linea">

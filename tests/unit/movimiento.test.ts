@@ -5,7 +5,7 @@ import { REPO_ROOT } from '../support/module-boundary';
 import { ficherosDelPanel } from '../support/panel';
 
 /**
- * Las guardas del movimiento (spec 13, issue #239).
+ * Las guardas del movimiento (spec 15, issue #239).
  *
  * ## Por qué hace falta vigilar esto y no basta con haberlo escrito bien
  *
@@ -91,7 +91,7 @@ describe('T-237-3 — no se anima nada que cueste maqueta', () => {
       expect(
         culpables,
         `anima ${propiedad}, que obliga a rehacer la maqueta en cada fotograma. ` +
-          'Se anima transform y opacity; el motivo está en docs/specs/13-movimiento.md §2'
+          'Se anima transform y opacity; el motivo está en docs/specs/15-movimiento.md §2'
       ).toEqual([]);
     });
   }

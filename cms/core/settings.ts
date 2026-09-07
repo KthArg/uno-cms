@@ -78,13 +78,29 @@ export async function readSettings(key: SettingsKey): Promise<Record<string, unk
     .where(eq(settings.key, key))
     .limit(1);
 
-  const parsed = SETTINGS_SCHEMAS[key].safeParse(row?.value ?? {});
+  // Sin fila no hay valor guardado, y eso no es un error: es una instalación que todavía no
+  // ha tocado este ajuste. Se separa del caso de abajo porque antes no se separaba —se
+  // validaba `{}` contra el esquema, `site` exige `siteName`, y el aviso de "el valor guardado
+  // no pasa su esquema" salía en cada render de un despliegue recién montado, hablando de un
+  // valor que no existía. `seo` lo disimulaba por tener todos sus campos opcionales.
+  if (row === undefined) return defaultSettings(key);
+
+  // `value` es `notNull` en la tabla (`cms/db/schema.ts`), así que si hay fila hay valor: lo
+  // que llegue aquí y no encaje es de verdad un ajuste guardado que dejó de encajar.
+  const parsed = SETTINGS_SCHEMAS[key].safeParse(row.value);
 
   // Mismo criterio que ADR-404 en la lectura de contenido: un ajuste guardado que ya no
   // encaja con su esquema —porque el esquema cambió— no puede tumbar el sitio entero. Se cae
   // a los valores por defecto y se registra.
   if (!parsed.success) {
-    console.error(`[settings:${key}] el valor guardado no pasa su esquema; se usan los defectos`);
+    // Se dice **qué campos** fallan, y solo sus nombres. Hasta ahora el aviso no daba nada con
+    // lo que actuar, y ahora que solo salta cuando hay algo de verdad roto es cuando alguien va
+    // a leerlo esperando poder arreglarlo. Los nombres salen de `path`, que lo pone el esquema
+    // —no el valor guardado—, así que no puede arrastrar a los registros lo que escribió nadie.
+    const campos = parsed.error.issues.map((issue) => issue.path.join('.') || '(raíz)').join(', ');
+    console.error(
+      `[settings:${key}] el valor guardado no pasa su esquema; se usan los defectos. Campos: ${campos}`
+    );
     return defaultSettings(key);
   }
 

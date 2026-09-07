@@ -64,7 +64,7 @@ describe('T-N-5 — el modelo de amenazas cita tests que existen', () => {
   });
 
   it('todas las amenazas de SPEC §7.1 están en el documento', () => {
-    // La tabla de la spec tiene once filas. Si alguien añade una amenaza a `SPEC.md` y no la
+    // La tabla de la spec tiene doce filas desde #233. Si alguien añade una amenaza a `SPEC.md` y no la
     // trae aquí, el modelo de amenazas quedaría incompleto **pareciendo completo**, que es
     // exactamente lo que este hito viene a impedir.
     const amenazas = [
@@ -77,6 +77,7 @@ describe('T-N-5 — el modelo de amenazas cita tests que existen', () => {
       'Robo de sesión',
       'Abuso de uploads',
       'Enumeración',
+      'Acceso por proveedor externo',
       'Secretos en cliente',
       'Dependencias',
     ];

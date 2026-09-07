@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { crearYEntrar } from './support/session';
 
 /**
- * El movimiento, medido en un navegador (spec 13, issue #239).
+ * El movimiento, medido en un navegador (spec 15, issue #239).
  *
  * ## Por qué esto no puede ser un test de componentes
  *
@@ -68,7 +68,7 @@ test('T-237-2: con movimiento reducido no se mueve nada', async ({ page }) => {
   expect(
     enMovimiento,
     'siguen animándose con prefers-reduced-motion: reduce. El bloque que lo corta está en ' +
-      'app/globals.css y el motivo en docs/specs/13-movimiento.md §4'
+      'app/globals.css y el motivo en docs/specs/15-movimiento.md §4'
   ).toEqual([]);
 });
 

@@ -156,6 +156,30 @@ export function urlDeVistaPreviaRemota(
 }
 
 /**
+ * Si la web que alimenta este CMS **vive fuera de este despliegue** (ADR-701, spec 14).
+ *
+ * Es `urlDeVistaPreviaRemota() !== null` con un nombre, y tener el nombre es la mitad del asunto:
+ * quien lo lea en la landing no tiene que deducir qué significa que esa función devuelva algo.
+ *
+ * ## Por qué es **la misma** condición que decide a dónde apunta el iframe
+ *
+ * Porque con dos condiciones distintas existiría un estado en el que la raíz redirige al panel y
+ * el iframe apunta a casa, o al revés: media aplicación creyendo que la web está fuera y la otra
+ * media que no. Aquí hay una sola respuesta y de ella salen las dos cosas.
+ *
+ * En particular hereda cómo la spec 08 §4.1 trata la configuración incoherente —`PREVIEW_URL`
+ * escrita y su origen fuera de `PREVIEW_ORIGINS`—: **no configurada**. Ahí la CSP bloquearía ese
+ * iframe, así que la web de fuera no está realmente puesta y la landing local sigue siendo lo que
+ * hay.
+ */
+export function laWebViveFuera(
+  valorUrl?: string | undefined,
+  valorOrigenes?: string | undefined
+): boolean {
+  return urlDeVistaPreviaRemota(valorUrl, valorOrigenes) !== null;
+}
+
+/**
  * Si el `Origin` que pide puede leer borradores, devolviendo **el que se pidió** o `null`.
  *
  * Devuelve el pedido y no el de la lista a propósito, aunque en el caso correcto sean la misma

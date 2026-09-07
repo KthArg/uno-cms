@@ -1317,10 +1317,238 @@ convención. Hasta ahora cada carga del panel y de la landing dejaba un 404 en l
 
 ---
 
+## Entrar con Google ✅
+
+**Cerrado** el 3 de septiembre de 2026, issue [#233](https://github.com/KthArg/uno-cms/issues/233),
+ADR-900, ADR-901 y ADR-902. Es el primer cambio que **toca una decisión de la serie 0xx**: ADR-004
+decía "sin proveedor externo" y ahora dice "sin **depender** de uno".
+
+> **Y se entrega apagado.** `ACCESO_CON_GOOGLE_HABILITADO = false` en `cms/auth/google.ts`, y ese
+> interruptor gana a las dos variables de entorno. El motivo es el punto 1 de "qué es frágil" de
+> aquí abajo: nadie ha entrado nunca con una cuenta de Google de verdad, y hasta que eso se
+> compruebe ([#237](https://github.com/KthArg/uno-cms/issues/237)) la puerta no se abre.
+>
+> No se apaga «no poniendo las variables», que es una convención y no un apagado: basta con que
+> alguien las defina en Vercel. Reactivarlo es [#240](https://github.com/KthArg/uno-cms/issues/240),
+> con la lista de lo que hay que recuperar.
+>
+> **Lo que sigue corriendo con la función apagada** es casi todo: las tres puertas contra Postgres
+> real, que no se cree ninguna cuenta, la identidad que acaba en el token y que ADR-301 alcance a
+> esa sesión. La lógica no depende del interruptor. Lo que se pierde son los dos casos de e2e que
+> necesitan el botón, y está anotado en `PENDIENTES.md`.
+
+### Qué funciona
+
+- **El botón aparece solo si hay con qué.** Sin `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET`, el
+  proveedor no entra en la configuración de Auth.js — no es que el botón se esconda, es que la
+  ruta `/api/auth/callback/google` no existe. Con una sola de las dos, apagado igual.
+- **Google no crea cuentas.** Tres puertas: el correo tiene que venir verificado por Google,
+  corresponder a una fila de `users` y estar activa. Un intento denegado no escribe nada en
+  `users`, y hay un test que lo cuenta.
+- **La identidad sale de la fila.** De Google salen el correo y su verificación; el
+  identificador, el nombre, el rol y `pwdV`, de `users`.
+- **ADR-301 alcanza a esta puerta.** Cambiar la contraseña o desactivar la cuenta echa igual a
+  quien entró por Google: no hay una segunda ruta de sesión, hay dos formas de conseguir el mismo
+  token.
+- **Cero migraciones.** La sesión es JWT y no hay adaptador, así que no había nada del proveedor
+  que guardar.
+- **El viaje a Google no lo bloquea la CSP**, y eso está comprobado **en un navegador**
+  (T-233-18), no razonado: `form-action 'self'` era el riesgo real y era invisible desde Node.
+
+26 casos unitarios, 8 de integración contra Postgres real, 4 de componente y 4 de e2e, estos
+últimos ya reescritos para el estado apagado. La suite entera pasa en las condiciones de CI, y en
+CI de verdad: los diez jobs en verde.
+
+Todo lo de arriba se verificó **con la función encendida** antes de apagarla, incluido el viaje a
+Google en un navegador; lo que se entrega es el mismo código con la puerta cerrada.
+
+### Lo que enseñó esta pieza
+
+**La mutación volvió a cazar un test de adorno, y van seis.** T-233-11 decía comprobar que el
+correo se compara sin distinguir mayúsculas, y pasaba con el `lower()` de la consulta **quitado**.
+El motivo, una vez visto, es obvio: el test guardaba la fila en minúsculas y mandaba el correo con
+mayúsculas, pero `autenticarConGoogle` ya normaliza lo que llega de Google — así que los dos lados
+de la comparación eran minúsculas y el `lower()` no hacía nada.
+
+Lo que protege el `lower()` es lo que hay **guardado**, no lo que llega. Son dos defensas
+distintas en dos sitios distintos, y el test cubría una creyendo cubrir la otra. Ahora hay un caso
+por cada una, y la mutación de una no mata el test de la otra — que es la comprobación de que de
+verdad son dos.
+
+**Y una guarda avisó de algo que no se veía venir:** al encender Google en la suite de e2e, el
+selector `getByRole('button', { name: /entrar/i })` de `crearYEntrar` pasó a casar con dos
+botones. No es un fallo del producto, pero habría puesto en rojo media suite con un mensaje sobre
+"strict mode" que no menciona a Google por ninguna parte. Ahora el selector es exacto, en los tres
+sitios donde estaba — incluida la suite de humo, que corre contra un despliegue donde Google
+**puede** estar configurado.
+
+### Qué es frágil
+
+1. **Nadie ha entrado con una cuenta de Google de verdad.** Lo que está comprobado es todo lo que
+   se puede comprobar sin una: las tres puertas contra Postgres real, la identidad que acaba en el
+   token, y que el navegador llega a `accounts.google.com` con nuestro identificador. Lo que
+   **no** está comprobado es la vuelta: que el `id_token` que firma Google se valide y que
+   `email_verified` llegue donde se espera. Eso necesita un cliente de OAuth real y está en "qué
+   probaría a mano".
+2. **`AUTH_URL` pasa a importar más.** La dirección de retorno la construye Auth.js, y en un
+   despliegue fuera de Vercel sin `AUTH_URL` sale de la cabecera `Host`. Antes eso solo afectaba a
+   los enlaces de invitación; ahora, además, un `Host` inyectado da un `redirect_uri` que Google
+   rechazará — con suerte. Está dicho en `.env.example` desde M2 y ahora muerde en un sitio más.
+3. **Las credenciales se leen una vez, al cargar el módulo.** Definirlas en un despliegue ya
+   arrancado no enciende Google hasta que el proceso se reinicia. En Vercel pasa solo; en un
+   servidor propio hay que acordarse. Está escrito junto a la constante.
+4. **El e2e no ejercita el estado "sin Google".** La suite arranca con las variables puestas para
+   poder probar el viaje, así que la rama apagada solo la cubren los unitarios y el de componente.
+   Es una asimetría declarada en `playwright.config.ts`, no un olvido.
+5. **La correspondencia es por correo y nada más.** Quien cambie su correo en el panel cambia con
+   qué cuenta de Google entra. Es lo esperable y está en spec 15 §9, pero no lo avisa ninguna
+   pantalla.
+
+### Qué probaría a mano
+
+- **Crear un cliente de OAuth de verdad** y entrar en el despliegue con una cuenta invitada. Es lo
+  único que cierra el punto 1 de arriba.
+- **Intentarlo con una cuenta de Google que no esté invitada**, para ver el mensaje de ADR-902 con
+  los ojos y comprobar que no se ha creado ninguna fila en `users`.
+- **Desactivar a alguien desde el panel de personas y que intente entrar con Google.** Debería
+  quedarse fuera igual que por contraseña.
+- **Fallar la contraseña cinco veces y entrar entonces con Google.** Debería dejarle pasar
+  (ADR-901); es la decisión menos evidente de las tres y la que más conviene ver funcionando.
+- **Escribir mal la URI de retorno en la consola de Google** a propósito, para ver qué se ve. La
+  guía de `docs/SETUP.md` avisa del `redirect_uri_mismatch`, y ese aviso está escrito sin haberlo
+  visto en pantalla.
+
+---
+
+## El flake de la suite en paralelo, con su mecanismo ✅
+
+**Cerrado** el 7 de septiembre de 2026, issue [#227](https://github.com/KthArg/uno-cms/issues/227).
+Llevaba abierto desde #220 con una nota honesta: «el mecanismo sigue sin identificarse». Ya está
+identificado, y resultó que la pregunta estaba mal planteada.
+
+### El mecanismo, medido y no razonado
+
+«Publicar todo» es una operación **global**: publica todas las entradas con cambios sin publicar,
+sean del test que sean. `historial.spec.ts` T-E-2 termina dejando su entrada con borrador distinto
+de lo publicado —que es exactamente lo que ese caso demuestra, que restaurar no publica— y T-E-3
+comprueba después que deshacer vuelve a lo publicado.
+
+En paralelo, el caso que pulsa ese botón se colaba entre los dos. Sobre `audit_log`:
+
+```
+11:03:38.421  restoreRevision  historial@…           faqs.historial-e2e
+11:03:41.033  publishAll       panel-publica@…       published: ["faqs.historial-e2e", …]
+11:03:42.160  revertDraft      historial-deshacer@…  faqs.historial-e2e
+```
+
+Lo publicado dejaba de ser lo que T-E-2 había dejado, y deshacer volvía a otra cosa. Eso explica
+las siete filas de la tabla del issue, incluida la que más despistaba: **dar a cada test su propia
+entrada no protege**, porque `historial` ya tenía la suya y aun así se la publicaron.
+
+### Y por qué el primer arreglo no era el arreglo
+
+Se sacó «Publicar todo» a un proyecto de Playwright que arranca cuando el resto ha terminado.
+Funcionó: T-E-3 pasó **ocho pasadas seguidas** donde antes fallaba tres de tres.
+
+Y entonces apareció otra cosa: `vista-previa.spec.ts` empezó a fallar **cinco de cinco**, con un
+elemento de colección repetido en el iframe. No lo rompió ese cambio — lo destapó: la publicación
+global lo venía tapando. Está medido y abierto aparte, en
+[#246](https://github.com/KthArg/uno-cms/issues/246).
+
+**Ahí se ve el error de planteamiento.** No había un flake: había una suite que reparte **un solo
+sitio** entre cuatro navegadores. Cada arreglo destapa la colisión siguiente, y en las tres pasadas
+de control sobre `main` limpio cayeron además `landing.spec.ts` y el cierre de sesión de
+`panel-shell.spec.ts`, cada uno por su cuenta.
+
+### Qué se hizo
+
+`workers: 1` siempre, no solo en CI. Cuatro pasadas locales seguidas, 77 casos verdes cada una.
+
+Se retira de `PENDIENTES.md` la deuda que defendía la asimetría diciendo que «la ejecución local es
+la exigente». Era falso: no es más exigente, es **inválida** — mide colisiones que ningún uso real
+provoca.
+
+### Lo que enseñó
+
+- **Una tabla de descartes no es un diagnóstico.** El issue tenía siete comprobaciones bien hechas
+  y ninguna miraba el sitio correcto, porque todas buscaban qué tenían de raro los casos nuevos. Lo
+  que lo resolvió fue preguntarle a `audit_log` **quién** había publicado, que es un dato que
+  llevaba meses ahí.
+- **Un arreglo verificado ocho veces puede seguir siendo el arreglo equivocado.** Si me hubiera
+  parado en «T-E-3 pasa», habría cerrado el issue y entregado una suite que falla siempre por otro
+  sitio.
+
+---
+
+## Con la web fuera, la raíz lleva al panel ✅
+
+**Cerrado** el 7 de septiembre de 2026, issue [#248](https://github.com/KthArg/uno-cms/issues/248),
+spec [14](specs/14-la-raiz-lleva-al-panel.md). Sin ADR nuevo: no contradice nada, aplica ADR-701.
+
+### Qué funciona
+
+- **Con `PREVIEW_URL` coherente, `/` responde 307 al panel** y el sitemap se queda vacío. Antes ese
+  despliegue servía una copia de la landing de ejemplo **con el contenido real dentro**, en el
+  dominio del panel, y un buscador podía encontrarla.
+- **La condición es la misma que decide a dónde apunta el iframe** (`laWebViveFuera` es
+  `urlDeVistaPreviaRemota() !== null` con nombre). No hay dos interruptores que puedan discrepar, y
+  hay un caso que lo amarra recorriendo los cuatro estados.
+- **Una configuración incoherente no redirige**: `PREVIEW_URL` con el origen fuera de
+  `PREVIEW_ORIGINS` ya se trataba como no configurada desde la spec 08, y lo hereda.
+- **Un despliegue recién hecho sigue enseñando el camino a `/setup`**, aunque la web remota esté
+  puesta. Es la razón de que esto viva en la página y no en el middleware: la comprobación depende
+  de la base de datos, y en edge no hay base de datos.
+
+Nueve casos unitarios, tres mutaciones —el orden de las dos comprobaciones, la condición y el corte
+del sitemap—, las tres muertas.
+
+### Comprobado a mano, porque ningún e2e lo cubre
+
+La suite arranca **un** servidor con la fase remota apagada (`playwright.config.ts`), que es lo que
+mantiene válidos los casos de la vista previa local. Así que esto se verificó contra un build de
+producción, cuatro arranques:
+
+| Configuración                                  | `GET /`                                 | Sitemap     |
+| ---------------------------------------------- | --------------------------------------- | ----------- |
+| Sin `PREVIEW_URL`                              | 200, la landing                         | anuncia `/` |
+| `PREVIEW_URL` coherente                        | **307 → `/admin`**                      | vacío       |
+| `PREVIEW_URL` con origen fuera de la lista     | 200, la landing                         | anuncia `/` |
+| Base recién creada, sin cuenta, con web remota | 200, «Este sitio todavía no está listo» | —           |
+
+### Lo que enseñó
+
+**Casi doy por roto un caso que estaba bien.** La cuarta comprobación falló la primera vez: un
+despliegue con la base recién creada redirigía al panel en vez de enseñar el camino a `/setup`. El
+código era correcto y el fallo era **mío**: `unstable_cache` persiste en `.next/cache`, y yo había
+arrancado cuatro servidores sobre el mismo build apuntando a bases distintas, así que el cuarto
+contestó con lo que cacheó el primero. Con `rm -rf .next/cache` en medio, pasa.
+
+Va a `CLAUDE.md` como tercera trampa del entorno local, junto a las dos que ya estaban. Y deja una
+lección sobre la anterior: **el test unitario de ese caso miraba el orden de dos líneas en el
+fichero, no el comportamiento**, así que habría seguido verde en las dos direcciones. Es lo que
+está escrito en su propia cabecera —que es análisis de texto y qué detecta— y es exactamente por
+eso que la comprobación a mano no era opcional aquí.
+
+### Y una segunda vez, con la misma trampa
+
+Al correr la suite de e2e después de las comprobaciones a mano, dos casos de la landing se
+pusieron en rojo. **El mismo `.next/cache`**: el arranque contra la base vacía había dejado
+cacheado que el sitio no estaba configurado, y `pnpm build` no borra esa caché. Con
+`rm -rf .next/cache`, verde.
+
+Dos diagnósticos falsos por la misma causa en la misma tarde. Por eso está en `CLAUDE.md` y no
+solo aquí.
+
+Queda además una cosa que **no** se pudo reproducir: el e2e de cerrar sesión falló una vez de seis,
+y también había fallado una vez en el control sobre `main` limpio. No depende del paralelismo, no
+se capturó el mensaje, y cuatro pasadas completas posteriores salieron verdes. Se abre en
+[#249](https://github.com/KthArg/uno-cms/issues/249) en vez de explicarlo, que es la lección de
+#134.
+
 ## El movimiento de las interacciones ✅
 
 **Cerrado** el 3 de septiembre de 2026, issue [#239](https://github.com/KthArg/uno-cms/issues/239),
-spec [`13-movimiento.md`](specs/13-movimiento.md), ADR-820 a ADR-822.
+spec [`15-movimiento.md`](specs/15-movimiento.md), ADR-820 a ADR-822.
 
 Se pidió «pequeñas animaciones con las interacciones, para que se sienta más cómodo y premium».
 Son dos peticiones: **cómodo** es información —el botón contesta antes que el servidor— y
@@ -1344,7 +1572,7 @@ de una barata no es tener más movimiento, es que todo se mueva igual.
    hoy —cada ruta es una pantalla con su propio estado de servidor— y sería un fallo el día que
    cuelgue de ahí un borrador que deba sobrevivir a la navegación. Está escrito junto a la línea.
 2. **La regla de «lo ancho no escala» es una convención, no una guarda.** Un test no puede saber
-   cuánto mide un elemento sin renderizarlo. Está en la spec 13 §3 y junto a la fila que la
+   cuánto mide un elemento sin renderizarlo. Está en la spec 15 §3 y junto a la fila que la
    motivó.
 
 ### Lo que enseñó
