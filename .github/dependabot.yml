@@ -31,6 +31,19 @@ updates:
       types:
         patterns: ['@types/*']
         update-types: [minor, patch]
+      # `next` y su config de ESLint **en el mismo PR**, que es lo que el comentario de abajo
+      # llevaba prometiendo sin que nada lo cumpliera (#259).
+      #
+      # La exclusión de ahí solo frena los **mayores**, así que un lunes cualquiera
+      # `eslint-config-next` subía de parche y `next` se quedaba atrás: acabaron a 15.5.25 y
+      # 15.5.23. Dos parches no rompen nada y la separación sí es la que un día deja el config
+      # de una serie lintando el código de otra.
+      #
+      # Con el grupo, o suben las dos o no sube ninguna — que es literalmente lo que decía el
+      # comentario.
+      framework:
+        patterns: ['next', 'eslint-config-next']
+        update-types: [minor, patch]
     ignore:
       # Next, React y TypeScript están fijados por SPEC §2 y ADR-100/101. Subir de mayor es
       # un trabajo con su propio ADR y su propio PR, no algo que se mergee un lunes.
