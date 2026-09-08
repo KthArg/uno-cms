@@ -81,32 +81,57 @@ describe('autosave', () => {
     // Lo que sí lo distingue: escribir con pausas **menores** que la espera y comprobar que
     // no se ha guardado nada todavía. Sin reiniciar el temporizador, el primer cambio ya
     // habría disparado su guardado.
-    const guardar = vi.fn(async () => ({ ok: true, version: 1 }) as ResultadoGuardado);
-    const { result } = montar(guardar);
+    //
+    // **Y el reloj es falso a propósito** (issue #274). La versión anterior dormía 12 ms de
+    // verdad contra una espera de 20: ocho milisegundos de margen, que un runner cargado se
+    // come sin despeinarse. Cayó en el CI de #268 —un bump de `lint-staged`— guardando
+    // `{ title: 'H' }`, o sea el **primer** cambio: su temporizador venció antes de que
+    // llegara la segunda tecla. Subir el margen habría movido la probabilidad sin quitar la
+    // carrera; con el reloj falso el tiempo lo decide el test y no la máquina.
+    vi.useFakeTimers();
 
-    act(() => {
-      result.current.alCambiar({ title: 'H' });
-    });
-    await new Promise((resolve) => setTimeout(resolve, 12));
+    try {
+      const guardar = vi.fn(async () => ({ ok: true, version: 1 }) as ResultadoGuardado);
+      const { result } = montar(guardar);
 
-    act(() => {
-      result.current.alCambiar({ title: 'Ho' });
-    });
-    await new Promise((resolve) => setTimeout(resolve, 12));
+      act(() => {
+        result.current.alCambiar({ title: 'H' });
+      });
+      act(() => {
+        vi.advanceTimersByTime(12);
+      });
 
-    act(() => {
-      result.current.alCambiar({ title: 'Hola' });
-    });
+      act(() => {
+        result.current.alCambiar({ title: 'Ho' });
+      });
+      act(() => {
+        vi.advanceTimersByTime(12);
+      });
 
-    // Han pasado 24 ms —más que la espera de 20— y no se ha guardado nada: cada tecla movió
-    // el momento del guardado hacia adelante.
-    expect(guardar).not.toHaveBeenCalled();
+      act(() => {
+        result.current.alCambiar({ title: 'Hola' });
+      });
 
-    await waitFor(() => {
+      // Han pasado 24 ms —más que la espera de 20— y no se ha guardado nada: cada tecla movió
+      // el momento del guardado hacia adelante. Si `alCambiar` dejara de hacer `clearTimeout`,
+      // el temporizador de la primera tecla habría saltado en el ms 20 y este aserto moriría.
+      expect(guardar).not.toHaveBeenCalled();
+
+      // Y ahora sí: 20 ms desde la última tecla. `advanceTimersByTimeAsync` vacía también las
+      // microtareas, que es lo que hace falta para que el `await` de dentro de `enviar` corra;
+      // con la versión síncrona el temporizador salta pero el guardado se queda a medias.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20);
+      });
+
       expect(result.current.estado.tipo).toBe('guardado');
-    });
-    expect(guardar).toHaveBeenCalledTimes(1);
-    expect(guardar).toHaveBeenCalledWith({ title: 'Hola' }, 0);
+      expect(guardar).toHaveBeenCalledTimes(1);
+      expect(guardar).toHaveBeenCalledWith({ title: 'Hola' }, 0);
+    } finally {
+      // En el `finally` porque un fallo de aserto deja el reloj falso puesto para todo el
+      // fichero, y el siguiente test caería por un motivo que no es el suyo.
+      vi.useRealTimers();
+    }
   });
 
   it('T-C-2: la versión nueva se adopta y el siguiente guardado no da conflicto', async () => {
