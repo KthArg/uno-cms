@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
  */
 const lanzado = vi.hoisted(() => vi.fn());
 vi.mock('node:child_process', () => ({ spawnSync: lanzado }));
-import { AVISO_SIN_BASE, decidir } from '@/scripts/migrar-al-desplegar.mjs';
+import { AVISO_SIN_BASE, AVISO_VISTA_PREVIA, decidir } from '@/scripts/migrar-al-desplegar.mjs';
 
 /**
  * T-192-1 … T-192-3: **la construcción del despliegue aplica las migraciones** (ADR-702, #192).
@@ -61,5 +61,66 @@ describe('T-192-3 — importar el módulo no migra nada', () => {
     // tuviera delante quien la ejecute — que en la máquina de quien desarrolla es la de trabajo.
     // Es el motivo de la comprobación de ejecución directa que lleva el script.
     expect(lanzado).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * T-254-1 a T-254-3: **una construcción de vista previa no toca la base** (issue #254).
+ *
+ * ## El fallo que cierran
+ *
+ * ADR-702 migra al construir, y Vercel le da a los despliegues de vista previa **las variables de
+ * producción** salvo que se configure otra cosa. Con la decisión anterior —«¿hay `DATABASE_URL`?
+ * pues migro»— una rama con una migración nueva la aplicaba a la base de producción **al
+ * construirse**: antes de que nadie revisara el PR, y aunque el PR acabara cerrándose sin mergear.
+ *
+ * No llegó a pasar porque las últimas ramas no traían migraciones.
+ *
+ * ## Por qué el valor por omisión es no migrar
+ *
+ * Porque el estado peligroso no puede ser el predeterminado. Encenderlo es explícito y se hace
+ * **cuando las vistas previas tienen su propia base**, que es la otra mitad del arreglo y vive en
+ * el panel de despliegue.
+ */
+describe('T-254-1 — una vista previa no migra', () => {
+  const CON_BASE = { DATABASE_URL: 'postgres://alguien@donde/base' };
+
+  it('con `VERCEL_ENV=preview` se salta, aunque haya base', () => {
+    expect(decidir({ ...CON_BASE, VERCEL_ENV: 'preview' })).toBe('saltar-vista-previa');
+  });
+
+  it('T-254-2: y se distingue de «no hay base», porque el aviso dice otra cosa', () => {
+    // Dos valores y no uno: el de «sin base» dice que la base **no está preparada**, y aquí está
+    // intacta a propósito. Con un solo valor, el registro de una vista previa diría que falta la
+    // base y mandaría a buscar el problema donde no está.
+    expect(decidir({})).toBe('saltar');
+    expect(decidir({ ...CON_BASE, VERCEL_ENV: 'preview' })).not.toBe('saltar');
+
+    expect(AVISO_SIN_BASE).toContain('NO está preparada');
+    expect(AVISO_VISTA_PREVIA).toContain('base de VERDAD');
+    expect(AVISO_VISTA_PREVIA).toContain('PREVIEW_MIGRATIONS=1');
+  });
+
+  it('T-254-3: con `PREVIEW_MIGRATIONS=1` sí migra', () => {
+    // Es la salida para quien le da a sus vistas previas una base propia. Sin esto, el arreglo
+    // sería «las vistas previas nunca migran», que rompe ese caso legítimo.
+    expect(decidir({ ...CON_BASE, VERCEL_ENV: 'preview', PREVIEW_MIGRATIONS: '1' })).toBe('migrar');
+  });
+
+  it('y cualquier otro valor de esa variable no basta', () => {
+    // El interruptor es `'1'` exacto. `'true'`, `'0'` o una cadena vacía son lo que queda al
+    // declarar la variable en un panel y dudar; ninguno debe encender algo que toca producción.
+    for (const valor of ['', '0', 'true', 'sí', 'yes']) {
+      expect(
+        decidir({ ...CON_BASE, VERCEL_ENV: 'preview', PREVIEW_MIGRATIONS: valor }),
+        JSON.stringify(valor)
+      ).toBe('saltar-vista-previa');
+    }
+  });
+
+  it('producción y local siguen migrando igual que antes', () => {
+    // La otra mitad: un arreglo que dejara de migrar en producción sería mucho peor que el fallo.
+    expect(decidir({ ...CON_BASE, VERCEL_ENV: 'production' })).toBe('migrar');
+    expect(decidir(CON_BASE)).toBe('migrar');
   });
 });

@@ -1759,3 +1759,112 @@ encontró el texto que iba a sustituir —la cadena no coincidía— y el comand
 que es indistinguible de «el test no la mató». Solo al pedirle la salida entera apareció el
 `encontrado: 0`. Desde ahora, una mutación que no cambia el fichero es un fallo del método, no un
 resultado.
+
+---
+
+## La contradicción del driver, cerrada con evidencia ✅
+
+**Cerrado** el 7 de septiembre de 2026, issue [#43](https://github.com/KthArg/uno-cms/issues/43).
+Era el issue abierto más antiguo del repositorio: del 13 de agosto, del primer día de M1.
+
+### Qué decía
+
+ADR-002 fija el driver de Neon por un motivo real —en serverless, un driver TCP abre una conexión
+por invocación y agota el free tier— y `SPEC.md` §11.4 exige tests de integración contra un
+Postgres efímero, que no habla ese protocolo. Lo que se probaría en CI no sería el código que se
+despliega.
+
+Se resolvió en su día con **ADR-200**: el driver se elige por destino y hacia arriba se expone el
+mismo tipo de Drizzle, así que ni el esquema ni las consultas ni las actions saben cuál hay debajo.
+Y el issue se dejó abierto con una condición explícita: _«hasta que M6 verifique en un despliegue
+real que la rama de Neon funciona, que es lo único que los tests no pueden decir»_.
+
+### Por qué se cierra ahora
+
+**Porque esa verificación ya ocurrió y estaba anotada sin conectarla con este issue.** La suite de
+humo de #207 corrió en verde contra `uno-cms.vercel.app`: entra con una cuenta de verdad, sube una
+imagen, comprueba que sigue ahí al recargar y la borra. Eso es una lectura, una escritura y un
+borrado **a través del driver de producción**, más T-207-4, que afirma que la base del despliegue
+tiene el esquema.
+
+Si la rama de Neon no funcionara, ninguno de esos cuatro casos pasaría.
+
+### Lo que NO se cierra con esto, y queda en su sitio
+
+Que ningún test **automático** ejercite ese driver. CI sigue corriendo contra Postgres local con
+`node-postgres`, y lo único que toca la rama de Neon es una suite que hay que lanzar a mano.
+
+Eso no es este issue: es [#207](https://github.com/KthArg/uno-cms/issues/207), que ya lo describe
+—hace falta un despliegue de pruebas separado del de verdad y credenciales en el repositorio—. La
+fila de `PENDIENTES.md` se reescribe para que apunte allí en vez de a un issue cerrado, que es como
+un pendiente se disuelve.
+
+### Lo que enseñó
+
+**Un issue puede quedarse abierto después de resolverse.** Su condición de cierre se cumplió el día
+que se ejecutó la suite de humo, y nadie volvió a leerla: quien la ejecutó estaba cerrando #207 y
+no sabía que de paso cerraba el issue más antiguo del tablero.
+
+Es el mismo modo de fallo que la regla 5 persigue en los comentarios, un nivel más arriba: **una
+condición escrita en un sitio y cumplida en otro no se junta sola.**
+
+---
+
+## El contenido mixto, medido en vez de supuesto ✅
+
+**Cerrado** el 8 de septiembre de 2026, issue [#255](https://github.com/KthArg/uno-cms/issues/255).
+
+### La pregunta
+
+La spec 08 §1 promete que los tres casos funcionan, y el mezclado —«CMS desplegado, web en
+local»— es un panel servido por `https` embebiendo un `http://localhost`. Nuestra CSP lo permite y
+eso está cubierto por tests; lo que nadie sabía es si el navegador lo bloquearía después por
+**contenido mixto**, que tiene reglas propias.
+
+Estaba anotado como «no se puede comprobar en local: hace falta un origen `https` de verdad». Es
+falso: hace falta un origen `https`, no que sea de verdad.
+
+### El montaje
+
+Un certificado propio, un proxy `https` en el 3443 por delante del `next start` del 3100, y la
+«web remota» en `http` servida a la vez en `localhost:4321` y en la IP de red de la máquina.
+
+### El resultado
+
+**Carga, y sin un solo aviso.**
+
+Lo que lo convierte en una medida y no en una impresión es el control: en la misma página, un
+iframe al **mismo servidor** por su IP de red —`http://10.x.x.x:4321`— sí produce
+`Mixed Content: … requested an insecure frame`. O sea que el mecanismo estaba activo y lo que exime
+a `localhost` es ser bucle local, como dice la especificación de contextos seguros.
+
+| Origen del iframe, desde una página `https`             | Aviso de contenido mixto               |
+| ------------------------------------------------------- | -------------------------------------- |
+| `http://localhost:4321`                                 | **ninguno**                            |
+| `http://10.x.x.x:4321` (mismo servidor, otra dirección) | sí                                     |
+| El panel real, con su vista previa                      | **ninguno**, y el iframe enseña la web |
+
+### Los dos intentos fallidos, que son la parte útil
+
+**El primer control no valía.** Lancé Chromium con `ignoreHTTPSErrors` y comprobé que el iframe
+cargaba. Antes de darlo por bueno probé un `fetch` inseguro a la IP de red — que Chrome bloquea
+siempre— y salió **permitido**. O sea que en ese navegador no había refuerzo de contenido mixto y
+mi medida no probaba nada: habría dado el mismo verde con la respuesta contraria.
+
+Se rehízo confiando **ese certificado en concreto** por su huella SPKI, en vez de apagar la
+seguridad del navegador. Ahí el control empezó a distinguir los dos orígenes.
+
+**Y el segundo control tampoco es el que yo quería.** Buscaba enseñar que un `http` no loopback se
+**bloquea**; lo que hace Chromium con los iframes es **avisar y cargar**. Así que lo demostrado no
+es «bloquea todo menos localhost», es la asimetría: **para `localhost` no hay ni aviso, porque no
+cuenta como contenido mixto**. Es exactamente lo que la pregunta necesitaba, y es menos de lo que
+pretendía medir.
+
+### Lo que enseñó
+
+- **«No se puede comprobar en local» era una suposición, no un hecho.** Lo que hacía falta era un
+  origen `https`, y eso son un certificado y quince líneas de proxy. La frase llevaba desde agosto
+  en `PENDIENTES.md` sin que nadie la pusiera a prueba — y la escribí yo.
+- **Un experimento sin control es una opinión con pasos.** El primer montaje daba el resultado
+  correcto por el motivo equivocado, y solo se vio al preguntarle al navegador algo cuya respuesta
+  ya conocía.

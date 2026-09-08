@@ -38,6 +38,25 @@ export function decidir(entorno) {
 
   if (typeof url !== 'string' || url.trim() === '') return 'saltar';
 
+  /*
+   * **Una vista previa no migra** (issue #254).
+   *
+   * Vercel da a los despliegues de vista previa las mismas variables que a producción salvo que se
+   * configure otra cosa. Con la comprobación de arriba a secas, **una rama con una migración nueva
+   * la aplicaba a la base de producción al construirse** — antes de que nadie revisara el PR, y
+   * aunque el PR acabara cerrándose sin mergear.
+   *
+   * No había pasado porque las últimas ramas no traían migraciones. La próxima lo habría hecho.
+   *
+   * El valor por omisión es no tocar nada, y encenderlo es explícito: `PREVIEW_MIGRATIONS=1`, que
+   * es lo que se pone **cuando las vistas previas tienen su propia base**. Al revés —migrar salvo
+   * que alguien lo apague— dejaría el estado peligroso como predeterminado, que es justo lo que
+   * este issue vino a quitar.
+   */
+  if (entorno.VERCEL_ENV === 'preview' && entorno.PREVIEW_MIGRATIONS !== '1') {
+    return 'saltar-vista-previa';
+  }
+
   return 'migrar';
 }
 
@@ -47,6 +66,19 @@ export const AVISO_SIN_BASE =
   '              Es lo normal al construir sin base de datos (CI, comprobaciones locales).\n' +
   '              En un despliegue de verdad esto significa que la base NO está preparada.';
 
+/**
+ * El aviso de la vista previa.
+ *
+ * Dice **qué no ha pasado, por qué, y cómo encenderlo**. Un «saltando migraciones» a secas se lee
+ * como un fallo, y quien mirara el registro de una vista previa rota buscaría el problema aquí en
+ * vez de en su rama.
+ */
+export const AVISO_VISTA_PREVIA =
+  '[migraciones] Vista previa: no se aplica ninguna migración.\n' +
+  '              Vercel le da a las vistas previas las variables de producción, así que migrar\n' +
+  '              aquí tocaría la base de VERDAD antes de revisar el PR (issue #254).\n' +
+  '              Si estas vistas previas tienen su propia base, define PREVIEW_MIGRATIONS=1.';
+
 // `import.meta.main` no existe en todas las versiones de Node que valen para este proyecto, así
 // que se compara el fichero que se está ejecutando. Sin esto, importar el módulo desde un test
 // aplicaría migraciones de verdad.
@@ -54,8 +86,12 @@ const esEjecuciónDirecta =
   process.argv[1] !== undefined && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
 
 if (esEjecuciónDirecta) {
-  if (decidir(process.env) === 'saltar') {
+  const decision = decidir(process.env);
+
+  if (decision === 'saltar') {
     console.warn(AVISO_SIN_BASE);
+  } else if (decision === 'saltar-vista-previa') {
+    console.warn(AVISO_VISTA_PREVIA);
   } else {
     console.log('[migraciones] Aplicando las migraciones pendientes…');
 
