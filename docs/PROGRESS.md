@@ -1868,3 +1868,102 @@ pretendía medir.
 - **Un experimento sin control es una opinión con pasos.** El primer montaje daba el resultado
   correcto por el motivo equivocado, y solo se vio al preguntarle al navegador algo cuya respuesta
   ya conocía.
+
+## Los temporizadores de la suite `ui`, con mecanismo en vez de estadística ✅
+
+**Cerrado** el 8 de septiembre de 2026, issue [#276](https://github.com/KthArg/uno-cms/issues/276).
+
+### La pregunta
+
+`jsdom` subió de la serie 25 a la 30 —cinco mayores— en #174, el mismo día que apareció el flake
+del autosave (#274). T-C-1 era el **único** caso de la suite que afirmaba que algo _todavía no_
+había pasado apoyándose en tiempo real, y #275 lo pasó a reloj falso: o sea que tapó el único sitio
+donde un cambio de comportamiento de los temporizadores se habría visto.
+
+Lo probable era que fueran independientes. Pero probable no es comprobado, y aquí ya se cerró un
+flake con un razonamiento convincente y equivocado (#134).
+
+### Lo que se midió, y por qué no fue lo que el issue proponía
+
+El issue pedía correr el T-C-1 viejo en bucle sobre dos árboles y comparar proporciones. Se hizo
+—dos worktrees idénticos salvo `jsdom`, rondas **intercaladas** bajo la misma carga, para que la
+deriva de la máquina afectara a los dos por igual—, pero antes salió algo más barato y más fuerte:
+**preguntar de quién es el `setTimeout` que ven esos tests.**
+
+| Entorno                               | `setTimeout === node:timers.setTimeout` |
+| ------------------------------------- | --------------------------------------- |
+| Proyecto `ui`, con jsdom **25.0.1**   | **sí**                                  |
+| Proyecto `ui`, con jsdom **30.0.1**   | **sí**                                  |
+| Una ventana de jsdom levantada a mano | no — pasa por `webIDLConversions`       |
+
+Idénticos byte a byte, misma identidad, mismo constructor `Timeout`, y `window.setTimeout` es el
+mismo objeto que el global. La tercera fila es la que convierte esto en una medida: el probe **sabe
+decir que no**, y de hecho lo dice en cuanto se le pregunta por una ventana de verdad de jsdom.
+
+### El motivo, que está en Vitest y no en jsdom
+
+`populateGlobal` copia al global las propiedades de la ventana, filtrando así:
+
+```js
+if (skipKeys.includes(k)) return false;
+if (k in global) return keysArray.includes(k); // choca con un global de Node
+return true; // no choca → se copia de jsdom
+```
+
+O sea que **la lista `KEYS` solo se consulta para los nombres que chocan con un global de Node**.
+`setTimeout` es uno de esos y no está en la lista: se descarta y el global conserva el de Node.
+`document` y `requestAnimationFrame` no chocan con nada —Node no los tiene, comprobado en el
+proyecto `unit`— y por eso de esos sí llega la versión de jsdom.
+
+Las dos condiciones —que Node tenga `setTimeout`, y que Vitest no lo liste— **no dependen de la
+versión de jsdom**. Por eso la respuesta no es «salió parecido en las dos», es que la subida no
+podía cambiarlo.
+
+### El dato que sí explica el flake, y corrige la cuenta del issue
+
+Midiendo el reparto real de la pausa de 12 ms del T-C-1 viejo, 400 muestras por pasada:
+
+| Máquina           | p50         | pasan de los 20 ms de la espera |
+| ----------------- | ----------- | ------------------------------- |
+| ociosa            | ~15,5 ms    | 0–1 de 400                      |
+| con 16 quemadores | hasta 37 ms | **hasta 285 de 400**            |
+
+O sea que **el margen nunca fue de 8 ms**: en Windows un `setTimeout(12)` ocioso ya tarda ~15,5 ms
+por la resolución del reloj, así que el margen de verdad era de ~4,5 ms. Con la máquina cargada la
+pausa se va a 30 ms y se come la espera entera. Los dos árboles dan el mismo reparto y se solapan
+por completo: lo que mueve el número es la carga, no la versión.
+
+### Lo que NO se ha demostrado, y hay que decirlo
+
+- **El T-C-1 viejo no llegó a caer ni una vez** en el montaje local: 440 pasadas, 0 rojos, con las
+  dos versiones. O sea que la comparación de proporciones que pedía el issue salió **vacía por los
+  dos lados** y no distingue nada. Lo que cierra el issue es el mecanismo, no ese contraste.
+- Tres ejecuciones no dieron salida, seguramente por la muerte de un worker bajo presión de memoria
+  (#167). Se cuentan como perdidas, no como verdes.
+- Las cifras de tiempo son de **Windows y Node 24**; CI es Linux. Lo que sí es independiente de la
+  plataforma es la procedencia de los temporizadores, que depende de cómo Vitest arma el entorno.
+
+### Lo que queda vigilándolo
+
+`tests/ui/temporizadores-son-los-de-node.test.ts`, tres milisegundos, con su comprobación de que
+puede fallar incluida en el propio fichero. Comprobado por mutación: metiendo el `setTimeout` de
+jsdom en el global desde `tests/ui/setup.ts`, el aserto muere
+(`- [Function setTimeout]` / `+ [Function anonymous]`).
+
+### Lo que enseñó
+
+- **La pregunta barata iba antes que el experimento caro.** El issue pedía reconstruir un árbol
+  viejo y hacer decenas de pasadas; la respuesta estaba en una comparación de identidad que tarda
+  tres milisegundos. Se hizo igual el experimento caro, y lo único que aportó fue confirmar que no
+  aportaba nada.
+- **Una comparación estadística que sale 0 contra 0 no es un empate, es un instrumento sin
+  sensibilidad.** Si el mecanismo no hubiera aparecido, lo honesto habría sido escribir que no se
+  pudo medir — como se hizo en #167.
+- **La cuenta de los 8 ms que estaba en el issue era optimista.** El suelo del reloj de Windows se
+  comía casi la mitad del margen antes de que la máquina hiciera nada.
+- **Y la autorevisión cazó el mismo fallo que este repositorio ya tiene contado.** La primera
+  versión del comentario explicaba que `requestAnimationFrame` llega de jsdom «porque está en la
+  lista `KEYS`». Comprobé la pertenencia a la lista y di por buena la consecuencia sin medirla:
+  llega porque Node no lo tiene, y la lista solo pinta en los nombres que chocan. La conclusión no
+  cambiaba, pero era un comentario que explicaba un mecanismo con una causa que no es la causa —
+  justo lo de `/api/media/upload`.
