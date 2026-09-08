@@ -1807,3 +1807,64 @@ no sabía que de paso cerraba el issue más antiguo del tablero.
 
 Es el mismo modo de fallo que la regla 5 persigue en los comentarios, un nivel más arriba: **una
 condición escrita en un sitio y cumplida en otro no se junta sola.**
+
+---
+
+## El contenido mixto, medido en vez de supuesto ✅
+
+**Cerrado** el 8 de septiembre de 2026, issue [#255](https://github.com/KthArg/uno-cms/issues/255).
+
+### La pregunta
+
+La spec 08 §1 promete que los tres casos funcionan, y el mezclado —«CMS desplegado, web en
+local»— es un panel servido por `https` embebiendo un `http://localhost`. Nuestra CSP lo permite y
+eso está cubierto por tests; lo que nadie sabía es si el navegador lo bloquearía después por
+**contenido mixto**, que tiene reglas propias.
+
+Estaba anotado como «no se puede comprobar en local: hace falta un origen `https` de verdad». Es
+falso: hace falta un origen `https`, no que sea de verdad.
+
+### El montaje
+
+Un certificado propio, un proxy `https` en el 3443 por delante del `next start` del 3100, y la
+«web remota» en `http` servida a la vez en `localhost:4321` y en la IP de red de la máquina.
+
+### El resultado
+
+**Carga, y sin un solo aviso.**
+
+Lo que lo convierte en una medida y no en una impresión es el control: en la misma página, un
+iframe al **mismo servidor** por su IP de red —`http://10.x.x.x:4321`— sí produce
+`Mixed Content: … requested an insecure frame`. O sea que el mecanismo estaba activo y lo que exime
+a `localhost` es ser bucle local, como dice la especificación de contextos seguros.
+
+| Origen del iframe, desde una página `https`             | Aviso de contenido mixto               |
+| ------------------------------------------------------- | -------------------------------------- |
+| `http://localhost:4321`                                 | **ninguno**                            |
+| `http://10.x.x.x:4321` (mismo servidor, otra dirección) | sí                                     |
+| El panel real, con su vista previa                      | **ninguno**, y el iframe enseña la web |
+
+### Los dos intentos fallidos, que son la parte útil
+
+**El primer control no valía.** Lancé Chromium con `ignoreHTTPSErrors` y comprobé que el iframe
+cargaba. Antes de darlo por bueno probé un `fetch` inseguro a la IP de red — que Chrome bloquea
+siempre— y salió **permitido**. O sea que en ese navegador no había refuerzo de contenido mixto y
+mi medida no probaba nada: habría dado el mismo verde con la respuesta contraria.
+
+Se rehízo confiando **ese certificado en concreto** por su huella SPKI, en vez de apagar la
+seguridad del navegador. Ahí el control empezó a distinguir los dos orígenes.
+
+**Y el segundo control tampoco es el que yo quería.** Buscaba enseñar que un `http` no loopback se
+**bloquea**; lo que hace Chromium con los iframes es **avisar y cargar**. Así que lo demostrado no
+es «bloquea todo menos localhost», es la asimetría: **para `localhost` no hay ni aviso, porque no
+cuenta como contenido mixto**. Es exactamente lo que la pregunta necesitaba, y es menos de lo que
+pretendía medir.
+
+### Lo que enseñó
+
+- **«No se puede comprobar en local» era una suposición, no un hecho.** Lo que hacía falta era un
+  origen `https`, y eso son un certificado y quince líneas de proxy. La frase llevaba desde agosto
+  en `PENDIENTES.md` sin que nadie la pusiera a prueba — y la escribí yo.
+- **Un experimento sin control es una opinión con pasos.** El primer montaje daba el resultado
+  correcto por el motivo equivocado, y solo se vio al preguntarle al navegador algo cuya respuesta
+  ya conocía.

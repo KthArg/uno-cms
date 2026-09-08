@@ -16,6 +16,22 @@ Tres decisiones tomadas antes de diseñar nada:
 | ¿Un CMS por web, o uno para varias?              | **Uno por web.** Sigue siendo 1:1; lo único que cambia es que la web puede estar fuera |
 | ¿Dónde corren?                                   | **Los tres casos**: ambos desplegados, ambos en local, o mezclados                     |
 
+> **Comprobado — el caso mezclado** (issue #255). «CMS desplegado, web en local» significa un panel
+> servido por `https` embebiendo un `http://localhost`, y quedaba la duda de si el navegador lo
+> bloquearía por **contenido mixto**, que tiene reglas propias y no dependen de nuestra CSP.
+>
+> **No lo bloquea, y no es suerte:** los navegadores tratan el bucle local como origen
+> potencialmente confiable, así que `http://localhost` no cuenta como contenido mixto. Medido en
+> Chromium, con el panel por `https` y su certificado confiado —no con la seguridad desactivada—:
+> el iframe carga y **no sale ni un aviso**.
+>
+> Lo que lo hace una medida y no una impresión es el control: en la misma página, un iframe al
+> mismo servidor por su IP de red —`http://10.x.x.x`— **sí** produce el aviso de contenido mixto.
+> O sea que el mecanismo estaba activo y lo que exime a `localhost` es ser bucle local.
+>
+> Solo está medido en Chromium. Firefox y Safari siguen la misma especificación de contextos
+> seguros, y eso es una expectativa razonable, no una comprobación.
+
 La segunda es la que mantiene esto acotado. **No hay multi-tenant**: ni modelo de contenido por sitio, ni permisos por sitio, ni aislamiento. `§4` y `§7` de `SPEC.md` no se tocan.
 
 ## 2. El límite que no es nuestro
