@@ -1657,3 +1657,50 @@ nombre de un test, es otra cosa y merece su issue.
   de #227, la trampa de `.next/cache` y ahora esto. Cuando algo falla en local y pasa en CI, lo
   primero que hay que mirar es si están ejecutando lo mismo — aquí no lo estaban, y la diferencia
   llevaba escrita en `CLAUDE.md` desde el principio sin que nadie la leyera como una diferencia.
+
+---
+
+## El almacén local, por fin en un navegador ✅
+
+**Cerrado** el 7 de septiembre de 2026, issue [#170](https://github.com/KthArg/uno-cms/issues/170).
+Estaba abierto desde el 21 de agosto con las tres salidas evaluadas y la conclusión de aceptarlo.
+
+### Qué faltaba
+
+El almacén local (ADR-700) guarda las imágenes en disco y **solo se enciende fuera de producción**.
+La suite de e2e arranca con `next start`, o sea producción, así que ninguna de sus rutas se podía
+ejercitar con un navegador. Lo cubierto eran los manejadores llamados directamente y la
+bifurcación del editor con componentes; el bucle entero —elegir el fichero, que llegue, que la fila
+se cree, que la imagen se vea— no lo cubría nada.
+
+### Qué cambió respecto a cuando se aceptó
+
+La salida que se descartaba por cara era «un segundo proyecto con `next dev`», y la que se
+descartaba por peligrosa era meterle una puerta trasera a `usarAlmacenLocal()`. La segunda sigue
+descartada por lo mismo: es la función que impide que este almacén se active donde haría daño.
+
+Lo que ha cambiado es el coste de la primera. **No es un segundo proyecto dentro de la suite: es
+una configuración aparte con un fichero de casos.** No alarga la suite normal ni un segundo, corre
+en CI como un paso más del job que ya existe —mismo Postgres, mismos navegadores— y añade unos
+veinte segundos.
+
+Y la objeción de «ejercita un servidor que no se despliega» se disuelve al mirarla de frente:
+**esto no se despliega nunca, por diseño**. Probar en desarrollo algo que solo existe en desarrollo
+no es un compromiso, es el único sitio donde se puede probar.
+
+### La pieza que lo hacía imposible, y ya no
+
+`next dev` reescribe `.next`, que es la trampa que `CLAUDE.md` avisa: levantarlo mientras la otra
+suite sirve desde ahí rompe la otra suite. Con `NEXT_DIST_DIR` cada una tiene su directorio y
+conviven. Es una línea en `next.config.ts` y sin ella nada de esto era posible.
+
+### Lo que enseñó
+
+- **Escribí primero un caso que buscaba un texto en la pantalla —«disco» o «local»— y falló.**
+  Estaba bien que fallara: la pantalla no dice en ningún sitio qué almacén hay detrás, así que ese
+  caso se estaba inventando la señal. Lo que sí se observa desde el navegador es a dónde va la
+  subida, y eso es lo que ahora comprueba.
+- **Y una hora perdida por unas comillas.** `consultarValor` devuelve JSON, así que un `text` llega
+  entrecomillado; el resto de la suite no se entera porque compara con `toContain`. Aquí la cadena
+  se pedía por HTTP y salía un 404 contra `/%22/api/...%22`. Queda escrito junto al helper que lo
+  decodifica.

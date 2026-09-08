@@ -5,6 +5,8 @@ node_modules/
 
 # next.js
 .next/
+# El directorio del servidor de desarrollo de la suite del almacén local (#170).
+.next-desarrollo/
 out/
 build/
 next-env.d.ts

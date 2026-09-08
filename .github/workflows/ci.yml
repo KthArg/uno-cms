@@ -219,6 +219,13 @@ jobs:
       - name: instalar chromium
         run: pnpm exec playwright install chromium
       - run: pnpm test:e2e
+      # El almacén local, contra `next dev` (issue #170, ADR-700). Va como un paso más de este
+      # job y no como uno propio: necesita exactamente lo mismo —Postgres, secretos, chromium—
+      # y montarlo aparte duplicaría cuarenta líneas para ganar veinte segundos.
+      #
+      # No pisa al de arriba porque usa su propio directorio de construcción; el motivo está en
+      # `playwright.desarrollo.config.ts`.
+      - run: pnpm test:e2e:desarrollo
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
