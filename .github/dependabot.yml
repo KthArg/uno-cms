@@ -44,6 +44,17 @@ updates:
       framework:
         patterns: ['next', 'eslint-config-next']
         update-types: [minor, patch]
+      # Los paquetes de tiptap **también son una serie**, y esto lo aprendimos rompiéndolo
+      # (#261). Dependabot propuso `@tiptap/starter-kit` a 3.31.3 solo, dejando `@tiptap/react`
+      # y `@tiptap/extension-link` en 3.30.2. Sus dependencias de `@tiptap/core` son exactas, así
+      # que el árbol acabó con **dos copias de `@tiptap/core`**: dos declaraciones distintas del
+      # mismo tipo `Extension`, y `tsc` con razón diciendo que no encajan.
+      #
+      # No es un fallo de tiptap ni del PR: es que subir uno de tres no era una actualización
+      # válida. Tiró `typecheck`, y con él `build`, `e2e` y `lighthouse`.
+      tiptap:
+        patterns: ['@tiptap/*']
+        update-types: [minor, patch]
     ignore:
       # Next, React y TypeScript están fijados por SPEC §2 y ADR-100/101. Subir de mayor es
       # un trabajo con su propio ADR y su propio PR, no algo que se mergee un lunes.
