@@ -1454,3 +1454,27 @@ Y no es un modo de fallo nuevo: `defineConfig` ya lanza `ConfigError` por claves
 **A cambio de qué.** De un módulo nuevo, `cms/core/esquemas-de-ajustes.ts`. `settings.ts` importa `cms.config.ts`, que importa `config.ts`: para que `config.ts` use el esquema sin un ciclo, el esquema tiene que bajar a una hoja. Es un fichero que existe solo por eso, y lo dice en su cabecera.
 
 **Qué lo revertiría.** Que alguien necesite arrancar con una configuración a medias a propósito — un `siteName` vacío mientras prepara el sitio. Hoy eso no tiene sentido: el nombre es obligatorio en la pantalla de ajustes desde M4.
+
+---
+
+## ADR-940 — Una construcción de vista previa no migra, salvo que se le diga (resuelve #254)
+
+**Contexto.** ADR-702 aplica las migraciones **al construir**, y ese es su acierto: la construcción pasa una vez por despliegue, tiene las variables delante y puede fallar sin dejar nada a medias.
+
+Lo que no miró es de quién es la base. Vercel le da a los despliegues de vista previa **las mismas variables que a producción** salvo que se configure otra cosa, y la decisión de migrar era «¿hay `DATABASE_URL`? pues migro». De ahí se sigue que **una rama con una migración nueva la aplica a la base de producción al construirse** — antes de que nadie revise el PR, y aunque el PR acabe cerrándose sin mergear.
+
+No llegó a pasar porque las últimas ramas no traían migraciones. La próxima lo habría hecho.
+
+**Decisión.** Con `VERCEL_ENV=preview` no se migra. Encenderlo es explícito: `PREVIEW_MIGRATIONS=1`.
+
+**Y el sentido del interruptor es la decisión, no un detalle.** Al revés —migrar salvo que alguien lo apague— deja el estado peligroso como predeterminado, que es exactamente el fallo que esto viene a quitar. Quien olvide configurar algo tiene que quedarse en el lado seguro.
+
+El valor es `'1'` exacto: `'true'`, `'0'` o una cadena vacía **no** encienden. Son lo que queda al declarar una variable en un panel y dudar, y ninguno debe encender algo que escribe en producción.
+
+**A cambio de qué.** De que una vista previa de una rama con migraciones nuevas corra contra un esquema viejo y falle. Eso es correcto y es lo que se quiere: **falla la vista previa, que es donde hay que mirar, en vez de mutar la base de todos en silencio.**
+
+Y hay una salida para quien la quiera bien: dar a las vistas previas su propia base —una rama de Neon vale— y poner `PREVIEW_MIGRATIONS=1`. Esa parte es configuración del despliegue y no código, y está en `docs/SETUP.md`.
+
+**Lo que no cubre.** Un despliegue que no sea Vercel no define `VERCEL_ENV`, así que allí no cambia nada: se migra como antes. No es un descuido — no hay una señal genérica de «esto es un ensayo» y no me invento una; quien despliegue en otro sitio decide qué variables ve cada entorno.
+
+**Qué lo revertiría.** Que aparezca una forma fiable de saber que la base de destino **no** es la de producción. Con eso, la comprobación sería sobre el destino y no sobre el entorno, que es más preciso.
