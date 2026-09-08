@@ -1759,3 +1759,51 @@ encontró el texto que iba a sustituir —la cadena no coincidía— y el comand
 que es indistinguible de «el test no la mató». Solo al pedirle la salida entera apareció el
 `encontrado: 0`. Desde ahora, una mutación que no cambia el fichero es un fallo del método, no un
 resultado.
+
+---
+
+## La contradicción del driver, cerrada con evidencia ✅
+
+**Cerrado** el 7 de septiembre de 2026, issue [#43](https://github.com/KthArg/uno-cms/issues/43).
+Era el issue abierto más antiguo del repositorio: del 13 de agosto, del primer día de M1.
+
+### Qué decía
+
+ADR-002 fija el driver de Neon por un motivo real —en serverless, un driver TCP abre una conexión
+por invocación y agota el free tier— y `SPEC.md` §11.4 exige tests de integración contra un
+Postgres efímero, que no habla ese protocolo. Lo que se probaría en CI no sería el código que se
+despliega.
+
+Se resolvió en su día con **ADR-200**: el driver se elige por destino y hacia arriba se expone el
+mismo tipo de Drizzle, así que ni el esquema ni las consultas ni las actions saben cuál hay debajo.
+Y el issue se dejó abierto con una condición explícita: _«hasta que M6 verifique en un despliegue
+real que la rama de Neon funciona, que es lo único que los tests no pueden decir»_.
+
+### Por qué se cierra ahora
+
+**Porque esa verificación ya ocurrió y estaba anotada sin conectarla con este issue.** La suite de
+humo de #207 corrió en verde contra `uno-cms.vercel.app`: entra con una cuenta de verdad, sube una
+imagen, comprueba que sigue ahí al recargar y la borra. Eso es una lectura, una escritura y un
+borrado **a través del driver de producción**, más T-207-4, que afirma que la base del despliegue
+tiene el esquema.
+
+Si la rama de Neon no funcionara, ninguno de esos cuatro casos pasaría.
+
+### Lo que NO se cierra con esto, y queda en su sitio
+
+Que ningún test **automático** ejercite ese driver. CI sigue corriendo contra Postgres local con
+`node-postgres`, y lo único que toca la rama de Neon es una suite que hay que lanzar a mano.
+
+Eso no es este issue: es [#207](https://github.com/KthArg/uno-cms/issues/207), que ya lo describe
+—hace falta un despliegue de pruebas separado del de verdad y credenciales en el repositorio—. La
+fila de `PENDIENTES.md` se reescribe para que apunte allí en vez de a un issue cerrado, que es como
+un pendiente se disuelve.
+
+### Lo que enseñó
+
+**Un issue puede quedarse abierto después de resolverse.** Su condición de cierre se cumplió el día
+que se ejecutó la suite de humo, y nadie volvió a leerla: quien la ejecutó estaba cerrando #207 y
+no sabía que de paso cerraba el issue más antiguo del tablero.
+
+Es el mismo modo de fallo que la regla 5 persigue en los comentarios, un nivel más arriba: **una
+condición escrita en un sitio y cumplida en otro no se junta sola.**
