@@ -1905,12 +1905,15 @@ decir que no**, y de hecho lo dice en cuanto se le pregunta por una ventana de v
 `populateGlobal` copia al global las propiedades de la ventana, filtrando así:
 
 ```js
-if (k in global) return keysArray.includes(k);
+if (skipKeys.includes(k)) return false;
+if (k in global) return keysArray.includes(k); // choca con un global de Node
+return true; // no choca → se copia de jsdom
 ```
 
-`setTimeout` ya existe en el global de Node y **no** está en la lista `KEYS` de Vitest, así que se
-descarta y el global conserva el de Node. `requestAnimationFrame` y `document` sí están en esa
-lista, y por eso de esos sí llega la versión de jsdom.
+O sea que **la lista `KEYS` solo se consulta para los nombres que chocan con un global de Node**.
+`setTimeout` es uno de esos y no está en la lista: se descarta y el global conserva el de Node.
+`document` y `requestAnimationFrame` no chocan con nada —Node no los tiene, comprobado en el
+proyecto `unit`— y por eso de esos sí llega la versión de jsdom.
 
 Las dos condiciones —que Node tenga `setTimeout`, y que Vitest no lo liste— **no dependen de la
 versión de jsdom**. Por eso la respuesta no es «salió parecido en las dos», es que la subida no
@@ -1958,3 +1961,9 @@ jsdom en el global desde `tests/ui/setup.ts`, el aserto muere
   pudo medir — como se hizo en #167.
 - **La cuenta de los 8 ms que estaba en el issue era optimista.** El suelo del reloj de Windows se
   comía casi la mitad del margen antes de que la máquina hiciera nada.
+- **Y la autorevisión cazó el mismo fallo que este repositorio ya tiene contado.** La primera
+  versión del comentario explicaba que `requestAnimationFrame` llega de jsdom «porque está en la
+  lista `KEYS`». Comprobé la pertenencia a la lista y di por buena la consecuencia sin medirla:
+  llega porque Node no lo tiene, y la lista solo pinta en los nombres que chocan. La conclusión no
+  cambiaba, pero era un comentario que explicaba un mecanismo con una causa que no es la causa —
+  justo lo de `/api/media/upload`.

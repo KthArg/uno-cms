@@ -10,12 +10,20 @@ import { describe, expect, it } from 'vitest';
  * acababa de pasarse a reloj falso (#275).
  *
  * La respuesta es que **no puede cambiarlo**, y el motivo está en Vitest, no en jsdom. Su
- * `populateGlobal` copia al global las propiedades de la ventana, pero filtra con
- * `if (k in global) return KEYS.includes(k)`: `setTimeout` ya existe en el global de Node y **no**
- * está en la lista `KEYS` de Vitest, así que se descarta y el global conserva el de Node.
- * `requestAnimationFrame` y `document` sí están en esa lista, y por eso de esos sí llega la
- * versión de jsdom. Las dos condiciones —que Node lo tenga, que Vitest no lo liste— no dependen
- * de la versión de jsdom.
+ * `populateGlobal` recorre las propiedades de la ventana de jsdom y decide así:
+ *
+ * ```js
+ * if (k in global) return keysArray.includes(k);  // choca con un global de Node
+ * return true;                                     // no choca → se copia de jsdom
+ * ```
+ *
+ * O sea que **la lista `KEYS` solo se consulta para los nombres que chocan con un global de
+ * Node**. `setTimeout` es uno de esos —Node lo tiene— y no está en la lista, así que se descarta y
+ * el global conserva el de Node. `document` y `requestAnimationFrame` no chocan con nada, porque
+ * Node no los tiene, y por eso de esos sí llega la versión de jsdom.
+ *
+ * Las dos condiciones que dejan fuera al de jsdom —que Node tenga `setTimeout`, que Vitest no lo
+ * liste— no dependen de la versión de jsdom.
  *
  * Lo que compra esta guarda: si un día una subida —de Vitest, o de Node— mueve esa frontera, se
  * entera aquí un test de milisegundos, y no un flake a las semanas en un caso que parecía hablar
@@ -38,11 +46,16 @@ describe('los temporizadores del entorno `ui`', () => {
     // carencia de jsdom.
     const marco = document.createElement('iframe');
     document.body.appendChild(marco);
-    const propioDeJsdom = marco.contentWindow!.setTimeout;
 
-    expect(propioDeJsdom as unknown).not.toBe(nodeTimers.setTimeout as unknown);
-    expect(Function.prototype.toString.call(propioDeJsdom)).toContain('webIDLConversions');
+    try {
+      const propioDeJsdom = marco.contentWindow!.setTimeout;
 
-    marco.remove();
+      expect(propioDeJsdom as unknown).not.toBe(nodeTimers.setTimeout as unknown);
+      expect(Function.prototype.toString.call(propioDeJsdom)).toContain('webIDLConversions');
+    } finally {
+      // En el `finally` porque un aserto que falla dejaría el iframe colgando del `body` para el
+      // resto del fichero: el `cleanup` de Testing Library solo retira lo que montó él.
+      marco.remove();
+    }
   });
 });

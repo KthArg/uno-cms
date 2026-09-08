@@ -176,6 +176,7 @@ No son burocracia: cada una existe porque algo se coló.
 | `tests/support/api-routes.ts`                      | Una ruta de `/api` sin declarar su nivel de acceso **y su motivo**                 |
 | `tests/unit/readmes-de-directorio.test.ts`         | Un directorio con código sin README, o uno que promete un hito ya cerrado          |
 | `tests/unit/modelo-de-amenazas.test.ts`            | Que `docs/SECURITY.md` cite tests que no existen                                   |
+| `tests/ui/temporizadores-son-los-de-node.test.ts`  | Que una subida mueva los temporizadores de la suite `ui` a los de jsdom (#276)     |
 | `security/detect-non-literal-fs-filename` (eslint) | Operaciones de disco con ruta variable. **No cubre `rm`** — comprobado             |
 | `import 'server-only'`                             | Que `cms/{core,db,auth,security}` llegue al navegador                              |
 

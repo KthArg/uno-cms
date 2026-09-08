@@ -98,8 +98,10 @@ export default defineConfig({
            * dar nada a cambio.
            *
            * **Los temporizadores de aquí son los de Node, no los de jsdom** (#276). Vitest copia
-           * al global las propiedades de la ventana, pero descarta las que Node ya tiene y no
-           * están en su lista `KEYS` — y `setTimeout` es una de esas. Importa al escribir un test
+           * al global las propiedades de la ventana, pero para los nombres que **ya existen en el
+           * global de Node** consulta su lista `KEYS`, y `setTimeout` no está en ella: gana el de
+           * Node. `document` y `requestAnimationFrame` llegan de jsdom porque Node no los tiene.
+           * Importa al escribir un test
            * que dependa del tiempo: la versión de `jsdom` no influye en cómo se comportan, y lo
            * que sí influye es la carga de la máquina. Lo vigila
            * tests/ui/temporizadores-son-los-de-node.test.ts.
