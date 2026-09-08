@@ -120,6 +120,7 @@ pnpm vitest run --project integration       # necesita DATABASE_URL
 pnpm test:e2e                               # Playwright; construye y arranca `next start`
 pnpm test:e2e:desarrollo                    # el almacén local, contra `next dev` (#170)
 pnpm test:humo                              # Playwright contra un DESPLIEGUE de verdad
+pnpm medios:huerfanos                       # compara el almacén con la tabla `media`; no borra (#206)
 ```
 
 `pnpm test:humo` es la única que **no** arranca nada: corre contra el despliegue que le digas en
