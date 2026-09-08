@@ -1704,3 +1704,58 @@ conviven. Es una línea en `next.config.ts` y sin ella nada de esto era posible.
   entrecomillado; el resto de la suite no se entera porque compara con `toContain`. Aquí la cadena
   se pedía por HTTP y salía un 404 contra `/%22/api/...%22`. Queda escrito junto al helper que lo
   decodifica.
+
+---
+
+## Los huérfanos del almacén, por fin visibles ✅
+
+**Cerrado** el 7 de septiembre de 2026, issue [#206](https://github.com/KthArg/uno-cms/issues/206).
+Abierto desde el 30 de agosto, salido de ADR-705.
+
+### El problema
+
+ADR-705 dejó **dos** escrituras de la fila de una imagen: la del navegador al terminar la subida y
+el aviso `blob.upload-completed` de Vercel. Las dos pueden fallar, y si fallan las dos el fichero
+está en el almacén y el CMS no lo tiene. Para el CMS esa imagen no existió, y no había forma de
+enterarse.
+
+### La decisión: enseña, no borra
+
+Es la parte que el issue dejaba explícitamente sin decidir. `pnpm medios:huerfanos` lista lo que
+sobra por cada lado y **no toca nada**, por dos motivos distintos:
+
+- **Un objeto sin fila puede ser una subida en vuelo.** Entre que el fichero llega al almacén y que
+  la fila se escribe pasan milisegundos, y el script no puede distinguir eso de un huérfano de hace
+  un mes. Borrar ahí es destruir la foto de alguien mientras la sube.
+- **Una fila sin objeto es un rastro, no basura.** Dice que hubo una imagen y ya no está; borrarla
+  deja el mismo estado que si nunca hubiera existido.
+
+Así que decide una persona, y lo que faltaba para eso era poder verlo.
+
+### Funciona, y lo primero que hizo fue encontrar siete
+
+Ejecutado contra la base de e2e encontró **siete objetos huérfanos** en `.uploads/` — de las
+propias pruebas de esta sesión. Exactamente la clase de resto que el issue describía, y que hasta
+ahora no salía en ningún sitio.
+
+### Cómo está probado
+
+- **La comparación**, que es donde está la decisión, es una función pura y tiene sus casos: los dos
+  lados, los dos a la vez, y uno que exige que **compare conjuntos y no cuente** — dos listas del
+  mismo tamaño y distinto contenido.
+- **La lectura de la base**, contra Postgres real, incluida la mitad de T-206-3 que dice que mirar
+  no escribe.
+- **Sin almacén devuelve `null`, no una lista vacía.** La diferencia es todo el caso T-206-4: una
+  lista vacía diría que el almacén está vacío y **todas** las filas saldrían como huérfanas — un
+  informe alarmante y falso, que es peor que no tener informe.
+
+Dos mutaciones, las dos muertas: la comparación convertida en un contador y el `null` convertido en
+lista vacía.
+
+### Lo que enseñó
+
+**Una mutación que no se aplica se lee igual que una que sobrevive.** La primera pasada de M1 no
+encontró el texto que iba a sustituir —la cadena no coincidía— y el comando salió sin decir nada,
+que es indistinguible de «el test no la mató». Solo al pedirle la salida entera apareció el
+`encontrado: 0`. Desde ahora, una mutación que no cambia el fichero es un fallo del método, no un
+resultado.
