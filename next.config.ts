@@ -2,6 +2,19 @@ import path from 'node:path';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  /**
+   * Dónde se construye, configurable (issue #170).
+   *
+   * Existe por un caso concreto: el almacén local de imágenes (ADR-700) **solo funciona en
+   * desarrollo**, así que la única forma de ejercitarlo en un navegador es con `next dev`. Y la
+   * suite de e2e corre con `next start` sobre `.next`, que es la trampa que `CLAUDE.md` avisa:
+   * levantar `next dev` al lado reescribe ese directorio por debajo y el otro servidor empieza a
+   * dar `Cannot find module './vendor-chunks/…'`.
+   *
+   * Con esto, el servidor de desarrollo de esa suite usa su propio directorio y los dos conviven.
+   * En todo lo demás la variable no está definida y el comportamiento es exactamente el de antes.
+   */
+  distDir: process.env.NEXT_DIST_DIR ?? '.next',
   reactStrictMode: true,
   // No anunciar el framework: reduce la superficie de reconocimiento (SPEC §7).
   poweredByHeader: false,

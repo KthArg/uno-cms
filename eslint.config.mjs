@@ -50,6 +50,10 @@ export default tseslint.config(
   {
     ignores: [
       '.next/**',
+      // El directorio de construcción del servidor de desarrollo de la suite del almacén local
+      // (#170). Es código compilado, igual que `.next`: sin esta línea `pnpm lint` lo recorre y
+      // saca más de dos mil errores que no son de nadie.
+      '.next-desarrollo/**',
       'node_modules/**',
       'coverage/**',
       'playwright-report/**',

@@ -118,6 +118,7 @@ pnpm typecheck
 pnpm vitest run --project unit --project ui # rápidos, sin base de datos
 pnpm vitest run --project integration       # necesita DATABASE_URL
 pnpm test:e2e                               # Playwright; construye y arranca `next start`
+pnpm test:e2e:desarrollo                    # el almacén local, contra `next dev` (#170)
 pnpm test:humo                              # Playwright contra un DESPLIEGUE de verdad
 ```
 
