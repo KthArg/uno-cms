@@ -162,6 +162,28 @@ Lo que hay que tocar en tu web, y lo que hay que saber antes de intentarlo, est�
 de poner las variables: **hay que añadir unas líneas a tu web** y ajustar su política de
 seguridad, y eso no se puede hacer desde aquí.
 
+## Si trabajas con ramas y pull requests
+
+Vercel construye un despliegue de **vista previa** por cada rama, y le da las mismas variables de
+entorno que a producción salvo que le digas otra cosa. Eso incluye `DATABASE_URL`.
+
+**Este CMS no aplica migraciones en las vistas previas**, justo por eso (ADR-940): si lo hiciera,
+una rama con un cambio de esquema lo aplicaría a tu base de verdad al construirse, antes de que
+nadie revisara nada.
+
+La contrapartida es que una rama que traiga una migración nueva verá su vista previa contra el
+esquema viejo, y probablemente falle. Es lo correcto —falla la vista previa y no la base— pero si
+te molesta, la salida es darles su propia base:
+
+1. En Neon, crea una **rama** de tu base (es una copia instantánea y no cuesta nada).
+2. En Vercel, **Settings → Environment Variables**: define `DATABASE_URL` **solo para Preview**
+   con la dirección de esa rama, y deja la de producción marcada solo para _Production_.
+3. Añade `PREVIEW_MIGRATIONS=1`, también solo para _Preview_.
+
+Para comprobarlo, abre cualquier pull request y busca en el registro de su despliegue la línea
+`[migraciones] Aplicando las migraciones pendientes…`. Tiene que estar tocando la base de la rama,
+no la tuya.
+
 ## Si algo sale mal
 
 **La web dice «Este sitio todavía no está listo» después de crear mi cuenta.**
