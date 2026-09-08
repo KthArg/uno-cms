@@ -96,6 +96,13 @@ export default defineConfig({
            * Proyecto aparte y no una carpeta más dentro de `unit` porque necesitan `jsdom`, y
            * arrancar un DOM para los 280 tests que no lo usan encarece la suite entera sin
            * dar nada a cambio.
+           *
+           * **Los temporizadores de aquí son los de Node, no los de jsdom** (#276). Vitest copia
+           * al global las propiedades de la ventana, pero descarta las que Node ya tiene y no
+           * están en su lista `KEYS` — y `setTimeout` es una de esas. Importa al escribir un test
+           * que dependa del tiempo: la versión de `jsdom` no influye en cómo se comportan, y lo
+           * que sí influye es la carga de la máquina. Lo vigila
+           * tests/ui/temporizadores-son-los-de-node.test.ts.
            */
           name: 'ui',
           environment: 'jsdom',
