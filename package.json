@@ -34,6 +34,7 @@
     "test:e2e:desarrollo": "playwright test --config playwright.desarrollo.config.ts",
     "test:humo": "playwright test --config playwright.humo.config.ts",
     "presupuesto:js": "node scripts/presupuesto-js.mjs",
+    "medios:huerfanos": "node scripts/medios-huerfanos.mjs",
     "seed:demo": "node scripts/seed-demo.mjs",
     "test:coverage": "vitest run --coverage",
     "prepare": "husky",
