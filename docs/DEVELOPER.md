@@ -323,11 +323,104 @@ connect-src ... https://mi-cms.com    # para poder pedir los borradores
 No podemos comprobarlo desde aquí ni arreglarlo por ti. Lo que sí podemos es que salga escrito
 antes de que te pase.
 
+### 5. El aviso al publicar, para que tu web pueda cachear
+
+Esto es la spec 16 y los ADR de la serie 1000. **Es opcional y va aparte de todo lo anterior**:
+la vista previa remota funciona sin esto, y esto funciona sin la vista previa remota.
+
+Sin aviso, tu web solo tiene dos opciones y las dos son malas: no cachear —una petición al CMS
+por visita— o cachear un rato fijo, y entonces publicar parece no hacer nada durante ese rato.
+El aviso es lo que permite la tercera: **cachear y revalidar solo cuando te avisan**.
+
+#### Dos variables más en el CMS
+
+```sh
+WEBHOOK_URL=https://mi-web.com/api/unocms   # a dónde va el POST
+WEBHOOK_SECRET=...32 caracteres o más...
+```
+
+**Las dos o ninguna**: con una sola puesta, la fase queda apagada y se dice por consola.
+`WEBHOOK_URL` tiene que ser `https` salvo en el bucle local. Y `WEBHOOK_SECRET` **no puede ser
+tu `APP_SECRET`**: este se lo vas a dar a tu web, y aquel firma los tokens que crean el primer
+administrador (ADR-1001).
+
+#### Lo que recibe tu web
+
+Un `POST` con `Content-Type: application/json`, estas cabeceras:
+
+| Cabecera          | Contenido                                   |
+| ----------------- | ------------------------------------------- |
+| `X-UnoCMS-Evento` | El evento, repetido fuera del cuerpo        |
+| `X-UnoCMS-Id`     | Único por aviso. **El reintento lo repite** |
+| `X-UnoCMS-Ts`     | Milisegundos desde la época                 |
+| `X-UnoCMS-Firma`  | `sha256=<hex>`                              |
+
+y este cuerpo:
+
+```json
+{
+  "id": "e2a1…",
+  "evento": "content.published",
+  "ts": 1757404800123,
+  "claves": [{ "key": "testimonials.a1b2", "tipo": "item", "coleccion": "testimonials" }],
+  "tags": ["content:testimonials"]
+}
+```
+
+**Usa `tags`, no `claves`.** `tags` es la lista ya elevada a **lo que puedes pedir**: un elemento
+de colección aporta el tag de su colección, porque `/api/content/testimonials.a1b2` responde 404.
+`claves` está para registrar y para decidir con detalle, no para construir direcciones.
+
+La firma es `HMAC-SHA256(WEBHOOK_SECRET, "<ts>.<cuerpo crudo>")` en hexadecimal. **Sobre el cuerpo
+crudo**: si lo analizas y lo vuelves a serializar antes de verificar, no va a cuadrar.
+
+> **Decide con los campos del cuerpo, no con las cabeceras.** `X-UnoCMS-Evento` y `X-UnoCMS-Id`
+> están **fuera de la firma** —que cubre `ts` y cuerpo—, así que alterarlas por el camino no
+> invalida nada. Van ahí por comodidad de quien enruta o registra sin analizar el cuerpo, y para
+> nada más. Si descartas duplicados por el `id` de la cabecera, se te puede forzar a reprocesar.
+>
+> `ts` es la excepción y sí es de fiar: va dentro de lo firmado, y por eso tu ventana anti-replay
+> funciona.
+
+#### Y lo que más tiempo hace perder, otra vez
+
+**Al volver a pedir, añade `?v=<ts del aviso>`.**
+
+`GET /api/content/:key` responde con `s-maxage=60`, y eso lo sirve la CDN que hay delante del
+CMS. Si obedeces el aviso y pides sin más, puedes recibir la copia de hasta un minuto antes y
+concluir que el aviso no funciona. Una query distinta es una entrada de caché distinta; la ruta
+ignora el parámetro, así que la respuesta es la misma.
+
+```js
+const respuesta = await fetch(`${CMS_URL}/api/content/hero?v=${aviso.ts}`);
+```
+
+#### Lo que este contrato NO promete, dicho antes de que te pase
+
+- **No hay entrega garantizada.** Un intento y un reintento; si tu web está caída los dos, ese
+  cambio no se avisa nunca y te quedas con lo viejo hasta la siguiente publicación.
+- **No hay orden.** Dos publicaciones seguidas pueden llegar al revés. No hace daño: volver a
+  pedir con `?v=` trae el dato de ahora, aplíquense en el orden que sea.
+- **Puede llegar dos veces.** Por eso hay `id`: descarta el repetido en vez de revalidar otra vez.
+- **Un 4xx tuyo no se reintenta.** Si rechazas el aviso, entendemos que tu configuración está mal
+  y que repetirlo no la arregla.
+
+#### Lo que tienes que hacer tú, y no podemos comprobar
+
+- **Verifica la firma en tiempo constante** (`crypto.timingSafeEqual`), no con `===`.
+- **Rechaza un `ts` viejo.** Cinco minutos de ventana es razonable. Sin eso, quien capture un
+  aviso lo puede reenviar cuando quiera.
+- Si no verificas nada, tu endpoint es un amplificador: cualquiera te obliga a repedirlo todo.
+
+> **Todavía no hay un receptor de ejemplo.** `examples/web-remota/` consume lo publicado pero no
+> recibe avisos ni cachea: eso es el issue
+> [#287](https://github.com/KthArg/uno-cms/issues/287) y hasta que se cierre, lo de arriba es un
+> contrato escrito y probado desde nuestro lado, no una integración que nadie haya montado. Se
+> dice aquí porque la alternativa es que lo descubras tú.
+
 ### Lo que NO se lleva la web remota
 
 - **Los ajustes del sitio y el SEO por defecto.** Siguen sin endpoint público.
-- **El aviso al publicar.** Hoy `publish` solo invalida nuestra caché; tu web se entera cuando
-  vuelva a pedir. Un webhook es otra fase.
 - **La landing de este repositorio**, que sigue existiendo y sirviéndose aunque no la uses.
 
 ### Qué esperar de la vista previa remota, con sus límites

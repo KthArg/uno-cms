@@ -8,6 +8,7 @@ import type { AnyField, ObjectSchema } from '@/cms/core/config';
 import { sanitizeRichText } from '@/cms/core/richtext';
 import { buildObjectSchema } from '@/cms/core/schema-gen';
 import { contentTag } from '@/cms/core/content';
+import { avisar, type ClaveAvisada } from '@/cms/core/aviso';
 import { contentEntries, getDb, revisions } from '@/cms/db';
 import type { ActionFieldError } from './pipeline';
 import { defineAction, fail, failFields, fieldsFromZod, ok } from './pipeline';
@@ -374,6 +375,18 @@ function invalidarEntrada(key: string, type: string): void {
   if (type !== key) revalidateTag(contentTag(type));
 }
 
+/**
+ * La misma distinción que hace `invalidarEntrada`, dicha en el vocabulario del aviso (#283).
+ *
+ * En un singleton el `type` de la fila coincide con la clave; en un elemento de colección es el
+ * nombre de la colección. Es el único dato que separa los dos casos, y de él depende **qué tag
+ * viaja hacia fuera**: el del elemento no le sirve a nadie, porque `/api/content/:key` responde
+ * 404 a una clave que no está declarada en `cms.config.ts`. Ver `tagsDe`.
+ */
+function claveAvisada(key: string, type: string): ClaveAvisada {
+  return type === key ? { key, tipo: 'singleton' } : { key, tipo: 'item', coleccion: type };
+}
+
 export const publish = defineAction({
   name: 'content.publish',
   role: 'editor',
@@ -393,6 +406,14 @@ export const publish = defineAction({
     // dato esté confirmado repuebla el caché con el estado viejo, y el editor ve que su
     // publicación no aparece sin ningún error que lo explique.
     invalidarEntrada(input.key, result.type);
+
+    // Y el aviso hacia fuera, **solo si cambió algo de verdad** (#283). `publishEntry` devuelve
+    // `cambio: false` cuando el borrador y lo publicado ya coincidían, que es lo que pasa al
+    // pulsar "Publicar" dos veces seguidas: avisar ahí despertaría a la web de destino para que
+    // volviera a pedir exactamente lo que ya tiene.
+    if (result.cambio) {
+      avisar('content.published', [claveAvisada(input.key, result.type)], session);
+    }
 
     return ok({ key: input.key, changed: result.cambio });
   },
@@ -431,6 +452,10 @@ export const publishAll = defineAction({
 
     const publicadas: string[] = [];
     const fallidas: { key: string; code: string; fields?: ActionFieldError[] }[] = [];
+    // Lo que se avisa hacia fuera, acumulado para mandar **un solo** aviso al final (ADR-1002).
+    // Una tanda de cien entradas mandaría cien POST si se avisara dentro del bucle, y el
+    // destino recibiría cien veces la orden de repedir lo mismo.
+    const avisadas: ClaveAvisada[] = [];
 
     for (const { key } of tanda) {
       // Una transacción **por entrada** (ADR-401). Con una global, un `seo.description` a
@@ -460,6 +485,11 @@ export const publishAll = defineAction({
       if (result.ok) {
         publicadas.push(key);
         invalidarEntrada(key, result.type);
+
+        // El mismo criterio que en `publish`: solo lo que cambió de verdad. Aquí la tanda sale
+        // de un `status = 'changed'`, así que en principio todas cambian — pero "en principio"
+        // no es una garantía, y el filtro cuesta una línea.
+        if (result.cambio) avisadas.push(claveAvisada(key, result.type));
       } else {
         fallidas.push({
           key,
@@ -468,6 +498,10 @@ export const publishAll = defineAction({
         });
       }
     }
+
+    // Un aviso con todo lo publicado, no uno por entrada. Y ninguno si no se publicó nada:
+    // una tanda entera que falla la validación no cambia una sola respuesta de la API pública.
+    if (avisadas.length > 0) avisar('content.published', avisadas, session);
 
     // El resultado por clave es obligatorio, no informativo: sin él el editor no sabe qué se
     // publicó y qué se quedó fuera (ADR-401).
@@ -763,7 +797,7 @@ export const deleteItem = defineAction({
   input: z.object({ key: z.string().min(1).max(200) }),
   targetType: 'content',
   targetId: (input) => input.key,
-  handler: async (input) => {
+  handler: async (input, session) => {
     const db = getDb();
 
     const result = await db.transaction(async (tx) => {
@@ -800,7 +834,14 @@ export const deleteItem = defineAction({
     // Fuera de la transacción y solo si se borró: el elemento podía estar publicado, así que
     // la landing tiene que dejar de mostrarlo. Invalidar antes del commit repoblaría el caché
     // con el elemento todavía presente.
-    if (result.ok) revalidateTag(contentTag(result.data.collection));
+    if (result.ok) {
+      revalidateTag(contentTag(result.data.collection));
+
+      // Hacia fuera se avisa de **la colección**, no del elemento: lo que la web puede volver a
+      // pedir es la lista, y el elemento ya no está en ella. Ese es justo el dato que el aviso
+      // tiene que dar — sin él, una web que cachea seguiría enseñando lo borrado.
+      avisar('content.deleted', [{ key: result.data.collection, tipo: 'coleccion' }], session);
+    }
 
     return result;
   },
@@ -816,7 +857,7 @@ export const reorderItems = defineAction({
   }),
   targetType: 'content',
   targetId: (input) => input.collection,
-  handler: async (input) => {
+  handler: async (input, session) => {
     if (collectionDefinition(input.collection) === null) return fail('NOT_FOUND');
 
     // Claves repetidas dejarían elementos sin posición asignada y otros con dos. Se rechaza
@@ -863,7 +904,14 @@ export const reorderItems = defineAction({
 
     // SPEC §5.3: "revalida el tag de la colección". Fuera de la transacción y solo si salió
     // bien, como en `publish`.
-    if (result.ok) revalidateTag(contentTag(input.collection));
+    if (result.ok) {
+      revalidateTag(contentTag(input.collection));
+
+      // Reordenar cambia lo que devuelve `GET /api/content/:coleccion` —el orden es parte de la
+      // respuesta— aunque no cambie ni un texto. Una web que cachea la lista se quedaría con el
+      // orden viejo, que es un cambio invisible para quien lo hizo: en el panel se ve movido.
+      avisar('content.reordered', [{ key: input.collection, tipo: 'coleccion' }], session);
+    }
 
     return result;
   },

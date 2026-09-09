@@ -58,6 +58,50 @@ test('T-82-4: una clave que no está en cms.config.ts da 404', async ({ request 
   expect(response.headers()['cache-control'] ?? '').not.toContain('s-maxage=60');
 });
 
+/**
+ * T-A-28 y T-A-29: el `?v=` con el que la web remota esquiva la CDN (spec 16 §5.3).
+ *
+ * ## Por qué esto necesita un caso propio
+ *
+ * El aviso al publicar llega en menos de un segundo, pero la respuesta de esta ruta lleva
+ * `s-maxage=60` y eso lo sirve **la CDN**, que `revalidateTag` no toca. Sin nada más, quien
+ * obedeciera el aviso y volviera a pedir recibiría la copia de hace cuarenta segundos y
+ * concluiría que el webhook no sirve.
+ *
+ * El contrato es pedir `?v=<ts del aviso>`: una query distinta es una entrada de caché distinta.
+ * Eso solo funciona si la ruta **ignora** el parámetro, y de eso va este caso. Hoy lo ignora
+ * porque solo lee `params.key` — pero "hoy no lo lee" es una propiedad del código, y sin un caso
+ * que la fije, el día que alguien añada un `searchParams` aquí se rompe una web que no es
+ * nuestra y no se entera nadie.
+ */
+test('T-A-28: el ?v= no cambia la respuesta, solo la clave de caché', async ({ request }) => {
+  const sinV = await request.get('/api/content/hero');
+  const conV = await request.get(`/api/content/hero?v=${String(Date.now())}`);
+
+  expect(conV.status()).toBe(sinV.status());
+  expect(await conV.json()).toEqual(await sinV.json());
+});
+
+test('T-A-29: y mantiene el mismo Cache-Control', async ({ request }) => {
+  const conV = await request.get('/api/content/hero?v=1757404800123');
+
+  // Si el `?v=` desactivara el caché, cada aviso castigaría a todas las visitas siguientes —
+  // que es justo lo que §5.3 descarta al no bajar el `s-maxage`.
+  expect(conV.headers()['cache-control']).toBe('public, s-maxage=60, stale-while-revalidate=300');
+});
+
+test('T-A-26: un parámetro cualquiera tampoco convierte la ruta en otra cosa', async ({
+  request,
+}) => {
+  // No es paranoia: si algún día se leyera la query, el primer uso natural sería filtrar campos
+  // o pedir el borrador. Esta ruta es pública y sin sesión, así que eso sería publicar sin que
+  // nadie pulse nada.
+  const conBasura = await request.get('/api/content/hero?draft=1&fields=title&v=x');
+  const limpia = await request.get('/api/content/hero');
+
+  expect(await conBasura.json()).toEqual(await limpia.json());
+});
+
 test('la ruta pública no exige sesión', async ({ request }) => {
   // Sin cookie de ningún tipo. Si el middleware la tratara como privada, esto sería un 307 a
   // la página de acceso.

@@ -352,6 +352,23 @@ Todas las actions comparten un pipeline obligatorio, en este orden:
 
 - `GET /api/content/:key` → JSON del contenido published, `Cache-Control: s-maxage=60, stale-while-revalidate=300`. Existe solo como escape hatch (p. ej. consumo desde un script externo); la landing no la usa.
 - `GET /api/health` → `{ ok, dbLatencyMs }` sin datos sensibles.
+
+> **Enmienda — ADR-1004 (issue #282).** Dos cosas de la línea de `GET /api/content/:key` han
+> dejado de ser ciertas, y una tercera se añade.
+>
+> **«Existe solo como escape hatch; la landing no la usa» ya no vale desde ADR-701.** Con la web
+> viviendo fuera, esa ruta es **la** forma en que la landing lee el contenido: es literalmente lo
+> único que hace `examples/web-remota/lib/contenido.js`. La frase se quedó atrás cuando se
+> enmendó §0 y nadie la siguió hasta aquí.
+>
+> **La ruta acepta un parámetro `?v=` y lo ignora.** No es decorativo: `s-maxage=60` lo sirve la
+> CDN, y `revalidateTag` no la toca. Sin una query distinta, una web que obedeciera el aviso al
+> publicar recibiría la copia de hasta un minuto antes y concluiría que el aviso no sirve. El
+> contrato es pedir `/api/content/<key>?v=<ts del aviso>`; la respuesta y su `Cache-Control` son
+> idénticos byte a byte a los de siempre.
+>
+> Lo que **no** cambia y conviene dejar dicho: sigue sirviendo solo lo publicado, sigue sin
+> cabeceras CORS, y sigue respondiendo 404 a una clave no declarada en `cms.config.ts`.
 - `POST /api/auth/*` → Auth.js. Login con rate limit 5/15 min por IP+email y lockout incremental (`failedLogins`/`lockedUntil`).
 
 ---
@@ -482,6 +499,23 @@ KV_REST_API_URL=/TOKEN=  # opcional (rate limit distribuido); sin esto, fallback
 >
 > Que sean variables de entorno y no ajustes del panel es la decisión, no el detalle: un ajuste
 > en la base de datos lo cambia cualquiera con una sesión de administrador.
+
+> **Enmienda — ADR-1000 y ADR-1001 (issue #282).** Dos variables más, las dos **opcionales** y
+> las dos del aviso a la web de destino al publicar:
+>
+> ```
+> WEBHOOK_URL=             # opcional; a dónde va el POST al publicar. https, salvo bucle local
+> WEBHOOK_SECRET=          # opcional; firma HMAC del aviso. 32 caracteres o más
+> ```
+>
+> **Las dos o ninguna**: con una sola puesta la fase se apaga y se dice por consola. Sin ninguna,
+> el comportamiento es exactamente el de antes de esta enmienda — publicar invalida la caché
+> propia y nada sale a la red.
+>
+> **`WEBHOOK_SECRET` es propio y no se deriva de `APP_SECRET`, y ese es el punto.** Este secreto
+> sale de la aplicación por diseño: la web de destino lo necesita para verificar la firma.
+> `APP_SECRET` firma además los tokens de setup, así que compartirlo regalaría la capacidad de
+> crear el primer administrador. Está razonado en ADR-1001.
 
 ---
 

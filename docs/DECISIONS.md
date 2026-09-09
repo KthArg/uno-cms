@@ -1486,3 +1486,166 @@ Y hay una salida para quien la quiera bien: dar a las vistas previas su propia b
 **Lo que no cubre.** Un despliegue que no sea Vercel no define `VERCEL_ENV`, así que allí no cambia nada: se migra como antes. No es un descuido — no hay una señal genérica de «esto es un ensayo» y no me invento una; quien despliegue en otro sitio decide qué variables ve cada entorno.
 
 **Qué lo revertiría.** Que aparezca una forma fiable de saber que la base de destino **no** es la de producción. Con eso, la comprobación sería sobre el destino y no sobre el entorno, que es más preciso.
+
+---
+
+## ADR-1000 — El destino del aviso se configura por entorno, no desde el panel (resuelve #282, aplica #283)
+
+**Contexto.** El aviso al publicar necesita saber a dónde mandar el POST y con qué secreto firmarlo. Strapi —que es de donde viene la idea— lo configura desde su panel: una pantalla con varios webhooks, cada uno con su URL y sus cabeceras. Es cómodo y es lo que la gente espera.
+
+**Las salidas evaluadas.**
+
+| Salida                               | Por qué no                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pantalla de ajustes, como Strapi** | Convierte «a qué dirección sale una petición desde nuestro servidor» en algo que cambia cualquiera con una sesión de administrador. Eso es un SSRF con formulario: quien consiga una sesión elige a qué host interno hablamos y qué le contamos. Y el secreto acabaría en la tabla `settings`, en texto plano, junto al nombre del sitio |
+| **Varios destinos**                  | ADR-921 dice que la web que vive fuera no convierte esto en multi-sitio. Varios destinos es la primera pieza de multi-sitio, montada por la puerta de atrás                                                                                                                                                                              |
+| **Entorno, un solo destino**         | Lo elegido                                                                                                                                                                                                                                                                                                                               |
+
+**Decisión.** Dos variables de entorno, `WEBHOOK_URL` y `WEBHOOK_SECRET`. Un destino. **Sin las dos, la fase no existe**: no sale una petición, no se audita nada, y publicar tarda lo que tarda hoy.
+
+Es exactamente el mismo criterio que ADR-701 aplicó a `PREVIEW_ORIGINS`, y por el mismo motivo escrito allí: _«esta lista decide quién puede leer contenido sin publicar; un ajuste en la base de datos lo puede cambiar cualquiera con una sesión de administrador. Una variable de entorno solo la cambia quien despliega.»_ Aquí la frase es «a quién le hablamos y con qué credencial», que es la misma clase de decisión.
+
+**Y las dos o ninguna.** Con una sola puesta, la fase se apaga **y se dice por consola**. Media configuración funcionando y la otra media callada es peor que nada: quien puso la variable creía estar encendiendo algo.
+
+**A cambio de qué.** De que cambiar el destino exija un redespliegue, y de que quien no toca variables de entorno no pueda usar esto. Es el mismo precio que ya se paga por la vista previa remota, y quien despliega en Vercel lo hace desde un formulario.
+
+**Qué lo revertiría.** Que hiciera falta más de un destino de verdad —no «por si acaso»—. Entonces la conversación no es «entorno o panel», es una tabla de destinos con su modelo de permisos, y eso es una fase con su propio ADR.
+
+---
+
+## ADR-1001 — La firma del aviso usa un secreto propio, no `APP_SECRET` (resuelve #282)
+
+**Contexto.** Ya hay un secreto de aplicación. `APP_SECRET` firma con HMAC-SHA256 los tokens de vista previa, los de bootstrap del primer administrador y los de reinicio de contraseña (`cms/security/tokens.ts`). Reutilizarlo para firmar el aviso sale gratis: la función ya está escrita y el despliegue ya lo tiene puesto.
+
+**Por qué no.** Porque **el secreto del aviso tiene que salir de casa**. La web de destino lo necesita para verificar que el POST viene de nosotros; sin dárselo, la firma no sirve para nada.
+
+Y `APP_SECRET` es lo único que separa a un desconocido de crear el primer administrador. `signToken('setup', …)` no comprueba nada más que la firma y el propósito, y el propósito va **dentro** de la firma. Quien tenga el secreto se fabrica un token de setup válido.
+
+O sea que compartir `APP_SECRET` con la web de destino sería regalarle, de propina, la capacidad de tomar el CMS. Y no solo a ella: a cualquiera que lea la configuración de esa web, que ya no es un sitio que controlemos.
+
+**Decisión.** `WEBHOOK_SECRET`, propio, con el mismo suelo de 32 caracteres que §7.3 le pone a `APP_SECRET` y por el mismo motivo. Uno corto se adivina, y entonces cualquiera puede avisar a la web de destino.
+
+**Lo que se firma es `"<ts>.<cuerpo>"`, no solo el cuerpo.** Si el `ts` viajara únicamente en la cabecera, se podría reenviar un aviso capturado cambiándole la fecha y la firma seguiría cuadrando: la ventana anti-replay del receptor no protegería de nada. Es el esquema de siempre y no se inventa nada.
+
+**Consecuencias.**
+
+- Una variable más que explicar en `docs/SETUP.md` y en `.env.example`. Se acepta: la alternativa es un secreto que abre dos puertas.
+- El aviso **no se sigue por redirecciones** (`redirect: 'manual'`). Una redirección en un POST firmado mandaría la cabecera de firma y el cuerpo entero al destino nuevo; quien controle un redirector abierto en el dominio configurado se lleva un sobre firmado válido. Un 3xx se trata como fallo y sin reintento.
+
+**Qué lo revertiría.** Nada razonable. Si algún día el aviso dejara de salir de la aplicación —un consumidor interno—, entonces no haría falta secreto ninguno, no reutilizar el otro.
+
+---
+
+## ADR-1002 — Un aviso agrupado, con `tags` ya elevados a lo que se puede pedir (resuelve #282)
+
+**Contexto.** `publishAll` publica hasta cien entradas en una llamada. Avisar dentro del bucle serían cien POST a la web de destino, cien veces la misma orden de repedir, desde una función serverless que tiene un límite de duración.
+
+**Y hay un segundo problema, más sutil, que es el que de verdad decide este ADR.** Un elemento de colección se publica con la clave `testimonials.a1b2`. Pero `GET /api/content/testimonials.a1b2` responde **404**: esa clave no está declarada en `cms.config.ts`. Lo único que la web puede pedir es la colección entera.
+
+Así que mandar el tag del elemento sería mandar algo **inservible**: quien lo recibiera revalidaría una dirección que no existe, y su lista seguiría enseñando el texto viejo sin un solo error por medio.
+
+**Eso ya pasó, dentro de casa, y está en el repositorio.** Es #116: `publish` invalidaba `content:testimonials.a1b2` y la landing leía la lista bajo `content:testimonials`, así que quien publicaba el cambio de un testimonio veía «Publicado ✓» y su web seguía igual. **Y el test de entonces pasaba**, porque espiaba que se llamara a `revalidateTag` con el tag de la entrada — que es correcto para un singleton.
+
+**Decisión.** El sobre lleva dos listas y no una:
+
+- **`claves`**, el detalle de lo que se tocó, entrada por entrada, con su tipo.
+- **`tags`**, esa misma lista **deduplicada y elevada al nivel de lo que se puede pedir**. Un elemento de colección aporta el tag de su colección, y varios elementos de la misma colección aportan uno solo.
+
+Y un aviso por operación, no por entrada: `publishAll` de cien entradas manda **un** POST con cien claves.
+
+**`tags` se filtra además por `cms.config.ts`.** Una fila puede tener un `type` que la configuración ya no declara —es el caso de ADR-404: se quita una sección del código y sus filas siguen en la base de datos—. Su tag saldría igual y la web pediría una clave que da 404. Se filtra con la misma pregunta que hace la ruta, para que no puedan discrepar.
+
+**A cambio de qué.** De que quien reciba el aviso no pueda saber, mirando `tags`, **qué** elemento de la colección cambió. Para eso está `claves`. La separación es deliberada: `tags` es lo accionable y `claves` lo informativo, y mezclarlas es cómo se acaba revalidando una dirección que no existe.
+
+**Qué lo revertiría.** Que `/api/content/:key` empezara a servir elementos sueltos de una colección. Entonces el tag del elemento sí sería pedible y la elevación sobraría.
+
+---
+
+## ADR-1003 — Publicar no falla porque el aviso falle; un reintento y sin cola (resuelve #282)
+
+**Contexto.** Cuando el aviso se manda, la publicación ya está escrita y confirmada en la base de datos. La pregunta es qué hacer si la web de destino no contesta.
+
+**Las salidas evaluadas.**
+
+| Salida                                   | Por qué no                                                                                                                                                                                |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Que publicar falle si el aviso falla** | Convierte una publicación correcta en un error por algo que no depende de nosotros ni del editor. Y el editor no puede hacer nada al respecto: el destino es configuración del despliegue |
+| **Esperar al aviso antes de responder**  | Hasta cuatro segundos de espera —dos intentos con su plazo— mirando un botón, por una red que no es la nuestra                                                                            |
+| **Una cola con reintentos diferidos**    | Es lo robusto de verdad. Necesita una tabla de salida y quien la vacíe: un cron. Es una fase entera, no un añadido a `publish`                                                            |
+| **`after()`, un reintento, y auditar**   | Lo elegido                                                                                                                                                                                |
+
+**Decisión.** El aviso se manda con `after()` de Next: **después** de haberle respondido al editor. Dos segundos de plazo por intento, y un reintento **solo si el fallo puede ser transitorio**:
+
+| Respuesta del destino | ¿Se reintenta? | Por qué                                                                                                         |
+| --------------------- | -------------- | --------------------------------------------------------------------------------------------------------------- |
+| Red caída, timeout    | **Sí**         | Es lo que un reintento arregla                                                                                  |
+| 5xx                   | **Sí**         | Un fallo del otro lado que puede pasarse solo                                                                   |
+| 4xx                   | **No**         | Su configuración está mal —firma, ruta, secreto—. Repetir no la arregla, y le duplica el trabajo de rechazarnos |
+| 3xx                   | **No**         | Ver ADR-1001: no se sigue la redirección                                                                        |
+
+**El reintento manda el mismo sobre, con el mismo `id`.** Así quien lo reciba puede descartar el duplicado en vez de revalidar dos veces.
+
+**Y la consecuencia hay que decirla entera: si el destino está caído los dos intentos, ese cambio no se avisa nunca.** La web se queda con lo viejo hasta la siguiente publicación. No hay entrega garantizada, ni orden, ni «exactamente una vez». Lo que hace que eso sea soportable es que **volver a pedir es idempotente**: dos avisos aplicados dos veces, o al revés, dejan a la web con lo publicado de ahora.
+
+**Lo que compensa el silencio.** Un `after()` que falla no lo ve nadie mirando la pantalla, y este repositorio persigue los fallos silenciosos en todo lo demás. Por eso el resultado **se audita siempre** —`webhook.enviado` o `webhook.fallido`, con el código y el número de intentos— y por eso el panel lo va a enseñar (#286). Una entrada de auditoría que solo se puede leer consultando la base a mano es, en la práctica, un fallo silencioso con papeleo.
+
+**Qué lo revertiría.** Que la pérdida de avisos resultara ser un problema real y no teórico. La salida ya está escrita —la cola con su tabla de salida y su cron— y está anotada en `PENDIENTES.md`, no en un comentario.
+
+---
+
+## ADR-1004 — El `?v=` del aviso, y por qué no se baja el `s-maxage` (resuelve #282)
+
+**Contexto.** Esto es lo que casi convierte la fase entera en algo que no funciona, y no se vio hasta leer la ruta.
+
+`GET /api/content/:key` responde con `Cache-Control: public, s-maxage=60, stale-while-revalidate=300`. Eso lo sirve **la CDN que hay delante del despliegue**, no la caché de datos de Next: `revalidateTag` no la toca. Así que la secuencia sin arreglar es:
+
+1. Alguien publica. El aviso llega a la web de destino en menos de un segundo.
+2. La web, obediente, vuelve a pedir `/api/content/hero`.
+3. **La CDN le devuelve la copia de hace cuarenta segundos.**
+4. Quien lo montó concluye que el webhook no sirve, y tarda una tarde en saber por qué.
+
+Un aviso que entrega eso es peor que no tener aviso: hace perder el tiempo prometiendo lo que no cumple.
+
+**Las salidas evaluadas.**
+
+| Salida                                                | Por qué no                                                                                                                                                                               |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Bajar `s-maxage` a 0**                              | Castiga a **todas** las visitas de todas las webs para arreglar un caso que solo ocurre justo después de publicar. La caché de un minuto está ahí porque sirve, y la fija `SPEC.md` §5.3 |
+| **Que el receptor mande `Cache-Control: no-cache`**   | No vale: la CDN sirve por la cabecera de **la respuesta**, no por lo que pida el cliente                                                                                                 |
+| **Purgar la CDN por API al publicar**                 | Nos ata a un proveedor concreto. Hoy es Vercel; el día que no lo sea, esto es código muerto que parece vivo                                                                              |
+| **El sobre lleva `ts`, y el receptor pide `?v=<ts>`** | Lo elegido                                                                                                                                                                               |
+
+**Decisión.** El sobre lleva `ts` en milisegundos y el contrato es pedir `/api/content/<key>?v=<ts>`. Una query distinta es una entrada de caché distinta, así que esa petición no acierta en la copia vieja y llega al origen. **La ruta ignora el parámetro** —solo lee `params.key`—, así que la respuesta es idéntica byte a byte a la de siempre, con el mismo `Cache-Control`.
+
+**Y de paso resuelve el desorden.** Dos publicaciones seguidas pueden llegar en cualquier orden. Un `?v=` viejo tampoco acierta en caché, así que trae el dato de ahora: aplicar los avisos al revés deja a la web con lo publicado, no con lo anterior.
+
+**A cambio de qué.** De que cada aviso genere una entrada de caché nueva que nadie volverá a usar. Es una entrada por publicación, no por visita, y las CDN expulsan lo frío solas.
+
+**Y hay un coste que no es nuevo pero conviene tener escrito:** cualquiera puede pedir `?v=` con un valor al azar y pasar de largo de la caché hasta el origen. Eso ya se podía hacer antes con cualquier query, así que esta decisión no abre nada — pero ahora está documentado como el camino previsto, y por eso se dice aquí en vez de descubrirlo el día que pase.
+
+**Que la ruta ignore la query es hoy una propiedad del código, no una garantía.** Por eso T-A-28, T-A-29 y T-A-26 la fijan como caso: el día que alguien añada un `searchParams` ahí, rompería una web que no es nuestra y no se enteraría nadie.
+
+**Qué lo revertiría.** Que la ruta dejara de estar detrás de una CDN, o que apareciera una forma de purgar que no ate a un proveedor.
+
+---
+
+## ADR-1005 — Los ajustes salen por API, y `setup_completed` no (resuelve #282, aplica #284)
+
+**Contexto.** La fase avisa de los cambios de ajustes con el evento `settings.updated`. Y la web de destino **no puede pedirlos**: `docs/DEVELOPER.md` lo dice tal cual —«los ajustes del sitio y el SEO por defecto siguen sin endpoint público»—.
+
+Un aviso de algo que quien lo recibe no puede consultar es un aviso vacío: le dice «esto cambió» y le deja sin forma de saber qué. O se abre la ruta, o el evento no debería existir.
+
+**Decisión.** `GET /api/settings`, pública y sin CORS, con el mismo criterio que `/api/content/:key`. Devuelve `site` y `seo` con sus valores **efectivos** —los que usa el layout, con los defectos aplicados y pasados por su esquema, tal como los da `readSettings` (ADR-404)—.
+
+**Y devuelve esas dos claves, nunca `setup_completed`.** La tabla `settings` de `SPEC.md` §4 tiene tres, y esta ruta expone dos. No es por limpieza: ese ajuste dice si el bootstrap sigue abierto, y `/setup` responde 404 después de completarse **precisamente para no decirlo**. Sacarlo por una ruta pública anularía esa protección desde la ruta de al lado.
+
+**La lista es explícita, no «todo lo que haya en la tabla».** Esa es la diferencia entre una ruta que se puede razonar y una que filtra la siguiente clave que alguien añada sin acordarse de esto.
+
+**Consecuencias.**
+
+- `docs/DEVELOPER.md` deja de ser cierto en esa línea y **se enmienda**.
+- `SPEC.md` §5.3 no menciona esta ruta. **Se enmienda**, en vez de dejar que el código lo contradiga en silencio.
+- Una ruta pública más que declarar en `tests/support/api-routes.ts`, con su motivo escrito. La guarda va a saltar hasta que se haga, y eso es lo que tiene que pasar.
+- Escribir ajustes por HTTP **sigue sin existir**: `updateSettings` es una server action con su rol y su rate limit, y esto no la toca.
+
+**Qué lo revertiría.** Que se retirara el evento `settings.updated`. Sin él, esta ruta no tiene quien la pida y sobra.
