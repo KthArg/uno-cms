@@ -18,13 +18,17 @@ cuenta se crea con un código de un solo uso que defines tú al desplegar.
 
 ## Estado
 
-**MVP completo.** Los seis hitos cerrados: fundaciones, datos, seguridad, actions, panel,
-landing con vista previa en vivo, y endurecimiento.
+**MVP completo y algo más.** Los seis hitos cerrados —fundaciones, datos, seguridad, actions,
+panel, landing con vista previa en vivo y endurecimiento— y después: el almacén local de imágenes
+(ADR-700), la **vista previa de una web que vive fuera** del repositorio (ADR-701), la suite de
+humo contra un despliegue de verdad, y una fase de estética del panel.
+
+Hoy **no queda trabajo de producto planificado**: los únicos issues abiertos son los ocho
+`post-mvp`, que no tienen código por diseño.
 
 Lo que funciona, lo que es frágil y lo que habría que probar a mano —incluido **lo que no está
-verificado** y los tres fallos que apareció una pasada de repaso **después** de cerrar el último
-hito— está en [`docs/PROGRESS.md`](docs/PROGRESS.md). Lo aplazado, con su motivo, en
-[`docs/PENDIENTES.md`](docs/PENDIENTES.md).
+verificado**, dicho como tal— está en [`docs/PROGRESS.md`](docs/PROGRESS.md). Lo aplazado y la
+deuda aceptada, con su motivo, en [`docs/PENDIENTES.md`](docs/PENDIENTES.md).
 
 ## Documentación
 
@@ -32,12 +36,12 @@ hito— está en [`docs/PROGRESS.md`](docs/PROGRESS.md). Lo aplazado, con su mot
 | ------------------------------------------ | --------------------------------------------------------------------------- |
 | [`SPEC.md`](SPEC.md)                       | **Fuente de verdad** del proyecto. Ante cualquier duda, manda esto          |
 | [`CLAUDE.md`](CLAUDE.md)                   | **Quien vaya a escribir código aquí. Cómo se trabaja, y por qué así**       |
-| [`docs/SETUP.md`](docs/SETUP.md)           | Quien despliega su web. Sin jerga, sin terminal _(esqueleto, M6)_           |
+| [`docs/SETUP.md`](docs/SETUP.md)           | Quien despliega su web. Sin jerga, sin terminal                             |
 | [`docs/DEVELOPER.md`](docs/DEVELOPER.md)   | Quien monta UnoCMS sobre otra landing                                       |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md)   | Los ADR: qué se decidió donde la spec callaba, y a cambio de qué            |
 | [`docs/PROGRESS.md`](docs/PROGRESS.md)     | Estado real por hito                                                        |
 | [`docs/PENDIENTES.md`](docs/PENDIENTES.md) | Todo lo aplazado, con su motivo y su issue. Nada vive solo en un comentario |
-| [`docs/SECURITY.md`](docs/SECURITY.md)     | Reporte de vulnerabilidades y modelo de amenazas _(esqueleto, M6)_          |
+| [`docs/SECURITY.md`](docs/SECURITY.md)     | Reporte de vulnerabilidades y modelo de amenazas                            |
 | [`docs/specs/`](docs/specs/)               | Documentos de fase: alcance, contratos y casos de prueba de cada hito       |
 
 ## Levantarlo en local
