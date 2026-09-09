@@ -297,6 +297,15 @@ export async function entregar(
   const cuerpo = JSON.stringify(sobre);
   const firma = firmar(config.secreto, sobre.ts, cuerpo);
 
+  // `evento` e `id` van **también** en cabecera, por comodidad de quien enruta o registra sin
+  // analizar el cuerpo. Pero quedan **fuera de la firma**, que cubre `ts` y cuerpo: alterarlas
+  // por el camino no invalida nada. `ts` sí está cubierto —va dentro de lo firmado— y por eso
+  // la ventana anti-replay del receptor sí es de fiar.
+  //
+  // O sea que el receptor tiene que decidir con **los campos del cuerpo**, y usar estas dos
+  // solo para mirar. Está dicho en `docs/DEVELOPER.md`, porque es la clase de detalle que se
+  // hace mal justo cuando se implementa deprisa: descartar duplicados por el `id` de la
+  // cabecera se puede forzar a que reprocese.
   const cabeceras = {
     'Content-Type': 'application/json',
     'User-Agent': 'UnoCMS/1 (aviso)',
@@ -368,7 +377,7 @@ export function avisar(
 
   const sobre = componerSobre(evento, claves);
 
-  after(async () => {
+  const tarea = async (): Promise<void> => {
     const resultado = await entregar(config, sobre);
 
     // Lo que se registra es **el sobre y el resultado**, nunca la firma ni el secreto. `audit`
@@ -391,5 +400,22 @@ export function avisar(
         ...(resultado.motivo === undefined ? {} : { motivo: resultado.motivo }),
       },
     });
-  });
+  };
+
+  // `after` **lanza** fuera del contexto de una petición: «`after` was called outside a request
+  // scope». Está comprobado ejecutándolo, no deducido.
+  //
+  // Sin este `try`, ese throw sube por el handler de la action, `defineAction` lo captura y
+  // devuelve `INTERNAL` — y el editor vería «algo ha fallado por nuestra parte» sobre una
+  // publicación **que ya está escrita y confirmada**. Es exactamente la inversión que ADR-1003
+  // prohíbe, colándose por la puerta de las excepciones en vez de por la del resultado.
+  //
+  // Hoy toda action corre dentro de una petición, así que esto no debería pasar nunca. «No
+  // debería» es la palabra: el coste de equivocarse es un error falso en la cara de quien
+  // publica, y el de protegerse son cuatro líneas.
+  try {
+    after(tarea);
+  } catch (error) {
+    console.error('[aviso] no se pudo programar el envío; la operación no se ve afectada', error);
+  }
 }

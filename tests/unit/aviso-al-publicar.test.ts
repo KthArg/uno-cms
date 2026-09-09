@@ -420,6 +420,25 @@ describe('T-A-23 y T-A-27 — lo que queda registrado', () => {
     expect(after).not.toHaveBeenCalled();
   });
 
+  it('si `after` lanza, `avisar` no lanza: se registra y se sigue', () => {
+    // `after` lanza de verdad fuera del contexto de una petición —comprobado ejecutándolo—, y
+    // sin protección ese throw sube por el handler de la action, `defineAction` lo convierte en
+    // INTERNAL, y el editor ve un error sobre una publicación que ya está escrita.
+    encender();
+    const queja = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    after.mockImplementationOnce(() => {
+      throw new Error('`after` was called outside a request scope.');
+    });
+
+    expect(() => {
+      avisar('content.published', [{ key: 'hero', tipo: 'singleton' }]);
+    }).not.toThrow();
+
+    // Y no en silencio: el aviso no salió, y eso tiene que quedar dicho en algún sitio.
+    expect(queja).toHaveBeenCalledOnce();
+    expect(queja.mock.calls[0]?.[0]).toContain('[aviso]');
+  });
+
   it('T-A-23: una entrega buena se audita como webhook.enviado', async () => {
     encender();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));

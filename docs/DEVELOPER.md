@@ -374,6 +374,14 @@ de colección aporta el tag de su colección, porque `/api/content/testimonials.
 La firma es `HMAC-SHA256(WEBHOOK_SECRET, "<ts>.<cuerpo crudo>")` en hexadecimal. **Sobre el cuerpo
 crudo**: si lo analizas y lo vuelves a serializar antes de verificar, no va a cuadrar.
 
+> **Decide con los campos del cuerpo, no con las cabeceras.** `X-UnoCMS-Evento` y `X-UnoCMS-Id`
+> están **fuera de la firma** —que cubre `ts` y cuerpo—, así que alterarlas por el camino no
+> invalida nada. Van ahí por comodidad de quien enruta o registra sin analizar el cuerpo, y para
+> nada más. Si descartas duplicados por el `id` de la cabecera, se te puede forzar a reprocesar.
+>
+> `ts` es la excepción y sí es de fiar: va dentro de lo firmado, y por eso tu ventana anti-replay
+> funciona.
+
 #### Y lo que más tiempo hace perder, otra vez
 
 **Al volver a pedir, añade `?v=<ts del aviso>`.**

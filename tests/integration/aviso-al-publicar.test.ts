@@ -226,6 +226,28 @@ describeIntegration('el aviso al publicar', () => {
     expect((await publish({ key: 'hero', version: 0 })).ok).toBe(true);
   });
 
+  it('T-A-19c: si `after` lanza, publicar sigue en ok — es el fallo que la autorevisión encontró', async () => {
+    // `after` lanza fuera del contexto de una petición, comprobado ejecutando el de verdad. Sin
+    // protección en `avisar`, ese throw sube por el handler, `defineAction` lo captura y
+    // devuelve INTERNAL: el editor vería «algo ha fallado por nuestra parte» sobre una
+    // publicación **ya escrita y confirmada**. Es la inversión que ADR-1003 prohíbe, colándose
+    // por la puerta de las excepciones en vez de por la del resultado.
+    after.mockImplementationOnce(() => {
+      throw new Error('`after` was called outside a request scope.');
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await crearEntrada({ key: 'hero', type: 'hero', draft: HERO_COMPLETO });
+
+    const resultado = await publish({ key: 'hero', version: 0 });
+
+    expect(resultado).toMatchObject({ ok: true, data: { changed: true } });
+    const [fila] = await getDb()
+      .select()
+      .from(contentEntries)
+      .where(eq(contentEntries.key, 'hero'));
+    expect(fila?.status).toBe('published');
+  });
+
   it('T-A-25: la landing de este repositorio no se entera de nada', async () => {
     await crearEntrada({ key: 'testimonials.a1b2', type: 'testimonials', draft: TESTIMONIO });
 
