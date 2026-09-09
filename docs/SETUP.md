@@ -3,9 +3,13 @@
 Esta guía te lleva de cero a tener tu web publicada y tu panel para editarla. **Sin abrir una
 terminal y sin saber programar.**
 
-> **Faltan las capturas.** La guía describe cada pantalla con palabras y está completa, pero
-> `SPEC.md` §9 pide imágenes y todavía no las tiene. Van en el issue #157. Si algún paso no se
-> entiende sin ver la pantalla, eso es un fallo de esta guía y merece un issue.
+> **Esta guía es de texto a propósito, y está completa.** No lleva capturas y no va a llevarlas:
+> lo decidió ADR-920, que enmienda `SPEC.md` §9. Todas las pantallas que habría que fotografiar
+> son de otros —Vercel, Neon, el almacén de imágenes— y cambian sin avisar. Un texto desfasado
+> sigue orientando: «busca el botón de importar» vale aunque lo hayan movido. Una captura
+> desfasada **manda a buscar un botón que ya no existe**, y miente con más seguridad.
+>
+> Si algún paso no se entiende sin ver la pantalla, eso es un fallo de esta guía y merece un issue.
 
 ## Antes de empezar
 

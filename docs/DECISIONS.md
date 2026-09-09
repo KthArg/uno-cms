@@ -200,6 +200,10 @@ server-side en save".
   allowlist. Es más estricta que el criterio de aceptación original del issue, no más laxa.
 - **Pendiente de verificación:** que la salida C se sostenga en la práctica no se sabrá
   hasta implementar el renderizador en M5. El issue #19 queda abierto hasta entonces.
+- **Actualización:** M5 se cerró y el renderizador existe; **#19 está cerrado**. La salida C se
+  sostuvo: no hay ningún `dangerouslySetInnerHTML` en el árbol y la regla de ESLint que lo
+  prohíbe sigue en pie. Se deja el párrafo de arriba sin tocar, porque el valor de un ADR está en
+  poder contrastar lo que se decidió con lo que pasó.
 
 ---
 
@@ -253,6 +257,10 @@ Esto no es un rodeo a ADR-002: es la costura que ADR-002 ya describía cuando de
   migraciones, pero **no el driver de producción**. Un fallo específico del driver HTTP de
   Neon no lo atraparía CI. Lo cubre el despliegue de verificación de M6, no los tests, y
   por eso el issue #43 queda abierto hasta entonces.
+- **Actualización: #43 está cerrado.** La rama de Neon **sí** está ejercitada por
+  `pnpm test:humo`, que corre contra un despliegue de verdad —entra, sube una imagen, la relee y
+  la borra— todo a través del driver de producción. La brecha que queda no es de cobertura sino de
+  automatización: esa suite hay que lanzarla a mano, y eso vive en `PENDIENTES.md`.
 - Una dependencia más (`pg`), solo en desarrollo y test.
 
 ---

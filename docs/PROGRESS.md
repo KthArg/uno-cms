@@ -78,10 +78,11 @@ allí; ningún caso quedó dado por bueno estando en rojo.
 
 ### Decisiones que dejaron rastro
 
-- **Issue [#19](https://github.com/KthArg/uno-cms/issues/19)** (`spec-question`, abierto):
+- **Issue [#19](https://github.com/KthArg/uno-cms/issues/19)** (`spec-question`, **cerrado**):
   `SPEC.md` §6.3, §7.1 y §6.1 son incompatibles entre sí en lo que respecta a `RichText`.
   Resuelto por ADR-107 —renderizar el richtext como elementos de React, nunca como cadena
-  de HTML— y **pendiente de verificar en M5**.
+  de HTML— y **verificado al cerrar M5**: no queda ni un `dangerouslySetInnerHTML` en el árbol y
+  la regla de ESLint que lo prohíbe sigue en pie.
 - **ADR-105 se reescribió** después de que su caso de prueba lo tumbara.
 - **El orden de la fase se corrigió** a mitad: #5 pasó delante de #4, porque las reglas de
   ESLint necesitaban un runner para probarse en vez de verificarse a ojo.
@@ -659,13 +660,19 @@ pasada de repaso entera. Los tres hallazgos salieron del mismo intento: **subir 
 > Esta sección es la que hay que actualizar al terminar cada pieza. Si dice algo que ya no es
 > cierto, es peor que si no existiera.
 
-**El MVP está cerrado** (M0–M6) y después se han cerrado cuatro cosas más: los dos arreglos de
-los mensajes de subida (#164, #165), el almacén local de imágenes (#168, ADR-700) y **la vista
-previa de una web que vive fuera** (#177 a #181, ADR-701).
+**El MVP está cerrado** (M0–M6), y después se han cerrado los dos arreglos de los mensajes de
+subida (#164, #165), el almacén local de imágenes (#168, ADR-700), **la vista previa de una web
+que vive fuera** (#177 a #181, ADR-701), la suite de humo contra un despliegue de verdad (#207),
+una fase de estética del panel y un puñado de fallos salidos de usarlo a mano.
 
-**Lo siguiente es desplegar.** No queda trabajo de producto planificado, y hay tres cosas que
-solo se pueden comprobar con un despliegue delante: el driver de Neon (#43), las capturas de
-`SETUP.md` (#157) y el iframe a `http://localhost` desde una página `https`.
+**Las tres cosas que esperaban a un despliegue ya se miraron, y las tres están cerradas:** el
+driver de Neon (#43, ejercitado por `pnpm test:humo` contra el despliegue), las capturas de
+`SETUP.md` (#157, retiradas por ADR-920: la guía se queda en texto) y el iframe a
+`http://localhost` desde una página `https` (#255, medido y **sin aviso de contenido mixto**).
+
+**Hoy no queda trabajo de producto planificado.** Los únicos issues abiertos son los ocho
+`post-mvp`, sin código por diseño. Lo que sigue vivo es deuda anotada, no funciones por
+construir, y está en [`PENDIENTES.md`](PENDIENTES.md).
 
 ### La vista previa de una web que vive fuera ✅
 
@@ -704,9 +711,12 @@ Los veinte casos de la spec, en verde.
    una web con su propia CSP, su enrutador y su ciclo de vida: el ejemplo no tiene ninguna de las
    tres, a propósito, porque cuanto menos se parezca a una aplicación real menos esconde del
    contrato.
-2. **El caso «CMS desplegado, web en local» sigue sin verificar.** Empotrar `http://localhost`
-   desde una página `https` tiene reglas propias del navegador. No se puede mirar en local
-   —hace falta un origen `https` de verdad— y va con el primer despliegue.
+2. ~~**El caso «CMS desplegado, web en local» sigue sin verificar.**~~ **Cerrada** en #255. Y la
+   frase que la sostenía era falsa: hacía falta un origen `https`, no que fuera de verdad. Con un
+   certificado propio y quince líneas de proxy se midió que **no hay ni aviso de contenido
+   mixto**, porque el bucle local no cuenta como tal — con un control que sí avisa, el mismo
+   servidor por su IP de red, para saber que el mecanismo estaba activo. Está contado más abajo,
+   en «El contenido mixto, medido en vez de supuesto».
 3. **El margen de renovación de tres minutos está razonado, no medido.** Sale de que los
    navegadores estrangulan los temporizadores de las pestañas de fondo hasta ~uno por minuto,
    que es comportamiento documentado; que tres minutos basten no lo ha medido nadie con una
@@ -752,12 +762,13 @@ Los veinte casos de la spec, en verde.
 
 ### Lo que está abierto y no bloquea
 
-- [#157](https://github.com/KthArg/uno-cms/issues/157) — las capturas de `SETUP.md`. Hacerlas
-  exige el primer despliegue limpio, que cierra además el criterio §11.1 y
-  [#43](https://github.com/KthArg/uno-cms/issues/43)
-- [#170](https://github.com/KthArg/uno-cms/issues/170) — el almacén local no lo cubre ningún e2e
-- [#167](https://github.com/KthArg/uno-cms/issues/167) — un test falló una vez y no se reproduce
-- Nueve issues `post-mvp`, **sin código por diseño**
+Los tres que estaban aquí se cerraron: #157 (ADR-920 retira las capturas), #170 (el almacén local
+ya lo cubre un e2e contra `next dev`, #262) y #167 (el rojo tenía mecanismo, y está contado abajo).
+
+- **Ocho issues `post-mvp`**, sin código por diseño: del #10 al #17. Eran nueve; #138 —el selector
+  de móvil y escritorio en la vista previa— se cerró al construirlo
+- La deuda anotada de [`PENDIENTES.md`](PENDIENTES.md), de la que lo único con issue vivo es
+  [#279](https://github.com/KthArg/uno-cms/issues/279) — que la suite de humo corra sola
 
 ### El primer despliegue en línea
 
@@ -791,8 +802,10 @@ Porque **el camino que se despliega no lo ejercita ningún test**, y no es un de
 - Un aviso de un tercero no lo manda nadie en local.
 
 Estaba anotado desde M6 como «el driver de producción nunca ha hablado con Neon» (#43). Lo que se
-ve ahora es que el hueco es **bastante más ancho que el driver**, y está abierto como
+vio entonces es que el hueco era **bastante más ancho que el driver**, y se abrió como
 [#207](https://github.com/KthArg/uno-cms/issues/207) con las tres formas de cerrarlo comparadas.
+**#207 y #43 están cerrados**; lo que queda vivo —que esa suite corra sola— es
+[#279](https://github.com/KthArg/uno-cms/issues/279).
 
 Desde #207 hay una suite que lo mira desde fuera: `pnpm test:humo`, contra el despliegue que se le
 diga. Entra, sube una imagen, comprueba que sigue ahí **al recargar** y borra lo que ha subido.
@@ -840,13 +853,17 @@ ninguno. Lo único que aparecía eran literales falsos de tests y el hash señue
   `docs/SETUP.md`_», y este despliegue no siguió la guía paso a paso: se fue resolviendo sobre la
   marcha, que es precisamente lo que la guía tiene que evitar. Lo que hay es la prueba de que el
   producto **funciona** desplegado, no de que la guía **lleve** hasta ahí.
-- **Las capturas de `SETUP.md`** ([#157](https://github.com/KthArg/uno-cms/issues/157)), que
-  ahora sí se pueden hacer.
+- ~~**Las capturas de `SETUP.md`**~~ ([#157](https://github.com/KthArg/uno-cms/issues/157)).
+  **Cerrado sin hacerlas**: ADR-920 retira «con capturas» de `SPEC.md` y la guía se queda en
+  texto, porque una captura desactualizada engaña más que un párrafo.
 - **Cinco objetos huérfanos en el almacén**, de depurar todo esto
   ([#206](https://github.com/KthArg/uno-cms/issues/206)). Este documento y varios mensajes
   dijeron «tres» durante días: era una cuenta de memoria. Cruzando `vercel blob list` con la
   biblioteca del panel salen **nueve objetos y cuatro filas**, así que sobran cinco — los dos de
   nombre crudo anteriores a #199 y otros tres `media/…`.
+  **#206 se cerró dando la herramienta, no barriendo**: `pnpm medios:huerfanos` compara el
+  almacén con la tabla y enseña lo que sobra, y **no borra** a propósito (#263). Borrarlos sigue
+  siendo un acto manual, y nadie ha escrito aquí que se hiciera.
 
 ---
 
@@ -1967,3 +1984,54 @@ jsdom en el global desde `tests/ui/setup.ts`, el aserto muere
   llega porque Node no lo tiene, y la lista solo pinta en los nombres que chocan. La conclusión no
   cambiaba, pero era un comentario que explicaba un mecanismo con una causa que no es la causa —
   justo lo de `/api/media/upload`.
+
+## La documentación, puesta al día contra el código ✅
+
+**Cerrado** el 8 de septiembre de 2026, issue [#278](https://github.com/KthArg/uno-cms/issues/278).
+
+### Cómo salió
+
+Buscando dónde colocar lo de #276. La sección «Dónde está el trabajo ahora» lleva escrito _«Si
+dice algo que ya no es cierto, es peor que si no existiera»_ — y era de las que estaban mal.
+
+### Lo que decía y no era
+
+| Documento       | Decía                                                           | Es                                             |
+| --------------- | --------------------------------------------------------------- | ---------------------------------------------- |
+| `PROGRESS.md`   | Tres cosas esperan a un despliegue (#43, #157, contenido mixto) | Las tres cerradas                              |
+| `PROGRESS.md`   | El contenido mixto «no se puede mirar en local»                 | Medido en #255, y sin aviso                    |
+| `PROGRESS.md`   | Abiertos #157, #170, #167, y «nueve» `post-mvp`                 | Cerrados los tres; quedan **ocho** `post-mvp`  |
+| `PROGRESS.md`   | #19 y #207 «abiertos»                                           | Cerrados los dos                               |
+| `PENDIENTES.md` | Diez filas de deuda viva con su issue                           | Ocho resueltas en el código                    |
+| `DECISIONS.md`  | ADR-107 y ADR-200: «el issue queda abierto»                     | #19 y #43 cerrados                             |
+| `DEVELOPER.md`  | El contenido mixto «nadie lo ha comprobado todavía»             | Medido, y remitía a una fila que ya no existía |
+| `README.md`     | `SETUP.md` y `SECURITY.md` «(esqueleto, M6)»                    | 219 y 186 líneas escritas                      |
+
+### Lo que no se borró, y por qué
+
+**Dos filas parecían resueltas porque su issue estaba cerrado, y no lo estaban.** Es el fallo que
+esta pasada tenía que evitar, no cometer:
+
+- **Los topes de la pantalla de una colección.** `MAX_PUBLISH_ALL = 100` y `reorderItems` con 500
+  siguen ahí, comprobado en el código. #119 cerró el encadenado de `publishAll` (ADR-600), que es
+  otra cosa. La fila se queda como limitación aceptada, ya sin issue, y diciendo por qué.
+- **La suite de humo no corre sola.** `test:humo` no aparece en `.github/workflows/`, comprobado.
+  #207 se cerró **al entregar la suite**, y la fila se quedó apuntando allí: pareciendo seguida
+  sin estarlo. Ahora la sigue [#279](https://github.com/KthArg/uno-cms/issues/279).
+
+Las ocho que sí estaban hechas no se borran a secas: van a **«Deuda saldada»** con dónde se
+comprueba que se cerró. Una fila que desaparece sin rastro deja la duda de si se arregló o se
+olvidó, y este documento vive de poder contrastar lo que se dijo con lo que pasó.
+
+### Lo que enseñó
+
+- **El óxido no llega de golpe, llega por cerrar bien.** Ningún issue se cerró mal: #207 entregó
+  su suite, #119 su encadenado. Lo que quedó atrás fue la fila que los citaba — y una fila que
+  apunta a un issue cerrado **parece seguida y no lo está**, que es justo #162 → #164 otra vez.
+- **«Cerrado como completado» no es prueba de que la deuda muriera.** De diez filas, dos seguían
+  vivas con su issue cerrado. Comprobarlas contra el código costó cinco minutos; darlas por
+  buenas habría borrado deuda real de la única lista que la registra.
+- **La documentación tiene el mismo problema que un comentario que promete de más.** Al leer «no
+  se puede comprobar en local» dos veces se deja de intentar, y eso ya pasó: la frase sobrevivió
+  desde agosto hasta que alguien la puso a prueba y resultó ser un certificado y quince líneas de
+  proxy.

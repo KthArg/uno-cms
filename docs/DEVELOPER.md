@@ -337,9 +337,11 @@ antes de que te pase.
   viejo como si estuviera al día.
 - Si navegas **dentro** del iframe a otra página de tu web, el parámetro `unocms_preview` no
   viaja solo: esa página ya no será una vista previa. Propágalo tú si lo necesitas.
-- **El caso «CMS desplegado, web en local» no está verificado**: empotrar `http://localhost`
-  desde una página `https` tiene reglas propias del navegador que nadie ha comprobado todavía.
-  Está anotado en [`PENDIENTES.md`](PENDIENTES.md).
+- **El caso «CMS desplegado, web en local» está verificado** (#255): empotrar
+  `http://localhost` desde una página `https` **no produce aviso de contenido mixto**, porque el
+  bucle local no cuenta como tal. Se midió con un proxy `https` y un certificado propio, y con un
+  control que sí avisa —el mismo servidor por su IP de red— para saber que el mecanismo estaba
+  activo. Está contado en [`PROGRESS.md`](PROGRESS.md).
 
 ### Y con React
 
