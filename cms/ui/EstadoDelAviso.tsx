@@ -21,6 +21,15 @@ import { Icono } from './iconos';
  *
  * Y **un fallo se ve como fallo**, con su forma y su color propios. Que se pareciera a «todavía
  * no se ha mandado ninguno» sería exactamente el silencio que este componente viene a romper.
+ *
+ * ## Por qué `items-start` y no `items-center`
+ *
+ * Porque el mensaje de fallo ocupa tres líneas en la columna estrecha de la pieza principal, y
+ * con `items-center` el icono se queda **flotando en mitad del bloque**, separado de la frase que
+ * encabeza. Se ve roto.
+ *
+ * No lo cazó ningún test —los ocho casos de este componente pasaban— sino mirar la captura del
+ * panel. Es la clase de fallo que una suite verde no puede contar.
  */
 export interface UltimoAvisoParaElPanel {
   readonly ok: boolean;
@@ -97,9 +106,9 @@ export function EstadoDelAviso({
 
   if (aviso.ok) {
     return (
-      <p className="mt-2 flex items-center gap-2 text-sm text-tinta-suave">
-        <Icono de="publicado" tamano={16} className="text-publicado-tinta" />
-        Se avisó a tu web {cuando}.
+      <p className="mt-2 flex items-start gap-2 text-sm text-tinta-suave">
+        <Icono de="publicado" tamano={16} className="mt-0.5 shrink-0 text-publicado-tinta" />
+        <span>Se avisó a tu web {cuando}.</span>
       </p>
     );
   }
@@ -107,8 +116,8 @@ export function EstadoDelAviso({
   const porQue = explicacion(aviso.motivo);
 
   return (
-    <p className="mt-2 flex items-center gap-2 text-sm text-pendiente-tinta">
-      <Icono de="alerta" tamano={16} className="text-pendiente-tinta" />
+    <p className="mt-2 flex items-start gap-2 text-sm text-pendiente-tinta">
+      <Icono de="alerta" tamano={16} className="mt-0.5 shrink-0 text-pendiente-tinta" />
       <span>
         El aviso a tu web falló {cuando}. {porQue} Tu web puede estar enseñando lo anterior.
       </span>
