@@ -15,7 +15,8 @@
     "// overrides": "Advisories high transitivos via next 15.5 (SPEC §11.5 exige cero high/critical). Se fuerzan las versiones parcheadas; revisar al subir de mayor.",
     "overrides": {
       "postcss@<8.5.18": ">=8.5.18",
-      "sharp@<0.35.0": ">=0.35.0"
+      "sharp@<0.35.4": ">=0.35.4",
+      "js-yaml@<4.3.2": ">=4.3.2"
     }
   },
   "scripts": {
