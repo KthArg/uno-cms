@@ -45,6 +45,9 @@ Por eso este diseño **exige que la web colabore**, y por eso la primera pregunt
 - **Multi-sitio.** Un despliegue sigue sirviendo a una web.
 - **El proxy con sustitución de HTML.** Descartado con su motivo en el ADR.
 - **Publicar hacia fuera.** El aviso a la web destino cuando se publica —un webhook— es otro problema y otra fase. Hoy `publish` solo invalida nuestra caché, y la web remota se entera cuando vuelva a pedirlo.
+
+  > **Ya no es «otra fase» sin fecha: es la spec 16** ([`16-el-aviso-al-publicar.md`](16-el-aviso-al-publicar.md), issues #282–#287). Se anota aquí porque esta línea estuvo escrita desde agosto sin que nadie le abriera issue, que es exactamente el patrón de #162 → #164: un pendiente que se escribe y no se sigue vale lo mismo que no escribirlo.
+
 - **Los ajustes por API.** El nombre del sitio y el SEO por defecto siguen sin endpoint público. Si la web remota los necesita, es una fase aparte.
 - **Apagar la landing de este repositorio.** Sigue existiendo y sirviéndose. Quien use una web remota tendrá una landing propia sin usar; quitarla es otra decisión.
 
