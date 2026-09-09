@@ -1,11 +1,12 @@
-import { pedirPublicado } from '../lib/contenido.js';
+import { contenidoParaLaPagina } from '../lib/contenido.js';
+import { almacenDeEstaInstancia } from '../lib/estado.js';
 import { paginaHtml } from '../lib/pagina.js';
 
 /**
  * La función que sirve la página (issue #195).
  *
- * Una sola, y `vercel.json` manda aquí todas las direcciones. Un ejemplo con enrutador sería un
- * ejemplo sobre enrutadores.
+ * Una sola, y `vercel.json` manda aquí todas las direcciones salvo la del aviso. Un ejemplo con
+ * enrutador sería un ejemplo sobre enrutadores.
  *
  * ## Por qué esto corre en el servidor
  *
@@ -16,11 +17,13 @@ export default async function handler(peticion, respuesta) {
   const cmsUrl = process.env.CMS_URL;
 
   try {
-    const contenido = await pedirPublicado(cmsUrl);
+    const contenido = await contenidoParaLaPagina(cmsUrl, almacenDeEstaInstancia());
 
     respuesta.setHeader('Content-Type', 'text/html; charset=utf-8');
-    // Sin caché: esta web se usa para mirar cambios recién publicados, y una respuesta guardada
-    // haría que publicar pareciera no hacer nada. Una web de verdad cachearía y revalidaría.
+    // Sin caché **de la página**, aunque el contenido sí se cachea ahora (#287). Son dos cosas
+    // distintas y conviene no mezclarlas: el almacén evita ir al CMS, y esta cabecera evita que
+    // una CDN delante de ESTA web sirva un HTML viejo que el aviso no puede invalidar — el aviso
+    // llega hasta aquí, no hasta la caché de nadie más.
     respuesta.setHeader('Cache-Control', 'no-store');
     respuesta.status(200).send(paginaHtml(contenido, cmsUrl));
   } catch (error) {
