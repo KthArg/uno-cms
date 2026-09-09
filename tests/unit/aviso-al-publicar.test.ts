@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import appConfig from '@/cms.config';
 
 /**
  * T-A-1 … T-A-24: el aviso al publicar (spec 16, issue #283).
@@ -41,6 +42,25 @@ const {
 const SECRETO = 'un-secreto-de-avisos-con-mas-de-32-caracteres';
 const DESTINO = 'https://mi-web.com/api/unocms';
 
+/**
+ * Las claves salen de `cms.config.ts`, **no escritas a mano**.
+ *
+ * `hero` y `testimonials` son las de la configuración de ejemplo de este repositorio, no las del
+ * producto. La promesa de `SPEC.md` §5.1 —y lo que hace que este CMS sirva para otra landing— es
+ * que las secciones las decide quien lo monta.
+ *
+ * Un test que las fije a mano se pone rojo en **cada fork**, y no por un fallo: por una clave que
+ * allí no existe. Comprobado en uno: al traer esta fase, cinco casos de este fichero se cayeron
+ * en el acto. Es el mismo razonamiento que `cms/core/portada.ts` aplica al panel de inicio, y que
+ * allí sí se siguió.
+ *
+ * Lo que se prueba aquí es **cómo se compone el tag**, y para eso da igual cómo se llame la
+ * sección: hace falta una que exista y una colección que exista.
+ */
+const SINGLETON = Object.keys(appConfig.singletons)[0]!;
+const COLECCION = Object.keys(appConfig.collections)[0]!;
+const ELEMENTO = `${COLECCION}.a1b2`;
+
 /** El destino y el secreto puestos, que es el caso de la fase encendida. */
 function encender(url = DESTINO, secreto = SECRETO): void {
   vi.stubEnv('WEBHOOK_URL', url);
@@ -72,8 +92,8 @@ const SOBRE_DE_PRUEBA = {
   id: 'aviso-de-prueba',
   evento: 'content.published' as const,
   ts: 1_757_404_800_123,
-  claves: [{ key: 'hero', tipo: 'singleton' as const }],
-  tags: ['content:hero'],
+  claves: [{ key: SINGLETON, tipo: 'singleton' as const }],
+  tags: [`content:${SINGLETON}`],
 };
 
 beforeEach(() => {
@@ -187,7 +207,7 @@ describe('T-A-6 a T-A-9 — la firma', () => {
 
   it('T-A-7: cambiar un solo byte del cuerpo cambia la firma', () => {
     const cuerpo = JSON.stringify(SOBRE_DE_PRUEBA);
-    const tocado = cuerpo.replace('content:hero', 'content:otro');
+    const tocado = cuerpo.replace(`content:${SINGLETON}`, 'content:otro');
 
     expect(firmar(SECRETO, SOBRE_DE_PRUEBA.ts, tocado)).not.toBe(
       firmar(SECRETO, SOBRE_DE_PRUEBA.ts, cuerpo)
@@ -216,30 +236,30 @@ describe('T-A-6 a T-A-9 — la firma', () => {
 
 describe('T-A-11, T-A-12 y T-A-18 — qué tags viajan', () => {
   it('T-A-11: un singleton manda su propio tag', () => {
-    expect(tagsDe('content.published', [{ key: 'hero', tipo: 'singleton' }])).toEqual([
-      'content:hero',
+    expect(tagsDe('content.published', [{ key: SINGLETON, tipo: 'singleton' }])).toEqual([
+      `content:${SINGLETON}`,
     ]);
   });
 
   it('T-A-12: un elemento de colección manda el tag de LA COLECCIÓN, no el suyo', () => {
     const tags = tagsDe('content.published', [
-      { key: 'testimonials.a1b2', tipo: 'item', coleccion: 'testimonials' },
+      { key: ELEMENTO, tipo: 'item', coleccion: COLECCION },
     ]);
 
-    expect(tags).toEqual(['content:testimonials']);
-    // Y explícitamente NO el del elemento: `/api/content/testimonials.a1b2` responde 404, así
-    // que mandarlo sería mandar algo que quien lo reciba no puede pedir. Es #116 hacia fuera.
-    expect(tags).not.toContain('content:testimonials.a1b2');
+    expect(tags).toEqual([`content:${COLECCION}`]);
+    // Y explícitamente NO el del elemento: `/api/content/<coleccion>.<id>` responde 404, así que
+    // mandarlo sería mandar algo que quien lo reciba no puede pedir. Es #116 hacia fuera.
+    expect(tags).not.toContain(`content:${ELEMENTO}`);
   });
 
   it('T-A-12b: varios elementos de la misma colección son UN tag', () => {
     expect(
       tagsDe('content.published', [
-        { key: 'testimonials.a', tipo: 'item', coleccion: 'testimonials' },
-        { key: 'testimonials.b', tipo: 'item', coleccion: 'testimonials' },
-        { key: 'testimonials.c', tipo: 'item', coleccion: 'testimonials' },
+        { key: `${COLECCION}.a`, tipo: 'item', coleccion: COLECCION },
+        { key: `${COLECCION}.b`, tipo: 'item', coleccion: COLECCION },
+        { key: `${COLECCION}.c`, tipo: 'item', coleccion: COLECCION },
       ])
-    ).toEqual(['content:testimonials']);
+    ).toEqual([`content:${COLECCION}`]);
   });
 
   it('T-A-18: una clave que cms.config.ts ya no declara no viaja', () => {
@@ -247,15 +267,15 @@ describe('T-A-11, T-A-12 y T-A-18 — qué tags viajan', () => {
     // datos. Su tag saldría hacia fuera y la web pediría una clave que responde 404.
     expect(
       tagsDe('content.published', [
-        { key: 'hero', tipo: 'singleton' },
+        { key: SINGLETON, tipo: 'singleton' },
         { key: 'seccion-fantasma', tipo: 'singleton' },
         { key: 'x.1', tipo: 'item', coleccion: 'coleccion-fantasma' },
       ])
-    ).toEqual(['content:hero']);
+    ).toEqual([`content:${SINGLETON}`]);
   });
 
   it('un item sin colección no inventa un tag a partir de su clave', () => {
-    expect(tagsDe('content.published', [{ key: 'testimonials.a1b2', tipo: 'item' }])).toEqual([]);
+    expect(tagsDe('content.published', [{ key: ELEMENTO, tipo: 'item' }])).toEqual([]);
   });
 
   it('los ajustes mandan su tag, y ninguna clave de contenido', () => {
@@ -263,7 +283,7 @@ describe('T-A-11, T-A-12 y T-A-18 — qué tags viajan', () => {
   });
 
   it('T-A-16: los medios van sin tags', () => {
-    const claves = [{ key: 'hero', tipo: 'singleton' as const }];
+    const claves = [{ key: SINGLETON, tipo: 'singleton' as const }];
 
     expect(tagsDe('media.uploaded', claves)).toEqual([]);
     expect(tagsDe('media.deleted', claves)).toEqual([]);
@@ -385,7 +405,7 @@ describe('T-A-19 a T-A-24 — la entrega', () => {
   });
 
   it('T-A-24: dos sobres seguidos llevan id distintos', () => {
-    const claves = [{ key: 'hero', tipo: 'singleton' as const }];
+    const claves = [{ key: SINGLETON, tipo: 'singleton' as const }];
 
     expect(componerSobre('content.published', claves).id).not.toBe(
       componerSobre('content.published', claves).id
@@ -413,7 +433,7 @@ describe('T-A-23 y T-A-27 — lo que queda registrado', () => {
     vi.stubEnv('WEBHOOK_URL', undefined);
     vi.stubEnv('WEBHOOK_SECRET', undefined);
 
-    avisar('content.published', [{ key: 'hero', tipo: 'singleton' }]);
+    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton' }]);
 
     // La comprobación va **antes** del `after`, no dentro: un despliegue sin esto configurado
     // —la inmensa mayoría— no arrastra una tarea diferida por cada publicación.
@@ -431,7 +451,7 @@ describe('T-A-23 y T-A-27 — lo que queda registrado', () => {
     });
 
     expect(() => {
-      avisar('content.published', [{ key: 'hero', tipo: 'singleton' }]);
+      avisar('content.published', [{ key: SINGLETON, tipo: 'singleton' }]);
     }).not.toThrow();
 
     // Y no en silencio: el aviso no salió, y eso tiene que quedar dicho en algún sitio.
@@ -443,7 +463,7 @@ describe('T-A-23 y T-A-27 — lo que queda registrado', () => {
     encender();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
 
-    avisar('content.published', [{ key: 'hero', tipo: 'singleton' }], {
+    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton' }], {
       userId: 'u1',
       email: 'quien@publica.com',
     });
@@ -454,14 +474,18 @@ describe('T-A-23 y T-A-27 — lo que queda registrado', () => {
 
     expect(evento['action']).toBe('webhook.enviado');
     expect(evento['actorEmail']).toBe('quien@publica.com');
-    expect(evento['meta']).toMatchObject({ estado: 204, intentos: 1, tags: ['content:hero'] });
+    expect(evento['meta']).toMatchObject({
+      estado: 204,
+      intentos: 1,
+      tags: [`content:${SINGLETON}`],
+    });
   });
 
   it('T-A-23b: un fallo se audita como fallo, no se pierde', async () => {
     encender();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 500 }));
 
-    avisar('content.published', [{ key: 'hero', tipo: 'singleton' }]);
+    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton' }]);
     await after.mock.results[0]?.value;
 
     const evento = audit.mock.calls[0]?.[0] as Record<string, unknown>;
@@ -473,7 +497,7 @@ describe('T-A-23 y T-A-27 — lo que queda registrado', () => {
     encender();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 200 }));
 
-    avisar('content.published', [{ key: 'hero', tipo: 'singleton' }]);
+    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton' }]);
     await after.mock.results[0]?.value;
 
     const registrado = JSON.stringify(audit.mock.calls[0]?.[0]);
@@ -494,7 +518,7 @@ describe('T-A-23 y T-A-27 — lo que queda registrado', () => {
     encender();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 200 }));
 
-    avisar('content.published', [{ key: 'hero', tipo: 'singleton' }]);
+    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton' }]);
     await after.mock.results[0]?.value;
 
     const meta = audit.mock.calls[0]?.[0].meta;
