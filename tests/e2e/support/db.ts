@@ -37,6 +37,41 @@ export function ejecutarSql(sql: string, parametros: readonly unknown[] = []): v
 }
 
 /**
+ * Lo mismo, pero **devolviendo las filas** (#291).
+ *
+ * `ejecutarSql` hereda la salida del proceso hijo y no la captura, así que no sirve para leer.
+ * Aquí se captura y se analiza el JSON que imprime el hijo.
+ *
+ * Existe porque hay un caso que solo se puede comprobar mirando la base de datos: el `after()` de
+ * Next corre **después** de la respuesta, así que su rastro no aparece en ninguna pantalla en el
+ * momento en que la página termina de cargar. Sin poder consultar, ese caso no se puede escribir.
+ *
+ * El `JSON.stringify` va en el hijo y no aquí para que las fechas y los `jsonb` crucen con la
+ * forma que les da `pg`, sin que este lado tenga que adivinarla.
+ */
+export function consultarSql<T = Record<string, unknown>>(
+  sql: string,
+  parametros: readonly unknown[] = []
+): T[] {
+  const script = `
+    const { Pool } = require('pg');
+    const [sql, parametros] = process.argv.slice(1);
+    (async () => {
+      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      const { rows } = await pool.query(sql, JSON.parse(parametros));
+      process.stdout.write(JSON.stringify(rows));
+      await pool.end();
+    })().catch((error) => { console.error(error); process.exit(1); });
+  `;
+
+  const salida = execFileSync('node', ['-e', script, sql, JSON.stringify(parametros)], {
+    encoding: 'utf8',
+  });
+
+  return JSON.parse(salida) as T[];
+}
+
+/**
  * Deja una entrada con borrador y **sin publicar**, que es el estado inicial de un sitio.
  *
  * El `type` va aparte de la `key` para poder crear elementos de colección, que es lo que

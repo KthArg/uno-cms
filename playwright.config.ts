@@ -98,7 +98,31 @@ export default defineConfig({
          *
          * Los tests no deben tocar nada que exista fuera de su máquina.
          */
-        env: { PREVIEW_ORIGINS: '', PREVIEW_URL: '', BLOB_READ_WRITE_TOKEN: '' },
+        /**
+         * Y el aviso al publicar, que **no se apaga: se redirige a esta misma suite** (#291).
+         *
+         * El motivo para fijarlo es el mismo que los dos de arriba, y con la peor consecuencia de
+         * los tres: para probar la fase hay que poner `WEBHOOK_URL` en `.env.local`, y eso es la
+         * dirección de una web de verdad. Heredarla aquí significa que `pnpm test:e2e` **le manda
+         * avisos de publicación firmados a producción**, uno por cada caso que publique.
+         *
+         * Pero apagarla a secas dejaría sin ejercitar el `after()` de Next, que es lo único que
+         * ninguna otra suite puede tocar —la unitaria y la de integración lo sustituyen porque
+         * necesita el contexto de una petición—. Así que se apunta **al propio servidor de la
+         * suite**: el aviso sale de verdad, lo entrega el `after()` de verdad, y aterriza en una
+         * ruta nuestra que contesta 405 porque solo exporta `GET`.
+         *
+         * Un 405 es un `4xx`, así que no se reintenta y el caso tarda un viaje local. Lo que
+         * queda registrado es un `webhook.fallido`, y eso **es** la prueba: esa fila solo la
+         * escribe el `after()` al ejecutarse.
+         */
+        env: {
+          PREVIEW_ORIGINS: '',
+          PREVIEW_URL: '',
+          BLOB_READ_WRITE_TOKEN: '',
+          WEBHOOK_URL: `${baseURL}/api/health`,
+          WEBHOOK_SECRET: 'un-secreto-de-avisos-solo-para-la-suite-e2e',
+        },
         // Nunca reutilizar un servidor ajeno: daría verde contra otra aplicación.
         reuseExistingServer: false,
         timeout: 180_000,
