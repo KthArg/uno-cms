@@ -82,8 +82,26 @@ export function crearAlmacen() {
       return entradas.get(clave)?.v;
     },
 
-    guardar(clave, valor) {
-      entradas.set(clave, { valor, pendiente: false, v: entradas.get(clave)?.v });
+    /**
+     * Guarda lo que se acaba de traer.
+     *
+     * `vAlPedir` es la versión que tenía la clave **cuando empezó la petición**, y no es un
+     * adorno: sin ella hay una carrera que deja esta web con lo viejo para siempre.
+     *
+     * El caso, entero: la página empieza a pedir `hero` → mientras está en el aire llega un
+     * aviso que marca `hero` como pendiente → la petición termina y trae **lo de antes del
+     * cambio** → al guardarla se borra la marca de pendiente. El aviso queda consumido, la
+     * clave figura al día, y lo que se sirve es lo viejo. Y sin un solo error por medio, que
+     * es lo peor: es justo el fallo que esta fase existe para no tener.
+     *
+     * Comparando la versión se detecta: si cambió mientras se pedía, **se guarda el valor pero
+     * se deja pendiente**, y la siguiente visita lo vuelve a pedir con la versión nueva.
+     */
+    guardar(clave, valor, vAlPedir) {
+      const actual = entradas.get(clave);
+      const seAdelantoUnAviso = actual !== undefined && actual.v !== vAlPedir;
+
+      entradas.set(clave, { valor, pendiente: seAdelantoUnAviso, v: actual?.v });
     },
 
     /**

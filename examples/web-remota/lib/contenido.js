@@ -107,7 +107,11 @@ export async function contenidoParaLaPagina(cmsUrl, almacen, buscar = fetch) {
         return;
       }
 
-      const valor = await pedirClave(base, clave, esColeccion, buscar, almacen.versionDe(clave));
+      // La versión se lee **antes** de pedir y se lleva hasta el guardado. Si llega un aviso
+      // mientras la petición está en el aire, `guardar` lo nota por aquí y no borra la marca de
+      // pendiente con un dato que ya nació viejo. Ver `almacen.guardar`.
+      const vAlPedir = almacen.versionDe(clave);
+      const valor = await pedirClave(base, clave, esColeccion, buscar, vAlPedir);
 
       if (valor === undefined) {
         const vieja = almacen.leer(clave);
@@ -115,7 +119,7 @@ export async function contenidoParaLaPagina(cmsUrl, almacen, buscar = fetch) {
         return;
       }
 
-      almacen.guardar(clave, valor);
+      almacen.guardar(clave, valor, vAlPedir);
       contenido[clave] = valor;
     })
   );

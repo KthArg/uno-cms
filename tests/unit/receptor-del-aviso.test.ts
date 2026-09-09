@@ -297,6 +297,35 @@ describe('T-A-39, T-A-40 y T-A-41 — qué se pide y cuándo', () => {
     expect(pedidas()).toHaveLength(5);
   });
 
+  it('un aviso que llega MIENTRAS se pide no se pierde', async () => {
+    // La carrera, entera: la página empieza a pedir `hero` → llega un aviso que lo marca
+    // pendiente → la petición termina y trae lo de **antes** del cambio → al guardarla se
+    // borraría la marca. El aviso quedaría consumido, la clave figuraría al día, y lo servido
+    // sería lo viejo. Sin un solo error por medio, que es lo peor.
+    const almacen = crearAlmacen();
+    const { buscar } = cmsQueContesta();
+
+    await contenidoParaLaPagina(CMS, almacen, buscar);
+
+    const conAvisoAMitad = vi.fn(() => {
+      almacen.aplicarAviso(sobreDe(['content:hero'], 'llega-tarde', 555));
+      return respuesta({ data: { title: 'lo de antes del cambio' } });
+    });
+
+    almacen.aplicarAviso(sobreDe(['content:hero'], 'primero', 111));
+    await contenidoParaLaPagina(CMS, almacen, conAvisoAMitad);
+
+    // Sigue pendiente: lo que se trajo nació viejo, y la siguiente visita lo vuelve a pedir.
+    expect(almacen.sirveDeAqui('hero')).toBe(false);
+    expect(almacen.versionDe('hero')).toBe(555);
+
+    const alDia = vi.fn(() => respuesta({ data: { title: 'lo de ahora' } }));
+    const contenido = await contenidoParaLaPagina(CMS, almacen, alDia);
+
+    expect(contenido['hero']).toEqual({ title: 'lo de ahora' });
+    expect(almacen.sirveDeAqui('hero')).toBe(true);
+  });
+
   it('la memoria de ids tiene tope, o sería una fuga', () => {
     const almacen = crearAlmacen();
 
