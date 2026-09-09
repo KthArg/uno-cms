@@ -2068,7 +2068,7 @@ Ninguna de las dos tenía issue. Es #162 → #164 otra vez: un pendiente que se 
 | El panel           | Enseña el último aviso, y **un fallo se ve como fallo**                                                                                                                              |
 | El otro lado       | `examples/web-remota/` recibe, verifica en tiempo constante, descarta repetidos y cachea                                                                                             |
 
-**1057 tests rápidos y 323 de integración**, más los casos e2e de las dos rutas públicas.
+**1057 tests rápidos y 324 de integración**, más los casos e2e de las dos rutas públicas.
 
 ### Qué es frágil
 

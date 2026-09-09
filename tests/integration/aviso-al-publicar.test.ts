@@ -325,6 +325,23 @@ describeIntegration('el aviso al publicar', () => {
     expect(sobre?.datos).toEqual({ url });
   });
 
+  it('registrar la MISMA imagen dos veces avisa una sola vez', async () => {
+    const pathname = 'media/2026-09/11112222-3333-4444-5555-666677778888.webp';
+    const entrada = {
+      url: `https://ejemplo.public.blob.vercel-storage.com/${pathname}`,
+      pathname,
+      filename: 'repetida.webp',
+      mimeType: 'image/webp',
+    };
+
+    expect((await registrarImagen(entrada)).ok).toBe(true);
+    // El segundo no inserta nada (`onConflictDoNothing`) y devuelve `ok` igual: es idempotente a
+    // propósito. Lo que no puede hacer es volver a despertar a la web de destino.
+    expect((await registrarImagen(entrada)).ok).toBe(true);
+
+    expect(sobresEnviados()).toHaveLength(1);
+  });
+
   it('T-A-16b: borrar una imagen avisa sin tags, con la url que dejó de existir', async () => {
     const pathname = 'media/2026-09/7c2b9d10-1a2b-4c3d-9e4f-5a6b7c8d9e0f.webp';
     const url = `https://ejemplo.public.blob.vercel-storage.com/${pathname}`;

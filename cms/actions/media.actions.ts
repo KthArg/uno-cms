@@ -87,7 +87,7 @@ export const registrarImagen = defineAction({
     // guardando un nombre válido apuntando a otro fichero.
     if (!input.url.endsWith(`/${input.pathname}`)) return fail('VALIDATION_FAILED');
 
-    await getDb()
+    const insertadas = await getDb()
       .insert(media)
       .values({
         url: input.url,
@@ -102,7 +102,10 @@ export const registrarImagen = defineAction({
       })
       // Idempotente a propósito: el aviso de Vercel escribe lo mismo, y el segundo en llegar no
       // debe hacer nada ni fallar.
-      .onConflictDoNothing({ target: media.pathname });
+      .onConflictDoNothing({ target: media.pathname })
+      // Se pide lo insertado para saber **si se insertó**. Sin esto no hay forma de distinguir
+      // «se registró la imagen» de «ya estaba», y las dos son un `ok` idéntico hacia arriba.
+      .returning({ pathname: media.pathname });
 
     // Aviso hacia fuera, **sin tags** (spec 16 §5.6). Subir una imagen no cambia ni una respuesta
     // de la API pública: nada la referencia hasta que alguien la use en un contenido y lo
@@ -113,7 +116,11 @@ export const registrarImagen = defineAction({
     // Se avisa aquí y **no** en el aviso de Vercel que escribe la misma fila (ADR-705): ese es
     // una red de seguridad con `onConflictDoNothing`, y engancharlo también mandaría dos avisos
     // por cada imagen. Este camino es el que corre siempre y el primero.
-    avisar('media.uploaded', [], session, { url: input.url });
+    //
+    // **Y solo si se insertó de verdad**, que es la misma regla que `publish`: allí un «publicar»
+    // sin cambios no avisa, y aquí un reintento del cliente sobre una imagen ya registrada
+    // tampoco. Escribí la regla en `publish` y no la apliqué aquí; lo cazó la autorevisión.
+    if (insertadas.length > 0) avisar('media.uploaded', [], session, { url: input.url });
 
     return ok({ pathname: input.pathname });
   },
