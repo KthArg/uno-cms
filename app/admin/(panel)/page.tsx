@@ -1,5 +1,6 @@
 import { auth } from '@/cms/auth';
 import { publishAll } from '@/cms/actions';
+import { ultimoAviso } from '@/cms/core/aviso';
 import { listSections } from '@/cms/core/content';
 import { listMedia } from '@/cms/core/media';
 import { leerPortadaDelPanel } from '@/cms/core/portada';
@@ -28,7 +29,7 @@ export default async function PanelContenido() {
    * En serie serían cinco viajes encadenados para pintar una pantalla que se abre entera; el
    * dato que más tarda marca el ritmo igual, así que encadenarlos solo suma esperas.
    */
-  const [secciones, imagenes, serie, personas] = await Promise.all([
+  const [secciones, imagenes, serie, personas, aviso] = await Promise.all([
     listSections(),
     listMedia(),
     publicacionesPorDia(),
@@ -36,6 +37,9 @@ export default async function PanelContenido() {
     // (T-E-4), y enseñarle cuánta gente hay sería contarle por la puerta de al lado justo lo que
     // la otra puerta no le deja ver. Cuesta una consulta menos, además.
     esAdmin ? listUsers() : Promise.resolve(null),
+    // El último aviso a la web de destino (#286). Devuelve `null` —y **sin consultar la base de
+    // datos**— cuando esa fase no está encendida, que es la inmensa mayoría de despliegues.
+    ultimoAviso(),
   ]);
 
   // Va después porque necesita saber cuál es la primera sección, y eso lo dice `listSections()`.
@@ -108,6 +112,19 @@ export default async function PanelContenido() {
       tituloDeLaPortada={portada.titulo}
       imagenDeLaPortada={portada.imagen}
       pendientes={pendientes}
+      ultimoAviso={
+        aviso === null
+          ? null
+          : {
+              ok: aviso.ok,
+              // Un `Date` no cruza limpio la frontera hacia un componente de presentación; el
+              // número sí, y el formato se decide en un solo sitio (`haceCuanto`).
+              cuando: aviso.cuando.getTime(),
+              evento: aviso.evento,
+              ...(aviso.motivo === undefined ? {} : { motivo: aviso.motivo }),
+            }
+      }
+      ahora={Date.now()}
       publicarTodo={pendientes > 0 ? <PublishAllButton action={publicarTodo} /> : null}
     />
   );

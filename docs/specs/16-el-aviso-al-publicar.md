@@ -115,6 +115,16 @@ El cuerpo:
 }
 ```
 
+Y un campo más, **solo en los eventos que lo tienen** (#285):
+
+```json
+{ "evento": "media.deleted", "claves": [], "tags": [], "datos": { "url": "https://…/foto.webp" } }
+```
+
+`datos` va aparte y no como un campo suelto al nivel de `id` o `ts` porque el resto de eventos no
+lo tienen, y un campo que a veces está y a veces no, mezclado con los que siempre están, invita a
+leerlo sin comprobar.
+
 Dos campos que parecen redundantes y no lo son:
 
 - **`claves`** dice exactamente qué se tocó, elemento por elemento. Sirve para registrar y para

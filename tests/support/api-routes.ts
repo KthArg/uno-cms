@@ -61,6 +61,16 @@ export const ACCESO_DECLARADO: Record<string, { nivel: NivelDeAcceso; motivo: st
       'Es la lectura de contenido **publicado** para la landing (SPEC §5.3). Devuelve lo que ' +
       'cualquiera ve en la web, y no expone borradores.',
   },
+  '/api/settings': {
+    nivel: 'publica',
+    motivo:
+      'Son los ajustes del sitio que ya salen en el HTML de todas las páginas —el nombre y el ' +
+      'SEO por defecto—, para una web que vive fuera y no puede leerlos del layout (spec 16 ' +
+      '§5.7). Existe porque el aviso al publicar manda `settings.updated`, y avisar de algo ' +
+      'que no se puede pedir es un aviso vacío. Devuelve **solo** `site` y `seo`, nombradas ' +
+      'una a una: `setup_completed` diría si el bootstrap sigue abierto, que es justo lo que ' +
+      '/setup calla respondiendo 404.',
+  },
   '/api/auth/[...nextauth]': {
     nivel: 'publica',
     motivo:

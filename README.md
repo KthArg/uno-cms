@@ -23,12 +23,12 @@ panel, landing con vista previa en vivo y endurecimiento— y después: el almac
 (ADR-700), la **vista previa de una web que vive fuera** del repositorio (ADR-701), la suite de
 humo contra un despliegue de verdad, y una fase de estética del panel.
 
-**En curso: el aviso al publicar** ([spec 16](docs/specs/16-el-aviso-al-publicar.md)), que es lo
-que permite a una web que vive fuera cachear el contenido y volver a pedirlo **solo cuando el CMS
-le avisa de que algo cambió, y solo la parte que cambió**. Es un hueco que la documentación tenía
-escrito desde agosto y que nadie había seguido.
+Y **el aviso al publicar** ([spec 16](docs/specs/16-el-aviso-al-publicar.md)), cerrado: el CMS
+avisa a la web que alimenta cuando lo publicado cambia y le dice **qué parte**, para que esa web
+cachee y vuelva a pedir solo entonces. Era un hueco que la documentación tenía escrito desde
+agosto y que nadie había seguido.
 
-Aparte de eso, los issues abiertos son los ocho `post-mvp`, que no tienen código por diseño, y
+Hoy los issues abiertos son los ocho `post-mvp`, que no tienen código por diseño, y
 [#279](https://github.com/KthArg/uno-cms/issues/279).
 
 Lo que funciona, lo que es frágil y lo que habría que probar a mano —incluido **lo que no está

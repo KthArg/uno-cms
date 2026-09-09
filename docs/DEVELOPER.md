@@ -367,6 +367,22 @@ y este cuerpo:
 }
 ```
 
+Los eventos que existen, y qué puede decir cada uno de verdad:
+
+| `evento`            | Cuándo                  | `tags`                | Extra                      |
+| ------------------- | ----------------------- | --------------------- | -------------------------- |
+| `content.published` | Publicar (una o «todo») | `content:<clave>`     |                            |
+| `content.deleted`   | Borrar un elemento      | `content:<coleccion>` |                            |
+| `content.reordered` | Reordenar una colección | `content:<coleccion>` |                            |
+| `settings.updated`  | Cambiar ajustes o SEO   | `settings`            | Pídelos en `/api/settings` |
+| `media.uploaded`    | Subir una imagen        | **ninguno**           | `datos.url`                |
+| `media.deleted`     | Borrar una imagen       | **ninguno**           | `datos.url`, la que se fue |
+
+**Los de medios van sin `tags` a propósito.** Subir una imagen no cambia ni una respuesta de la
+API pública —nada la referencia hasta que alguien la use y publique, y eso ya manda
+`content.published`—. Si solo revalidas contenido, ignóralos y no pierdes nada. Si cacheas los
+bytes de las imágenes, `media.deleted` es el único aviso de que una URL dejó de servir.
+
 **Usa `tags`, no `claves`.** `tags` es la lista ya elevada a **lo que puedes pedir**: un elemento
 de colección aporta el tag de su colección, porque `/api/content/testimonials.a1b2` responde 404.
 `claves` está para registrar y para decidir con detalle, no para construir direcciones.
@@ -424,9 +440,17 @@ tests: `lib/aviso.js` verifica y `lib/almacen.js` decide qué se vuelve a pedir.
 >   única que da el cuerpo crudo. Con `(req, res)`, Vercel entrega el JSON ya analizado y la firma
 >   no se puede verificar: `JSON.stringify` no promete reproducir el mismo texto.
 
+#### Los ajustes también se pueden pedir
+
+`GET /api/settings` devuelve `{ site, seo }` con los valores efectivos, con las mismas reglas que
+la ruta de contenido: pública, sin CORS, y con la misma cabecera de caché.
+
+Existe desde #284 **porque el aviso manda `settings.updated`**, y avisar de algo que no se puede
+pedir es un aviso vacío. No devuelve `setup_completed` y nunca lo hará: eso diría si el bootstrap
+sigue abierto.
+
 ### Lo que NO se lleva la web remota
 
-- **Los ajustes del sitio y el SEO por defecto.** Siguen sin endpoint público.
 - **La landing de este repositorio**, que sigue existiendo y sirviéndose aunque no la uses.
 
 ### Qué esperar de la vista previa remota, con sus límites

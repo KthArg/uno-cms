@@ -3,6 +3,7 @@
 import { del } from '@vercel/blob';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { avisar } from '@/cms/core/aviso';
 import { getDb, media } from '@/cms/db';
 import { esPathnameGenerado } from '@/cms/nombres-de-subida';
 import { nombreLegible } from '@/cms/security/uploads';
@@ -57,7 +58,7 @@ export const registrarImagen = defineAction({
   }),
   targetType: 'media',
   targetId: (input) => input.pathname,
-  handler: async (input) => {
+  handler: async (input, session) => {
     // El nombre tiene que ser de los que genera el CMS **y coherente con el tipo**, y esa
     // segunda mitad es también la comprobación del tipo: `esPathnameGenerado` solo conoce las
     // extensiones de los tipos que aceptamos, así que un `image/svg+xml` no tiene ninguna
@@ -103,6 +104,17 @@ export const registrarImagen = defineAction({
       // debe hacer nada ni fallar.
       .onConflictDoNothing({ target: media.pathname });
 
+    // Aviso hacia fuera, **sin tags** (spec 16 §5.6). Subir una imagen no cambia ni una respuesta
+    // de la API pública: nada la referencia hasta que alguien la use en un contenido y lo
+    // publique, y eso ya manda `content.published`. Se manda igual porque hay webs que quieren
+    // precalentar su caché de imágenes — y sin tags, para que un receptor que solo revalida
+    // contenido lo ignore solo en vez de repedirlo todo para nada.
+    //
+    // Se avisa aquí y **no** en el aviso de Vercel que escribe la misma fila (ADR-705): ese es
+    // una red de seguridad con `onConflictDoNothing`, y engancharlo también mandaría dos avisos
+    // por cada imagen. Este camino es el que corre siempre y el primero.
+    avisar('media.uploaded', [], session, { url: input.url });
+
     return ok({ pathname: input.pathname });
   },
 });
@@ -116,7 +128,7 @@ export const deleteMedia = defineAction({
   input: z.object({ id: z.string().uuid() }),
   targetType: 'media',
   targetId: (input) => input.id,
-  handler: async (input) => {
+  handler: async (input, session) => {
     const db = getDb();
 
     const [fila] = await db
@@ -152,6 +164,15 @@ export const deleteMedia = defineAction({
     }
 
     await db.delete(media).where(eq(media.id, input.id));
+
+    // Este sí gana su sitio aunque tampoco cambie el contenido publicado: **una URL que estaba
+    // sirviendo bytes deja de servirlos**. Una web que cachea imágenes no puede deducirlo de
+    // ninguna otra cosa, y es el único cambio del CMS que puede romper algo ya publicado.
+    //
+    // La URL que viaja es la pública del almacén, la misma que ya está en el HTML de la landing:
+    // con Vercel Blob es del almacén, y con el almacén local (ADR-700) es `/api/media/local/...`,
+    // que también es pública. No se filtra ninguna ruta interna por aquí.
+    avisar('media.deleted', [], session, { url: fila.url });
 
     return ok({ id: input.id, pathname: fila.pathname });
   },
