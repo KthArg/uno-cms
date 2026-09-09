@@ -2068,14 +2068,14 @@ Ninguna de las dos tenía issue. Es #162 → #164 otra vez: un pendiente que se 
 | El panel           | Enseña el último aviso, y **un fallo se ve como fallo**                                                                                                                              |
 | El otro lado       | `examples/web-remota/` recibe, verifica en tiempo constante, descarta repetidos y cachea                                                                                             |
 
-**1057 tests rápidos y 324 de integración**, más los casos e2e de las dos rutas públicas.
+**1061 tests rápidos y 324 de integración**, más los casos e2e de las dos rutas públicas.
 
 ### Qué es frágil
 
 1. **No hay cola: un aviso que falla los dos intentos se pierde para siempre.** Es ADR-1003 y es la limitación grande. La web se queda con lo viejo hasta la siguiente publicación. Lo que lo hace soportable es que volver a pedir es idempotente.
-2. **Ningún test ejecuta el `after()` de verdad.** La unitaria y la de integración lo sustituyen —necesita contexto de petición—, y la e2e corre con la fase apagada. Lo probado es que se le pide la tarea correcta, no que Next la ejecute.
+2. ~~**Ningún test ejecuta el `after()` de verdad.**~~ **Cerrado** en #291: la suite e2e ya no corre con la fase apagada. `playwright.config.ts` apunta `WEBHOOK_URL` **al propio servidor de la suite**, y T-A-42 publica desde el panel y comprueba que quedó la fila de `audit_log` — una fila que solo escribe el `after()` al ejecutarse. Se deja tachado y no borrado, porque el valor de esta lista está en poder contrastar lo que se dijo con lo que pasó. **Lo que sigue sin probarse es una entrega buena contra un destino real**: aquí el destino somos nosotros contestando 405. Eso es la fragilidad 6.
 3. **El almacén del ejemplo es memoria del proceso.** En serverless hay más de uno y el aviso llega a uno. Está dicho en tres sitios porque un ejemplo se copia entero.
-4. **La comparación en tiempo constante del receptor no la sostiene ningún test, y no puede.** Sustituir `timingSafeEqual` por `===` no rompe un solo caso: no cambia el comportamiento, solo el tiempo. Lo sostiene leer el código.
+4. **La comparación en tiempo constante del receptor sigue sin poder probarse funcionalmente** — `===` y `timingSafeEqual` devuelven lo mismo para toda entrada; lo único que cambia es cuánto tardan. Lo que sí hay desde #291 es una **guarda estática**, T-A-43, que se pone roja si alguien la sustituye. Comprobado mutando: la guarda mata 3 de sus 4 casos y **los 19 del receptor siguen verdes**, que es la demostración de por qué hacía falta. Sigue sin ser una prueba de que el algoritmo sea seguro: eso es leer el código.
 5. **El panel enseña el último aviso auditado, que con dos publicaciones solapadas puede no ser el último ocurrido.** Falla del lado seguro —dice «falló» de más— pero es una imprecisión en una pantalla cuyo valor entero es decir la verdad.
 6. **Nadie lo ha ejercitado contra un despliegue.** `test:humo` no cubre el aviso, y sigue sin correr sola (#279).
 
@@ -2093,3 +2093,5 @@ Ninguna de las dos tenía issue. Es #162 → #164 otra vez: un pendiente que se 
 - **La mutación cazó código defensivo que no defendía nada.** Un `Math.max(0, …)` en el «hace…» del panel: quitarlo no mataba ningún caso, porque cualquier negativo ya caía en la primera rama. Es el mismo patrón que la validación de tamaño de `/api/media/upload`, y esta vez se quitó en vez de dejarlo.
 - **Un test puede pasar por suerte y no enterarse nadie.** T-A-35 daba verde porque un aviso de un intento escribe su fila antes que la lectura; su gemelo con dos intentos, no. El fallo era del test.
 - **Verificar la documentación de un tercero antes de decidir vale una tarde.** Con la firma `(req, res)` de Vercel el cuerpo llega **ya analizado**, así que la firma HMAC no se puede comprobar: solo parecerlo hasta el primer sobre que se serialice distinto.
+- **Escribir una fragilidad no es cerrarla, y dos de las seis se podían cerrar el mismo día** (#291). Al releerlas para contestar «¿ya está arreglado?» salió que sí para dos: el `after()` se puede ejercitar apuntando el aviso al propio servidor de la suite, y lo que ningún test funcional puede sostener lo sostiene una guarda estática. La lista honesta servía; releerla, más.
+- **Y al mirarlas apareció un fallo que ninguna cubría.** `playwright.config.ts` neutraliza `PREVIEW_ORIGINS` y `BLOB_READ_WRITE_TOKEN` para que la suite no toque nada de fuera, y no se le añadieron las del aviso: quien pusiera su web real en `.env.local` —que es lo que hay que hacer para probar la fase— le habría mandado avisos firmados a producción con cada `pnpm test:e2e`.
