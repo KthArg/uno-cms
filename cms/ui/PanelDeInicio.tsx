@@ -33,6 +33,8 @@ import { ANILLO_DE_FOCO, TARJETA } from './estilos';
  * único fondo del panel que no ponemos nosotros.
  */
 
+import { EstadoDelAviso, type UltimoAvisoParaElPanel } from './EstadoDelAviso';
+
 export interface Cifra {
   readonly valor: number;
   readonly etiqueta: string;
@@ -57,6 +59,10 @@ export interface PanelDeInicioProps {
   /** «Publicar todo», que solo se pinta cuando hay algo que publicar. */
   readonly publicarTodo: React.ReactNode;
   readonly pendientes: number;
+  /** El último aviso a la web de destino, o `null` si esa fase no está encendida (#286). */
+  readonly ultimoAviso: UltimoAvisoParaElPanel | null;
+  /** El instante con el que se calcula el «hace…». Llega de fuera para poder probarlo. */
+  readonly ahora: number;
 }
 
 export function PanelDeInicio({
@@ -69,6 +75,8 @@ export function PanelDeInicio({
   imagenDeLaPortada,
   publicarTodo,
   pendientes,
+  ultimoAviso,
+  ahora,
 }: PanelDeInicioProps) {
   return (
     <div className="space-y-4">
@@ -135,6 +143,8 @@ export function PanelDeInicio({
                     ? 'Hay 1 sección con cambios sin publicar.'
                     : `Hay ${String(pendientes)} secciones con cambios sin publicar.`}
               </p>
+
+              <EstadoDelAviso aviso={ultimoAviso} ahora={ahora} />
 
               <div className="mt-5">{publicarTodo}</div>
             </div>

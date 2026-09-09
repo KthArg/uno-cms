@@ -3,6 +3,7 @@
 import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import appConfig from '@/cms.config';
+import { avisar } from '@/cms/core/aviso';
 import { SETTINGS_SCHEMAS, SETTINGS_TAG } from '@/cms/core/settings';
 import { getDb, settings } from '@/cms/db';
 import { TOKEN_TTL, signToken } from '@/cms/security/tokens';
@@ -27,7 +28,7 @@ export const updateSettings = defineAction({
   }),
   targetType: 'settings',
   targetId: (input) => input.key,
-  handler: async (input) => {
+  handler: async (input, session) => {
     const parsed = SETTINGS_SCHEMAS[input.key].safeParse(input.value);
     if (!parsed.success) return failFields(fieldsFromZod(parsed.error));
 
@@ -46,6 +47,11 @@ export const updateSettings = defineAction({
     // Después de escribir. Los ajustes se leen en el layout, así que esto afecta a todas las
     // páginas.
     revalidateTag(SETTINGS_TAG);
+
+    // Y hacia fuera, con el tag `settings` y **ninguna clave de contenido**: lo que cambió no es
+    // una sección, es la configuración que se aplica a todas. Quien lo reciba lo pide en
+    // `GET /api/settings`, que existe desde #284 justamente para que este aviso no sea vacío.
+    avisar('settings.updated', [], session);
 
     return ok({ key: input.key });
   },

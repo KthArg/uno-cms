@@ -2,6 +2,8 @@ import 'server-only';
 import { createHmac, randomUUID } from 'node:crypto';
 import { after } from 'next/server';
 import appConfig from '@/cms.config';
+import { desc, inArray } from 'drizzle-orm';
+import { auditLog, getDb } from '@/cms/db';
 import { audit } from '@/cms/security/audit';
 import { contentTag } from './content';
 import { SETTINGS_TAG } from './settings';
@@ -63,6 +65,14 @@ export interface Sobre {
   readonly ts: number;
   readonly claves: readonly ClaveAvisada[];
   readonly tags: readonly string[];
+  /**
+   * Lo que solo tiene sentido para un evento concreto (#285).
+   *
+   * Hoy solo lo usan los de medios, para decir **qué URL** se subió o dejó de existir. Va aparte
+   * y no como un campo suelto del sobre porque el resto de eventos no lo tienen, y un campo que
+   * a veces está y a veces no, al mismo nivel que `id` o `ts`, invita a leerlo sin comprobar.
+   */
+  readonly datos?: Readonly<Record<string, string>>;
 }
 
 export interface ConfiguracionDelAviso {
@@ -237,7 +247,8 @@ export function tagsDe(evento: EventoDeAviso, claves: readonly ClaveAvisada[]): 
 export function componerSobre(
   evento: EventoDeAviso,
   claves: readonly ClaveAvisada[],
-  ahora: () => number = Date.now
+  ahora: () => number = Date.now,
+  datos?: Readonly<Record<string, string>>
 ): Sobre {
   return {
     id: randomUUID(),
@@ -245,6 +256,7 @@ export function componerSobre(
     ts: ahora(),
     claves,
     tags: tagsDe(evento, claves),
+    ...(datos === undefined ? {} : { datos }),
   };
 }
 
@@ -370,12 +382,13 @@ export async function entregar(
 export function avisar(
   evento: EventoDeAviso,
   claves: readonly ClaveAvisada[],
-  actor?: { readonly userId: string; readonly email: string }
+  actor?: { readonly userId: string; readonly email: string },
+  datos?: Readonly<Record<string, string>>
 ): void {
   const config = configuracionDelAviso();
   if (config === null) return;
 
-  const sobre = componerSobre(evento, claves);
+  const sobre = componerSobre(evento, claves, Date.now, datos);
 
   const tarea = async (): Promise<void> => {
     const resultado = await entregar(config, sobre);
@@ -418,4 +431,84 @@ export function avisar(
   } catch (error) {
     console.error('[aviso] no se pudo programar el envío; la operación no se ve afectada', error);
   }
+}
+
+/** Lo que el panel enseña del último aviso (#286). `null` si la fase está apagada o no hay ninguno. */
+export interface UltimoAviso {
+  readonly ok: boolean;
+  readonly cuando: Date;
+  readonly evento: string;
+  /** Solo cuando falló: `red`, `estado` o `redirigido`. Para saber a quién preguntar. */
+  readonly motivo?: string;
+  /** Solo cuando falló y hubo respuesta. */
+  readonly estado?: number;
+}
+
+/**
+ * El último aviso que se intentó, para el panel (#286).
+ *
+ * ## Por qué esta pantalla tiene que existir
+ *
+ * Porque el aviso se manda con `after()`, **después** de responderle al editor. Si falla, no lo
+ * ve nadie mirando. Queda auditado, sí — y una fila de auditoría que solo se lee consultando la
+ * base de datos a mano es, en la práctica, un fallo silencioso con papeleo.
+ *
+ * Alguien podría estar publicando durante semanas contra un destino caído, viendo «Publicado ✓»
+ * cada vez.
+ *
+ * ## Por qué se lee de `audit_log` y no de una tabla propia
+ *
+ * Porque la auditoría ya guarda la acción, el instante y los metadatos, ya redacta lo sensible y
+ * ya se poda a los 90 días. Una tabla nueva para «el último estado de una cosa» sería una segunda
+ * fuente de verdad que se puede desincronizar de la primera.
+ *
+ * **El precio, dicho:** con la poda, un despliegue que no publique en tres meses pierde su último
+ * aviso y vuelve a «todavía no se ha mandado ninguno». Eso es distinto de «falló», y el panel los
+ * distingue.
+ *
+ * ## Y «el último» es el último **auditado**, que con dos publicaciones solapadas puede no ser el
+ * último ocurrido
+ *
+ * Los avisos van en `after()` y no se esperan entre sí: uno que falla hace dos intentos y escribe
+ * su fila **después** que uno posterior que fue a la primera. Así que dos publicaciones muy
+ * seguidas pueden dejar el panel diciendo «falló» cuando la segunda sí llegó.
+ *
+ * Se descubrió escribiendo los tests de #286 —el caso pasaba o no según cuál terminara antes— y
+ * se deja así a propósito: ordenar esto de verdad exige un número de secuencia y una tabla propia,
+ * que es justo lo que se decidió no construir (ADR-1003). El error es transitorio y de un lado
+ * seguro: dice «falló» de más, nunca «llegó» de más.
+ *
+ * ## Y por qué vive aquí y no en un módulo de lectura aparte
+ *
+ * Contra la costumbre de `portada.ts` y `publicaciones.ts`, que son lectores sueltos. Este
+ * necesita `configuracionDelAviso()` para contestar `null` cuando la fase está apagada — que no
+ * es «no hay datos», es «esto no existe en este despliegue»— y sacarlo de aquí obligaría a
+ * exportar esa decisión o a duplicarla.
+ */
+export async function ultimoAviso(): Promise<UltimoAviso | null> {
+  // Con la fase apagada no hay nada que enseñar, y **no se consulta la base de datos**. Un
+  // despliegue que no usa esto no debe pagar una consulta por cada vez que se abre el panel.
+  if (configuracionDelAviso() === null) return null;
+
+  const [fila] = await getDb()
+    .select({ action: auditLog.action, meta: auditLog.meta, createdAt: auditLog.createdAt })
+    .from(auditLog)
+    .where(inArray(auditLog.action, ['webhook.enviado', 'webhook.fallido']))
+    .orderBy(desc(auditLog.createdAt))
+    .limit(1);
+
+  if (fila === undefined) return null;
+
+  // El `meta` lo escribimos nosotros, pero se lee con cuidado igual: es una columna `jsonb` y
+  // una fila vieja puede venir de una versión que guardaba otra cosa. Un panel que reviente al
+  // pintar el estado de un aviso sería peor que el aviso que no llegó.
+  const meta = (fila.meta ?? {}) as Record<string, unknown>;
+
+  return {
+    ok: fila.action === 'webhook.enviado',
+    cuando: fila.createdAt,
+    evento: typeof meta['evento'] === 'string' ? meta['evento'] : 'desconocido',
+    ...(typeof meta['motivo'] === 'string' ? { motivo: meta['motivo'] } : {}),
+    ...(typeof meta['estado'] === 'number' ? { estado: meta['estado'] } : {}),
+  };
 }

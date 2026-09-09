@@ -369,6 +369,22 @@ Todas las actions comparten un pipeline obligatorio, en este orden:
 >
 > Lo que **no** cambia y conviene dejar dicho: sigue sirviendo solo lo publicado, sigue sin
 > cabeceras CORS, y sigue respondiendo 404 a una clave no declarada en `cms.config.ts`.
+
+> **Enmienda — ADR-1005 (issue #284).** Se añade una ruta pública que esta sección no tenía:
+>
+> - `GET /api/settings` → `{ site, seo }` con los valores **efectivos** de los ajustes, la misma
+>   cabecera de caché que la de contenido y **sin CORS**, por lo mismo: la pide el servidor de la
+>   otra web, no el navegador de quien la visita.
+>
+> Existe porque el aviso al publicar manda `settings.updated` y, hasta ahora, la web de destino no
+> podía pedir los ajustes. Un aviso de algo que quien lo recibe no puede consultar es un aviso
+> vacío.
+>
+> **Devuelve `site` y `seo`, nombradas una a una, y nunca `setup_completed`.** §4 da tres claves a
+> la tabla `settings`; esta ruta expone dos. La tercera dice si el bootstrap sigue abierto, y
+> `/setup` responde 404 después de completarse precisamente para no decirlo.
+>
+> Escribir ajustes por HTTP sigue sin existir: `updateSettings` es una Server Action con su rol.
 - `POST /api/auth/*` → Auth.js. Login con rate limit 5/15 min por IP+email y lockout incremental (`failedLogins`/`lockedUntil`).
 
 ---

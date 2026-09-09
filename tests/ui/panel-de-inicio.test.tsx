@@ -30,6 +30,9 @@ const SECCIONES: SectionSummary[] = [
   },
 ];
 
+/** Un instante fijo: el «hace…» no puede depender del reloj de la máquina (#275). */
+const AHORA = new Date('2026-09-09T12:00:00Z').getTime();
+
 const SERIE = [
   { dia: '2026-08-30', publicaciones: 0 },
   { dia: '2026-08-31', publicaciones: 2 },
@@ -50,6 +53,10 @@ function montarInicio(extra: Partial<Parameters<typeof PanelDeInicio>[0]> = {}) 
       tituloDeLaPortada="Mi web"
       imagenDeLaPortada=""
       pendientes={2}
+      // Por omisión, la fase del aviso apagada: es lo que tiene la inmensa mayoría de
+      // despliegues, así que es el estado que estos casos deben dar por defecto.
+      ultimoAviso={null}
+      ahora={AHORA}
       publicarTodo={<button type="button">Publicar todo</button>}
       {...extra}
     />

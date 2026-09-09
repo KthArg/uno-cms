@@ -2035,3 +2035,61 @@ olvidó, y este documento vive de poder contrastar lo que se dijo con lo que pas
   se puede comprobar en local» dos veces se deja de intentar, y eso ya pasó: la frase sobrevivió
   desde agosto hasta que alguien la puso a prueba y resultó ser un certificado y quince líneas de
   proxy.
+
+---
+
+## El aviso al publicar ✅
+
+**Cerrado** el 9 de septiembre de 2026. Spec [`16-el-aviso-al-publicar.md`](specs/16-el-aviso-al-publicar.md), contradicción de spec en [#282](https://github.com/KthArg/uno-cms/issues/282), cinco issues (#283–#287), tres PR.
+
+### De dónde salió
+
+De una petición: que el CMS avise a la web que alimenta cuando lo publicado cambia, y le diga **qué parte**, para que esa web pueda cachear y volver a pedir solo entonces.
+
+Y al ir a escribirlo resultó que **el hueco ya estaba escrito como hueco, en dos sitios, desde agosto**:
+
+> `docs/DEVELOPER.md` — «El aviso al publicar. Hoy `publish` solo invalida nuestra caché; tu web se entera cuando vuelva a pedir. **Un webhook es otra fase**.»
+
+> `docs/specs/08-vista-previa-remota.md` §3 — «El aviso a la web destino cuando se publica —un webhook— es otro problema y otra fase.»
+
+Ninguna de las dos tenía issue. Es #162 → #164 otra vez: un pendiente que se escribe y no se sigue vale lo mismo que no escribirlo.
+
+### Qué funciona
+
+| Área               | Estado                                                                                                                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| El interruptor     | `WEBHOOK_URL` + `WEBHOOK_SECRET`, las dos o ninguna. Sin ellas no sale una petición ni se programa un `after`, y publicar tarda lo que tardaba                                       |
+| El sobre           | `id`, `evento`, `ts`, `claves`, `tags` y `datos` para los eventos que lo tienen. Firmado con HMAC-SHA256 sobre `"<ts>.<cuerpo>"`                                                     |
+| Los `tags`         | **Elevados a lo que se puede pedir**: un elemento de colección aporta el tag de su colección, y se filtran por `cms.config.ts`. Es #116 resuelto hacia fuera, antes de que ocurriera |
+| Los eventos        | Publicar, publicar todo, borrar, reordenar, ajustes, subir imagen y borrar imagen                                                                                                    |
+| La entrega         | `after()`, dos segundos de plazo, un reintento solo si el fallo puede ser transitorio, y **sin seguir redirecciones**                                                                |
+| El caché de la CDN | El `?v=<ts>` que la esquiva sin bajarle el `s-maxage` a nadie                                                                                                                        |
+| Los ajustes        | `GET /api/settings`, pública y sin `setup_completed`                                                                                                                                 |
+| El panel           | Enseña el último aviso, y **un fallo se ve como fallo**                                                                                                                              |
+| El otro lado       | `examples/web-remota/` recibe, verifica en tiempo constante, descarta repetidos y cachea                                                                                             |
+
+**1057 tests rápidos y 324 de integración**, más los casos e2e de las dos rutas públicas.
+
+### Qué es frágil
+
+1. **No hay cola: un aviso que falla los dos intentos se pierde para siempre.** Es ADR-1003 y es la limitación grande. La web se queda con lo viejo hasta la siguiente publicación. Lo que lo hace soportable es que volver a pedir es idempotente.
+2. **Ningún test ejecuta el `after()` de verdad.** La unitaria y la de integración lo sustituyen —necesita contexto de petición—, y la e2e corre con la fase apagada. Lo probado es que se le pide la tarea correcta, no que Next la ejecute.
+3. **El almacén del ejemplo es memoria del proceso.** En serverless hay más de uno y el aviso llega a uno. Está dicho en tres sitios porque un ejemplo se copia entero.
+4. **La comparación en tiempo constante del receptor no la sostiene ningún test, y no puede.** Sustituir `timingSafeEqual` por `===` no rompe un solo caso: no cambia el comportamiento, solo el tiempo. Lo sostiene leer el código.
+5. **El panel enseña el último aviso auditado, que con dos publicaciones solapadas puede no ser el último ocurrido.** Falla del lado seguro —dice «falló» de más— pero es una imprecisión en una pantalla cuyo valor entero es decir la verdad.
+6. **Nadie lo ha ejercitado contra un despliegue.** `test:humo` no cubre el aviso, y sigue sin correr sola (#279).
+
+### Qué probaría a mano
+
+- Desplegar `examples/web-remota` de verdad, con el CMS apuntándole, y publicar mirando las dos pantallas. Es lo único que ejercita `after()` en su entorno.
+- Apagar la web de destino y publicar: comprobar que la publicación queda escrita, que el panel dice que el aviso falló, y **que lo dice con el motivo correcto**.
+- Poner una `WEBHOOK_URL` que redirija, para ver que no se sigue.
+- Publicar dos veces seguidas muy rápido y mirar qué enseña el panel. Es la fragilidad 5, y no la he visto ocurrir fuera de un test.
+
+### Lo que enseñó esta pasada
+
+- **La CDN casi convierte la fase en algo que no funciona, y el fallo habría parecido del webhook.** `s-maxage=60` lo sirve la CDN, no la caché de datos de Next, así que `revalidateTag` no la toca: quien obedeciera el aviso recibiría la copia de hasta un minuto antes. No se vio diseñando, se vio leyendo la ruta.
+- **Un `after` que lanza convertía una publicación buena en `INTERNAL`.** Salió en la autorevisión de #283, tirando de un hilo que ya había dado por bueno. La mutación lo enseña sin discusión: `{ ok: false, code: 'INTERNAL' }` sobre una fila que la base de datos tiene como `published`.
+- **La mutación cazó código defensivo que no defendía nada.** Un `Math.max(0, …)` en el «hace…» del panel: quitarlo no mataba ningún caso, porque cualquier negativo ya caía en la primera rama. Es el mismo patrón que la validación de tamaño de `/api/media/upload`, y esta vez se quitó en vez de dejarlo.
+- **Un test puede pasar por suerte y no enterarse nadie.** T-A-35 daba verde porque un aviso de un intento escribe su fila antes que la lectura; su gemelo con dos intentos, no. El fallo era del test.
+- **Verificar la documentación de un tercero antes de decidir vale una tarde.** Con la firma `(req, res)` de Vercel el cuerpo llega **ya analizado**, así que la firma HMAC no se puede comprobar: solo parecerlo hasta el primer sobre que se serialice distinto.
