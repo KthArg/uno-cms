@@ -412,11 +412,17 @@ const respuesta = await fetch(`${CMS_URL}/api/content/hero?v=${aviso.ts}`);
   aviso lo puede reenviar cuando quiera.
 - Si no verificas nada, tu endpoint es un amplificador: cualquiera te obliga a repedirlo todo.
 
-> **Todavía no hay un receptor de ejemplo.** `examples/web-remota/` consume lo publicado pero no
-> recibe avisos ni cachea: eso es el issue
-> [#287](https://github.com/KthArg/uno-cms/issues/287) y hasta que se cierre, lo de arriba es un
-> contrato escrito y probado desde nuestro lado, no una integración que nadie haya montado. Se
-> dice aquí porque la alternativa es que lo descubras tú.
+Hay un receptor completo y desplegable en [`examples/web-remota/`](../examples/web-remota/), con
+tests: `lib/aviso.js` verifica y `lib/almacen.js` decide qué se vuelve a pedir.
+
+> **Dos cosas de ese ejemplo que hay que leer antes de copiarlo**, y están en su README:
+>
+> - **Su almacén es memoria del proceso**, y en serverless hay más de uno. Enseña la forma del
+>   contrato, no el almacenamiento. En Next, la pieza que lo sustituye es `revalidateTag(tag)` con
+>   los `tags` del aviso, que ya vienen con ese formato.
+> - **El receptor usa la firma Web (`Request`/`Response`) de Vercel y no la de Node**, porque es la
+>   única que da el cuerpo crudo. Con `(req, res)`, Vercel entrega el JSON ya analizado y la firma
+>   no se puede verificar: `JSON.stringify` no promete reproducir el mismo texto.
 
 ### Lo que NO se lleva la web remota
 
