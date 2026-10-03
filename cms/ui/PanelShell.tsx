@@ -6,6 +6,7 @@ import type { Tema } from '@/cms/tema';
 import { Icono, type NombreDeIcono } from './iconos';
 import { Logotipo } from './Logotipo';
 import { ANILLO_DE_FOCO } from './estilos';
+import { SelectorDeIdioma, type IdiomaDelSelector } from './SelectorDeIdioma';
 
 /**
  * El armazón del panel (SPEC §3): barra lateral, cabecera y contenido.
@@ -85,6 +86,16 @@ export interface PanelShellProps {
    * cambia ese límite — sigue siendo código del CMS, no de la aplicación que lo monta.
    */
   readonly claseDeFuente?: string;
+  /**
+   * El selector de idioma (spec 17 §5.9). Llega **solo** si el sitio tiene más de un idioma: con
+   * uno, la cabecera es la de siempre (T-ID-39), y la decisión la toma el layout, que es quien
+   * lee `cms.config.ts`.
+   */
+  readonly idiomas?: {
+    readonly lista: readonly IdiomaDelSelector[];
+    readonly actual: string;
+    readonly onCambiar: (datos: FormData) => Promise<void>;
+  };
 }
 
 export interface EntradaMenu {
@@ -134,6 +145,7 @@ export function PanelShell({
   tema,
   onCambiarDeTema,
   claseDeFuente = '',
+  idiomas,
 }: PanelShellProps) {
   const entradas = entradasVisibles(rol);
 
@@ -204,6 +216,15 @@ export function PanelShell({
               </Link>
 
               <div className="flex items-center gap-1">
+                {idiomas !== undefined && (
+                  <SelectorDeIdioma
+                    idiomas={idiomas.lista}
+                    actual={idiomas.actual}
+                    ruta={ruta}
+                    onCambiar={idiomas.onCambiar}
+                  />
+                )}
+
                 {/* El nombre **es** el enlace a la propia cuenta, que es donde se busca. Una entrada
                 más en el menú lateral lo pondría al nivel de "Contenido" o "Personas", y no lo
                 está: no se administra la web desde ahí, se administra uno mismo. */}

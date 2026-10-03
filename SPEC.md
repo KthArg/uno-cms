@@ -241,6 +241,13 @@ export const settings = pgTable('settings', {
 
 Notas de integridad: todas las mutaciones de contenido corren en transacción; `publish` y `revert` usan `SELECT ... FOR UPDATE` sobre la fila del entry para serializar publicaciones concurrentes.
 
+> **Enmienda — ADR-1100 (issue #14).** `content_entries` y `revisions` ganan la columna
+> `locale text not null default ''`, y el índice único de `content_entries` pasa de `(key)` a
+> **`(key, locale)`**: `hero` existe una vez por idioma. **`''` es el idioma por defecto**, no su
+> código, para que las filas que ya existían sean de ese idioma sin migrar datos y para que cambiar
+> el idioma principal en `cms.config.ts` no deje el contenido apuntando al de antes. Las revisiones
+> se buscan y se podan por `(entry_key, locale)`: veinte por idioma, no veinte entre todos.
+
 ---
 
 ## 5. Modelo de contenido y API
@@ -324,6 +331,13 @@ export const getCollection = async <K extends CollectionKey>(key: K): Promise<Co
 
 Los componentes de la landing **no** llaman esto directamente: usan `useContent()` (ver §6.3) para que el mismo componente funcione en producción y en preview.
 
+> **Enmienda — ADR-1101 (issue #14).** `getContent` y `getCollection` aceptan un segundo
+> argumento opcional, el **código** del idioma (`getContent('hero', 'en')`); sin él, el de por
+> defecto. Devuelven lo publicado **en ese idioma y nada más**: sin fallback al de por defecto. La
+> clave de `unstable_cache` lleva el idioma; **el tag no**, así que publicar en un idioma invalida
+> todos los de esa clave. Un idioma que `cms.config.ts` no declara lanza, porque es un error de quien
+> monta la landing y no de quien la visita. La spec es `docs/specs/17-idiomas.md`.
+
 ### 5.3 API de mutación (Server Actions) — contrato completo
 
 Todas las actions comparten un pipeline obligatorio, en este orden:
@@ -385,6 +399,20 @@ Todas las actions comparten un pipeline obligatorio, en este orden:
 > `/setup` responde 404 después de completarse precisamente para no decirlo.
 >
 > Escribir ajustes por HTTP sigue sin existir: `updateSettings` es una Server Action con su rol.
+
+> **Enmienda — ADR-1101 y ADR-1102 (issue #14).** Los idiomas cambian tres cosas de esta sección:
+>
+> - `GET /api/content/:key` acepta **`?idioma=<código>`** y la respuesta lleva siempre el campo
+>   `idioma` con el que ha servido, también cuando no se pidió. Un idioma no declarado responde
+>   **400** `{ "error": "idioma_desconocido" }`; una clave no declarada sigue siendo 404, con
+>   idioma o sin él.
+> - Todas las actions que reciben una clave o una colección aceptan `idioma?: string`; sin él
+>   trabajan sobre el de por defecto, como antes. `publishAll` publica **solo** el idioma que se le
+>   pide. Un idioma no declarado es `NOT_FOUND` antes de tocar la base de datos.
+> - Una action nueva, `rellenarDesdeIdiomaPorDefecto({ key, idioma, version })`, copia el borrador
+>   del idioma por defecto al de otro idioma en una sección fija, como un guardado y sin publicar.
+>
+> El aviso al publicar añade `idioma` a cada clave y **no cambia los `tags`**.
 - `POST /api/auth/*` → Auth.js. Login con rate limit 5/15 min por IP+email y lockout incremental (`failedLogins`/`lockedUntil`).
 
 ---
@@ -570,6 +598,13 @@ KV_REST_API_URL=/TOKEN=  # opcional (rate limit distribuido); sin esto, fallback
 ## 10. Fuera de alcance del MVP (backlog priorizado)
 
 1. 2FA TOTP · 2. Reset de contraseña por email (requiere proveedor SMTP) · 3. Programación de publicaciones · 4. Campos `object`/`list` anidados y `reference` · 5. i18n de contenido · 6. Diff visual entre revisiones · 7. Export/import JSON del contenido · 8. Extracción de `cms/` como paquete npm.
+
+> **Enmienda — ADR-1100, ADR-1101 y ADR-1102 (issue #14).** El punto 5 sale del backlog: un
+> despliegue puede servir la landing en varios idiomas, cada uno con su borrador, su publicación,
+> su historial y sus listas, declarados en `cms.config.ts` con `idiomas` (spec
+> `docs/specs/17-idiomas.md`). Lo que **sigue fuera** se queda en `docs/PENDIENTES.md`: campos
+> compartidos entre idiomas, copiar una lista de un idioma a otro, permisos por idioma y traducir el
+> propio panel.
 
 ---
 

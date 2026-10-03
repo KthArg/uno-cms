@@ -4,11 +4,14 @@ import {
   createPreviewToken,
   registrarImagen,
   publish,
+  rellenarDesdeIdiomaPorDefecto,
   revertDraft,
   saveDraft,
 } from '@/cms/actions';
 import { definicionDeColeccion, tituloDeElemento } from '@/cms/core/collections';
 import { readEntryForEditor, schemaForType } from '@/cms/core/content';
+import { idiomaPorDefecto } from '@/cms/core/idiomas';
+import { idiomaDeLaPantalla } from '@/cms/core/idioma-del-panel';
 import { listMedia } from '@/cms/core/media';
 import { usarAlmacenLocal } from '@/cms/security/almacen-local';
 import { TAMANO_MAXIMO_BYTES, TIPOS_PERMITIDOS } from '@/cms/security/uploads';
@@ -28,7 +31,11 @@ export const dynamic = 'force-dynamic';
 export default async function EditorDeEntrada({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
 
-  const entrada = await readEntryForEditor(key);
+  // El idioma se lee **una vez** y queda cerrado en cada server action de abajo (ADR-1102): si en
+  // otra pestaña se cambia el selector, lo que se guarde desde esta sigue yendo a este idioma.
+  const idioma = await idiomaDeLaPantalla();
+
+  const entrada = await readEntryForEditor(key, idioma.codigo);
   // 404 y no un mensaje: una clave que no existe no tiene pantalla, y distinguir "no existe"
   // de "no puedes" le diría a quien pruebe qué claves hay.
   if (entrada === null) notFound();
@@ -55,7 +62,7 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
   ): Promise<ResultadoGuardado> {
     'use server';
 
-    const resultado = await saveDraft({ key, data: valores, version });
+    const resultado = await saveDraft({ key, data: valores, version, idioma: idioma.codigo });
 
     if (resultado.ok) return { ok: true, version: resultado.data.version };
 
@@ -70,7 +77,7 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
   async function publicarEntrada(version: number): Promise<ResultadoGuardado> {
     'use server';
 
-    const resultado = await publish({ key, version });
+    const resultado = await publish({ key, version, idioma: idioma.codigo });
 
     if (resultado.ok) return { ok: true };
 
@@ -85,7 +92,7 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
   async function deshacerCambios(): Promise<ResultadoGuardado> {
     'use server';
 
-    const resultado = await revertDraft({ key });
+    const resultado = await revertDraft({ key, idioma: idioma.codigo });
 
     if (resultado.ok) return { ok: true, version: resultado.data.version };
 
@@ -102,7 +109,7 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
   async function renovarTokenRemoto(): Promise<RelevoDeToken> {
     'use server';
 
-    const resultado = await crearTokenDeVistaPreviaRemota({ key });
+    const resultado = await crearTokenDeVistaPreviaRemota({ key, idioma: idioma.codigo });
     if (!resultado.ok) return { ok: false };
 
     return {
@@ -135,12 +142,32 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
     return { ok: (await registrarImagen(imagen)).ok };
   }
 
+  /**
+   * «Rellenar desde Español» (spec 17 §5.3): solo en una sección fija y en un idioma que no es
+   * el de por defecto. La action lo vuelve a comprobar; esto es para no ofrecer un botón que
+   * respondería que no.
+   */
+  async function rellenarDesdeElPorDefecto(version: number): Promise<ResultadoGuardado> {
+    'use server';
+
+    const resultado = await rellenarDesdeIdiomaPorDefecto({ key, idioma: idioma.codigo, version });
+
+    if (resultado.ok) return { ok: true, version: resultado.data.version };
+
+    return { ok: false, code: resultado.code, message: resultado.message };
+  }
+
+  const rellenar =
+    coleccion === null && !idioma.porDefecto
+      ? { desde: idiomaPorDefecto().nombre, accion: rellenarDesdeElPorDefecto }
+      : undefined;
+
   const urlRemota = urlDeVistaPreviaRemota();
 
   const enlaceDeVistaPrevia =
     urlRemota === null
-      ? await createPreviewToken({ key })
-      : await crearTokenDeVistaPreviaRemota({ key });
+      ? await createPreviewToken({ key, idioma: idioma.codigo })
+      : await crearTokenDeVistaPreviaRemota({ key, idioma: idioma.codigo });
 
   const destino = enlaceDeVistaPrevia.ok
     ? destinoDeVistaPrevia(enlaceDeVistaPrevia.data.token, urlRemota)
@@ -166,6 +193,15 @@ export default async function EditorDeEntrada({ params }: { params: Promise<{ ke
 
   return (
     <EntryEditor
+      // **El idioma como `key`**, y no es cosmético. Al cambiar de idioma en la cabecera, Next
+      // vuelve a componer esta misma ruta; sin `key`, React reutilizaría el editor montado y su
+      // estado —el texto del idioma anterior— viajaría al autoguardado del nuevo, que escribiría
+      // el español encima del inglés. Con `key`, el editor se monta de cero.
+      key={idioma.codigo}
+      {...(idioma.etiqueta === undefined
+        ? {}
+        : { idioma: { codigo: idioma.codigo, nombre: idioma.etiqueta } })}
+      {...(rellenar === undefined ? {} : { rellenar })}
       nombreSeccion={nombre}
       schema={schema}
       valoresIniciales={entrada.draft}

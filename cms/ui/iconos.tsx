@@ -10,6 +10,7 @@ import {
   Eye,
   History,
   Images,
+  Languages,
   LayoutGrid,
   LoaderCircle,
   LogOut,
@@ -88,6 +89,8 @@ const DIBUJOS = {
   salir: LogOut,
   modoClaro: Sun,
   modoOscuro: Moon,
+  // El idioma del contenido: en el selector de la cabecera y en la etiqueta de cada pantalla.
+  idioma: Languages,
 
   // Avisos y espera.
   alerta: TriangleAlert,

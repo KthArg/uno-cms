@@ -2,6 +2,7 @@ import 'server-only';
 import appConfig from '@/cms.config';
 import { contentEntries, getDb } from '@/cms/db';
 import type { ObjectSchema } from './config';
+import { columnaDeIdiomaDeclarado } from './idiomas';
 import { draftSchema } from './schema-gen';
 import type { SingletonKey } from './types';
 
@@ -12,7 +13,7 @@ import type { SingletonKey } from './types';
  * **Idempotente y no destructivo.** Es el requisito central, no un detalle: esta función se
  * ejecutará en cada arranque, y un seed que sobreescribiera un borrador existente
  * destruiría trabajo del editor sin dejar rastro. Por eso la inserción usa
- * `on conflict do nothing` sobre el índice único de `key` en vez de leer y luego decidir:
+ * `on conflict do nothing` sobre el índice único de `(key, locale)` en vez de leer y decidir:
  * la comprobación y la escritura ocurren en la misma sentencia, así que dos arranques
  * simultáneos —dos instancias serverless, por ejemplo— no pueden pisarse.
  *
@@ -72,7 +73,7 @@ export async function seedSingletons(): Promise<SeedResult> {
         version: 0,
       }))
     )
-    .onConflictDoNothing({ target: contentEntries.key })
+    .onConflictDoNothing({ target: [contentEntries.key, contentEntries.locale] })
     .returning({ key: contentEntries.key });
 
   const created = inserted.map((row) => row.key);
@@ -111,20 +112,25 @@ export async function seedSingletons(): Promise<SeedResult> {
  * en el panel y no en la landing, y la alternativa es un CMS que se instala y no se puede
  * usar.
  */
-export async function ensureSingletonRow(key: string): Promise<boolean> {
+export async function ensureSingletonRow(key: string, idioma?: string): Promise<boolean> {
   if (!Object.hasOwn(appConfig.singletons, key)) return false;
+
+  // Un idioma sin declarar lanza en vez de crear la fila: una fila en un idioma que no existe no
+  // la vería nadie, y se quedaría ahí para siempre.
+  const locale = columnaDeIdiomaDeclarado(idioma);
 
   const creadas = await getDb()
     .insert(contentEntries)
     .values({
       key,
+      locale,
       type: key,
       draft: initialDraft(key as SingletonKey),
       published: null,
       status: 'draft' as const,
       version: 0,
     })
-    .onConflictDoNothing({ target: contentEntries.key })
+    .onConflictDoNothing({ target: [contentEntries.key, contentEntries.locale] })
     .returning({ key: contentEntries.key });
 
   return creadas.length > 0;

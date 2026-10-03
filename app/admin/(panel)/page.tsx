@@ -2,6 +2,7 @@ import { auth } from '@/cms/auth';
 import { publishAll } from '@/cms/actions';
 import { ultimoAviso } from '@/cms/core/aviso';
 import { listSections } from '@/cms/core/content';
+import { idiomaDeLaPantalla } from '@/cms/core/idioma-del-panel';
 import { listMedia } from '@/cms/core/media';
 import { leerPortadaDelPanel } from '@/cms/core/portada';
 import { publicacionesPorDia, totalDeLaVentana } from '@/cms/core/publicaciones';
@@ -29,8 +30,11 @@ export default async function PanelContenido() {
    * En serie serían cinco viajes encadenados para pintar una pantalla que se abre entera; el
    * dato que más tarda marca el ritmo igual, así que encadenarlos solo suma esperas.
    */
+  // El inicio es del idioma que se está mirando: secciones, cifras y «Publicar todo» (ADR-1102).
+  const idioma = await idiomaDeLaPantalla();
+
   const [secciones, imagenes, serie, personas, aviso] = await Promise.all([
-    listSections(),
+    listSections(idioma.codigo),
     listMedia(),
     publicacionesPorDia(),
     // **La cuenta de personas solo para administración.** Un editor no entra en esa pantalla
@@ -46,7 +50,7 @@ export default async function PanelContenido() {
   // **No se lee `hero` a pelo**: esa clave es de este `cms.config.ts`, no del producto, y un
   // panel de inicio que la dé por hecha se rompe en la primera landing que no la tenga — en la
   // pantalla que se abre primero. Está contado en `cms/core/portada.ts`.
-  const portada = await leerPortadaDelPanel(secciones);
+  const portada = await leerPortadaDelPanel(secciones, idioma.codigo);
 
   const nombrePorClave = new Map(secciones.map((seccion) => [seccion.key, seccion.nombre]));
   const pendientes = secciones.filter((seccion) => seccion.estado !== 'publicado').length;
@@ -65,7 +69,7 @@ export default async function PanelContenido() {
   async function publicarTodo(): Promise<PublishAllResult> {
     'use server';
 
-    const resultado = await publishAll({});
+    const resultado = await publishAll({ idioma: idioma.codigo });
 
     if (!resultado.ok) {
       return { publicadas: [], fallidas: [], restantes: 0, error: resultado.message };
@@ -125,7 +129,10 @@ export default async function PanelContenido() {
             }
       }
       ahora={Date.now()}
-      publicarTodo={pendientes > 0 ? <PublishAllButton action={publicarTodo} /> : null}
+      {...(idioma.etiqueta === undefined ? {} : { idioma: idioma.etiqueta })}
+      publicarTodo={
+        pendientes > 0 ? <PublishAllButton key={idioma.codigo} action={publicarTodo} /> : null
+      }
     />
   );
 }

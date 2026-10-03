@@ -4,6 +4,7 @@ import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import appConfig from '@/cms.config';
 import { avisar } from '@/cms/core/aviso';
+import { COLUMNA_DEL_IDIOMA_POR_DEFECTO, columnaDeIdioma } from '@/cms/core/idiomas';
 import { SETTINGS_SCHEMAS, SETTINGS_TAG } from '@/cms/core/settings';
 import { getDb, settings } from '@/cms/db';
 import { TOKEN_TTL, signToken } from '@/cms/security/tokens';
@@ -77,20 +78,44 @@ function claveConocida(key: string): boolean {
   );
 }
 
+/** El idioma de la vista previa: el código de `cms.config.ts`, opcional (spec 17 §5.7). */
+const idiomaDelToken = z.string().min(1).max(20).optional();
+
+/** Sin idioma es el de por defecto, que siempre existe; con él, tiene que estar declarado. */
+function idiomaConocido(idioma: string | undefined): boolean {
+  return idioma === undefined || columnaDeIdioma(idioma) !== null;
+}
+
+/**
+ * Lo que va firmado dentro del token.
+ *
+ * Sin idioma, o con el de por defecto, el token es **exactamente** el de antes de esta fase: un
+ * token emitido ayer y uno emitido hoy para la misma entrada en español se leen igual, y quien
+ * lee no tiene que distinguir dos formatos.
+ */
+function datosDelToken(key: string, idioma: string | undefined): Record<string, string> {
+  return idioma === undefined || columnaDeIdioma(idioma) === COLUMNA_DEL_IDIOMA_POR_DEFECTO
+    ? { key }
+    : { key, idioma };
+}
+
 export const createPreviewToken = defineAction({
   name: 'content.createPreviewToken',
   role: 'editor',
   bucket: 'preview',
-  input: z.object({ key: z.string().min(1).max(200) }),
+  input: z.object({ key: z.string().min(1).max(200), idioma: idiomaDelToken }),
   targetType: 'content',
   targetId: (input) => input.key,
   handler: async (input) => {
     if (!claveConocida(input.key)) return fail('NOT_FOUND');
+    if (!idiomaConocido(input.idioma)) return fail('NOT_FOUND');
 
     // La clave va **dentro** del token firmado, no como parámetro aparte de la URL. Un token
     // sin clave dentro serviría para cualquier entrada, y el enlace compartible de §6.1 se
-    // convertiría en una llave maestra de la vista previa.
-    const token = signToken('preview', { key: input.key });
+    // convertiría en una llave maestra de la vista previa. El idioma, por lo mismo (spec 17
+    // §5.7): fuera de la firma, el enlace de la portada inglesa abriría la española cambiando
+    // un parámetro.
+    const token = signToken('preview', datosDelToken(input.key, input.idioma));
 
     return ok({ token, expiresInSeconds: 2 * 60 * 60 });
   },
@@ -121,14 +146,15 @@ export const crearTokenDeVistaPreviaRemota = defineAction({
   name: 'content.crearTokenDeVistaPreviaRemota',
   role: 'editor',
   bucket: 'preview',
-  input: z.object({ key: z.string().min(1).max(200) }),
+  input: z.object({ key: z.string().min(1).max(200), idioma: idiomaDelToken }),
   targetType: 'content',
   targetId: (input) => input.key,
   handler: async (input) => {
     if (urlDeVistaPreviaRemota() === null) return fail('NOT_FOUND');
     if (!claveConocida(input.key)) return fail('NOT_FOUND');
+    if (!idiomaConocido(input.idioma)) return fail('NOT_FOUND');
 
-    const token = signToken('preview-remoto', { key: input.key });
+    const token = signToken('preview-remoto', datosDelToken(input.key, input.idioma));
 
     // La vida se manda con el token porque quien renueva la necesita, y la necesita **medida
     // desde ahora**: el panel cuenta lo transcurrido, no compara contra una hora absoluta

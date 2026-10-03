@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { createItem, deleteItem, reorderItems } from '@/cms/actions';
 import { auth } from '@/cms/auth';
 import { definicionDeColeccion, listCollectionItems } from '@/cms/core/collections';
+import { idiomaDeLaPantalla } from '@/cms/core/idioma-del-panel';
 import { CollectionScreen } from '@/cms/ui/CollectionScreen';
 
 /**
@@ -27,12 +28,14 @@ export default async function PantallaDeColeccion({
   if (definicion === null) notFound();
 
   const session = await auth();
-  const elementos = await listCollectionItems(key);
+  // Una vez y cerrado en las actions, como en el editor (ADR-1102).
+  const idioma = await idiomaDeLaPantalla();
+  const elementos = await listCollectionItems(key, idioma.codigo);
 
   async function crear(): Promise<{ ok: boolean; key?: string; message?: string }> {
     'use server';
 
-    const resultado = await createItem({ collection: key });
+    const resultado = await createItem({ collection: key, idioma: idioma.codigo });
 
     return resultado.ok
       ? { ok: true, key: resultado.data.key }
@@ -42,7 +45,7 @@ export default async function PantallaDeColeccion({
   async function reordenar(orderedKeys: string[]): Promise<{ ok: boolean; message?: string }> {
     'use server';
 
-    const resultado = await reorderItems({ collection: key, orderedKeys });
+    const resultado = await reorderItems({ collection: key, orderedKeys, idioma: idioma.codigo });
 
     return resultado.ok ? { ok: true } : { ok: false, message: resultado.message };
   }
@@ -50,13 +53,17 @@ export default async function PantallaDeColeccion({
   async function eliminar(elementKey: string): Promise<{ ok: boolean; message?: string }> {
     'use server';
 
-    const resultado = await deleteItem({ key: elementKey });
+    const resultado = await deleteItem({ key: elementKey, idioma: idioma.codigo });
 
     return resultado.ok ? { ok: true } : { ok: false, message: resultado.message };
   }
 
   return (
     <CollectionScreen
+      // Mismo motivo que en el editor: la lista de otro idioma es otra lista, y el orden que
+      // guarda esta pantalla en su estado no puede sobrevivir al cambio.
+      key={idioma.codigo}
+      {...(idioma.etiqueta === undefined ? {} : { idioma: idioma.etiqueta })}
       nombreColeccion={definicion.label}
       elementos={elementos}
       onCrear={crear}

@@ -1,3 +1,4 @@
+import { idiomaDeCodigo } from '@/cms/core/idiomas';
 import { previewContentConObjetivo } from '@/cms/core/preview-content';
 import { verifyToken } from '@/cms/security/tokens';
 import { origenPermitido, origenesDeVistaPreviaRemota } from '@/cms/vista-previa-remota';
@@ -106,9 +107,11 @@ export async function GET(request: Request): Promise<Response> {
   const token = new URL(request.url).searchParams.get('token');
 
   let key: string | undefined;
+  let idioma: string | undefined;
   try {
     const verificado = verifyToken('preview-remoto', token);
     key = verificado.ok ? verificado.data['key'] : undefined;
+    idioma = verificado.ok ? verificado.data['idioma'] : undefined;
   } catch {
     // `verifyToken` **lanza** si `APP_SECRET` falta o es corto: eso es un despliegue roto, no un
     // token inválido. Desde aquí se responde 404 igualmente, por lo mismo que en `/preview`: un
@@ -119,10 +122,13 @@ export async function GET(request: Request): Promise<Response> {
 
   if (key === undefined) return noExiste();
 
+  // El mismo criterio que `/preview`: un idioma que ya no se declara es un enlace a nada.
+  if (idioma !== undefined && idiomaDeCodigo(idioma) === null) return noExiste();
+
   // Exactamente lo que ve `/preview`: el borrador de la clave que autoriza el token y lo
   // publicado de todo lo demás (ADR-501). Ni una clave más, y no es una promesa de esta ruta
   // sino una propiedad de la función — que es donde está probada.
-  const { contenido, objetivo } = await previewContentConObjetivo(key);
+  const { contenido, objetivo } = await previewContentConObjetivo(key, idioma);
 
   return Response.json(
     { contenido, objetivo },

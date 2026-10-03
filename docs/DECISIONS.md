@@ -1649,3 +1649,73 @@ Un aviso de algo que quien lo recibe no puede consultar es un aviso vacío: le d
 - Escribir ajustes por HTTP **sigue sin existir**: `updateSettings` es una server action con su rol y su rate limit, y esto no la toca.
 
 **Qué lo revertiría.** Que se retirara el evento `settings.updated`. Sin él, esta ruta no tiene quien la pida y sobra.
+
+---
+
+## ADR-1100 — El idioma por defecto se guarda como `''`, no con su código (resuelve #14)
+
+**Contexto.** Para que `hero` exista una vez por idioma, `content_entries` y `revisions` ganan la columna `locale`, y el índice único pasa de `(key)` a `(key, locale)` (spec 17 §5.2). Queda decidir qué se guarda en ella para el idioma por defecto.
+
+Lo natural es su código: `'es'`. Y tiene dos problemas que salen en cuanto se mira la migración.
+
+**El primero: la migración tendría que adivinar.** Las filas que ya existen son del idioma por defecto, y una migración es SQL: no lee `cms.config.ts`. Para rellenar `locale = 'es'` tendría que suponer que el sitio está en español, o dejar las filas sin idioma hasta que un paso a mano las arreglara después de desplegar. Este producto se despliega con un botón (SPEC §11.1), y una migración que adivina es una migración que en algún despliegue se equivoca.
+
+**El segundo: cambiar el idioma principal dejaría el contenido apuntando al de antes.** Quien pasa de `es` a `pt` —porque se equivocó, o porque el sitio cambia de mercado— tendría todo su contenido en una columna que dice `'es'`, que ya no es el idioma de `/`.
+
+**Las salidas evaluadas.**
+
+| Salida                                               | Por qué no                                                                                                            |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **El código, con la migración rellenando `'es'`**    | Acierta en este repositorio y se equivoca en cualquier despliegue que no sea en español                               |
+| **El código, rellenado al arrancar desde la config** | Una escritura masiva en el arranque, en cada instancia serverless a la vez. Y el segundo problema sigue ahí           |
+| **`NULL` para el de por defecto**                    | Un índice único de Postgres no considera iguales dos `NULL`: `hero` podría existir dos veces en el idioma por defecto |
+| **`''` para el de por defecto**                      | Lo elegido                                                                                                            |
+
+**Decisión.** `locale text not null default ''`. La cadena vacía es el idioma por defecto; cualquier otro valor es un código de `cms.config.ts`.
+
+- Las filas de antes **ya son** del idioma por defecto: la migración es `ADD COLUMN ... DEFAULT ''` y no toca datos.
+- Cambiar el código del idioma principal es cambiar una etiqueta: el contenido sigue siendo el de `/`.
+
+**A cambio de qué.** De un valor especial, y los valores especiales se escriben a mano en una consulta y se olvidan en la siguiente. Por eso la traducción vive en **un solo sitio**, `cms/core/idiomas.ts`, con la constante `COLUMNA_DEL_IDIOMA_POR_DEFECTO`, y ninguna consulta escribe `''`.
+
+Y de un caso raro que se acepta sabiendo que existe: si alguien declara `en` como segundo idioma, publica en él, y después lo convierte en el de por defecto, esas filas en `'en'` dejan de verse, porque el de por defecto se lee de `''`. Se arregla moviéndolas con una sentencia; lo que no se hace es intentar adivinarlo.
+
+**Qué lo revertiría.** Que hiciera falta conocer el idioma de una fila sin `cms.config.ts` delante —un volcado leído por otra herramienta, por ejemplo—. Entonces habría que guardar el código y pagar la migración que adivina, con un paso explícito para el sitio que no esté en español.
+
+---
+
+## ADR-1101 — Cada idioma va por su lado: sin fallback y sin elementos compartidos (resuelve #14)
+
+**Contexto.** Strapi, que es la referencia de lo que se pidió, ofrece dos cosas además de separar los idiomas: campos que no se traducen («este campo es igual en todos») y, en la lectura, caer al idioma por defecto cuando falta una traducción. Las dos son cómodas y las dos complican el modelo.
+
+**Decisión.** En esta fase, ninguna de las dos.
+
+- **Sin fallback en la lectura.** `getContent('hero', 'en')` devuelve lo publicado en inglés y, si no hay nada, los valores vacíos de ADR-404. Nunca el español. Un idioma a medio traducir se ve a medio traducir, en vez de mezclar dos idiomas en la misma página sin que nadie lo haya decidido; y en el panel las secciones que faltan salen como «Sin publicar todavía», que es la pista que hace falta.
+- **Sin elementos compartidos en las listas.** Cada idioma tiene su lista, con sus elementos y su orden. Un testimonio en inglés no «es» ninguno de los españoles. Es lo que permite que la web en inglés tenga tres preguntas frecuentes y la española siete, que es lo normal cuando un mercado es más pequeño.
+- **Sin campos compartidos.** Para no rehacer imágenes y enlaces al traducir está «Rellenar desde Español» en las secciones fijas: copia el borrador del idioma por defecto como un guardado, sin publicar.
+
+**A cambio de qué.** De que cambiar la foto de la portada en los dos idiomas sean dos cambios, y de que una lista no se pueda copiar de un idioma a otro. Los dos están en `docs/PENDIENTES.md`, con su motivo.
+
+**Por qué no hacerlo ya.** Un campo compartido significa que guardar en un idioma escribe en las filas de todos, y eso abre preguntas sin respuesta obvia: ¿qué pasa con el bloqueo optimista de la fila inglesa cuando se guarda la española? ¿Se marca `changed` un idioma que nadie ha tocado? ¿Se publica la foto en inglés cuando se publica en español? Cada una es una decisión de producto, y meterlas en la misma fase que la separación las habría escondido dentro de un PR enorme.
+
+**Qué lo revertiría.** Que el uso real enseñe que la mayor parte de los cambios son de campos que no se traducen. Entonces los campos compartidos pasan a ser la fase siguiente, con su spec.
+
+---
+
+## ADR-1102 — El panel elige idioma por cookie, cada página fija el suyo, y «Publicar todo» no cruza idiomas (resuelve #14)
+
+**Contexto.** Quien edita tiene que poder elegir en qué idioma trabaja, y lo que guarde tiene que ir **a ese** idioma. Hay dos sitios donde guardar la elección: la URL (`/admin/content/hero?idioma=en`) o una cookie.
+
+**Decisión.** Una cookie, `unocms_idioma`, como la del tema (`cms/tema.ts`), con un selector en la cabecera que solo aparece si hay más de un idioma.
+
+- **La URL obligaba a llevar el parámetro en cada enlace** del panel: las tarjetas del inicio, la lista, el historial, los «volver». El primero que se olvidara devolvería al editor al español sin avisar, y sería un fallo que solo se ve navegando.
+- **Pero la cookie sola sería peligrosa**, y por eso van con ella dos reglas:
+  1. **Cada página lee el idioma una vez, al componerse, y lo deja cerrado en sus server actions.** Si en otra pestaña se cambia el selector, lo que se guarda desde esta sigue yendo al idioma con el que se compuso. Leer la cookie dentro de la action desviaría la escritura de una pestaña con lo que se hizo en otra.
+  2. **Cada pantalla de edición lleva una etiqueta con su idioma** («En English»), y el editor se monta con el idioma como `key` de React. Sin la `key`, al cambiar de idioma React reutilizaría el editor montado, y su estado —el texto del idioma anterior— acabaría en el autoguardado del nuevo.
+- **Al cambiar de idioma desde un elemento de lista se vuelve a la lista**, porque ese elemento no existe en el otro idioma (ADR-1101). El destino se construye con el nombre de una colección declarada, nunca copiando la ruta que manda el navegador.
+
+**«Publicar todo» publica solo el idioma que se está mirando.** El botón está en el inicio, que enseña las secciones de un idioma; publicar también lo pendiente en los demás sería publicar cosas que quien pulsa no tiene delante.
+
+**A cambio de qué.** De que no se pueda mandar a alguien un enlace a «la portada en inglés»: se manda el enlace y se le dice que elija English. Y de que dos pestañas puedan enseñar idiomas distintos en el selector: lo que manda en cada una es su etiqueta.
+
+**Qué lo revertiría.** Que hiciera falta enlazar a un idioma concreto (desde un correo, por ejemplo). Entonces se añade el parámetro como **entrada** que fija la cookie al llegar, no como estado que haya que arrastrar por todo el panel.

@@ -8,6 +8,12 @@ import type { AnyField, ObjectSchema } from '@/cms/core/config';
 import { sanitizeRichText } from '@/cms/core/richtext';
 import { buildObjectSchema } from '@/cms/core/schema-gen';
 import { contentTag } from '@/cms/core/content';
+import {
+  COLUMNA_DEL_IDIOMA_POR_DEFECTO,
+  codigoDeColumna,
+  columnaDeIdiomaOpcional,
+  idiomaPorDefecto,
+} from '@/cms/core/idiomas';
 import { avisar, type ClaveAvisada } from '@/cms/core/aviso';
 import { contentEntries, getDb, revisions } from '@/cms/db';
 import type { ActionFieldError } from './pipeline';
@@ -70,8 +76,44 @@ function sanitizeRichTextFields(
   return salida;
 }
 
+// ── Idiomas ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * El campo `idioma` de todas las actions de contenido (spec 17 §5.3): el **código** de
+ * `cms.config.ts`, nunca el valor de la columna. Opcional para que las llamadas de antes de que
+ * hubiera idiomas sigan escribiendo donde escribían, en el de por defecto.
+ */
+const idiomaInput = z.string().min(1).max(20).optional();
+
+/**
+ * Lo que responde una action a la que le llega un idioma que el sitio no declara.
+ *
+ * Antes de tocar la base de datos, y no como un filtro que simplemente no encuentra nada: en
+ * `createItem`, un idioma inventado **crearía** una fila que no se ve desde ningún sitio.
+ */
+function idiomaDesconocido() {
+  return fail('NOT_FOUND', 'Ese idioma no está declarado en este sitio.');
+}
+
+/** La fila de una clave en un idioma. `hero` existe una vez por idioma (spec 17 §5.2). */
+function deLaEntrada(key: string, locale: string) {
+  return and(eq(contentEntries.key, key), eq(contentEntries.locale, locale));
+}
+
+/**
+ * Cómo aparece una entrada en la auditoría: con su idioma, salvo el de por defecto.
+ *
+ * Sin el idioma, el rastro de «se publicó `hero`» no diría cuál de los dos `hero` cambió, que es
+ * justo lo que se mira cuando alguien pregunta por qué la web en inglés enseña otra cosa. El de
+ * por defecto va sin sufijo para que el rastro de un sitio con un solo idioma sea el de siempre.
+ */
+function enLaAuditoria(key: string, idioma: string | undefined): string {
+  return idioma === undefined || idioma === idiomaPorDefecto().codigo ? key : `${key}@${idioma}`;
+}
+
 const saveDraftInput = z.object({
   key: z.string().min(1).max(200),
+  idioma: idiomaInput,
   data: z.record(z.unknown()),
   // El `version` que el panel tiene en la mano. Entero y no negativo: cualquier otra cosa es
   // un cliente roto, y aceptarla haría que el bloqueo optimista comparase contra basura.
@@ -84,14 +126,17 @@ export const saveDraft = defineAction({
   bucket: 'saveDraft',
   input: saveDraftInput,
   targetType: 'content',
-  targetId: (input) => input.key,
+  targetId: (input) => enLaAuditoria(input.key, input.idioma),
   handler: async (input, session) => {
+    const locale = columnaDeIdiomaOpcional(input.idioma);
+    if (locale === null) return idiomaDesconocido();
+
     const db = getDb();
 
     const [row] = await db
       .select({ type: contentEntries.type })
       .from(contentEntries)
-      .where(eq(contentEntries.key, input.key))
+      .where(deLaEntrada(input.key, locale))
       .limit(1);
 
     if (row === undefined) return fail('NOT_FOUND');
@@ -130,7 +175,7 @@ export const saveDraft = defineAction({
         // se sabe por `published IS NULL`, que ya está en la fila.
         status: 'changed',
       })
-      .where(and(eq(contentEntries.key, input.key), eq(contentEntries.version, input.version)))
+      .where(and(deLaEntrada(input.key, locale), eq(contentEntries.version, input.version)))
       .returning({ version: contentEntries.version });
 
     const fila = updated[0];
@@ -256,6 +301,7 @@ type PublishOutcome =
 async function publishEntry(
   db: ReturnType<typeof getDb>,
   key: string,
+  locale: string,
   expectedVersion: number | null,
   actorId: string
 ): Promise<PublishOutcome> {
@@ -266,7 +312,7 @@ async function publishEntry(
     const [row] = await tx
       .select()
       .from(contentEntries)
-      .where(eq(contentEntries.key, key))
+      .where(deLaEntrada(key, locale))
       .limit(1)
       .for('update');
 
@@ -302,7 +348,7 @@ async function publishEntry(
         await tx
           .update(contentEntries)
           .set({ status: 'published' })
-          .where(eq(contentEntries.key, key));
+          .where(deLaEntrada(key, locale));
       }
       return { ok: true, cambio: false, type: row.type };
     }
@@ -313,6 +359,7 @@ async function publishEntry(
       // sería idéntica a lo publicado actual y no serviría para nada.
       await tx.insert(revisions).values({
         entryKey: key,
+        locale,
         data: row.published,
         publishedBy: actorId,
       });
@@ -323,7 +370,9 @@ async function publishEntry(
       const sobrantes = await tx
         .select({ id: revisions.id })
         .from(revisions)
-        .where(eq(revisions.entryKey, key))
+        // Veinte **por idioma**: si se contaran juntas, publicar mucho en inglés se comería el
+        // historial del español.
+        .where(and(eq(revisions.entryKey, key), eq(revisions.locale, locale)))
         .orderBy(desc(revisions.publishedAt), desc(revisions.id))
         .offset(MAX_REVISIONS);
 
@@ -345,7 +394,7 @@ async function publishEntry(
         publishedAt: new Date(),
         updatedBy: actorId,
       })
-      .where(eq(contentEntries.key, key));
+      .where(deLaEntrada(key, locale));
 
     return { ok: true, cambio: true, type: row.type };
   });
@@ -383,19 +432,31 @@ function invalidarEntrada(key: string, type: string): void {
  * viaja hacia fuera**: el del elemento no le sirve a nadie, porque `/api/content/:key` responde
  * 404 a una clave que no está declarada en `cms.config.ts`. Ver `tagsDe`.
  */
-function claveAvisada(key: string, type: string): ClaveAvisada {
-  return type === key ? { key, tipo: 'singleton' } : { key, tipo: 'item', coleccion: type };
+function claveAvisada(key: string, type: string, locale: string): ClaveAvisada {
+  // El código, no la columna: la web de destino no tiene por qué saber cómo se guarda el idioma
+  // por defecto (spec 17 §5.8).
+  const idioma = codigoDeColumna(locale);
+  return type === key
+    ? { key, tipo: 'singleton', idioma }
+    : { key, tipo: 'item', coleccion: type, idioma };
 }
 
 export const publish = defineAction({
   name: 'content.publish',
   role: 'editor',
   bucket: 'publish',
-  input: z.object({ key: z.string().min(1).max(200), version: z.number().int().min(0) }),
+  input: z.object({
+    key: z.string().min(1).max(200),
+    version: z.number().int().min(0),
+    idioma: idiomaInput,
+  }),
   targetType: 'content',
-  targetId: (input) => input.key,
+  targetId: (input) => enLaAuditoria(input.key, input.idioma),
   handler: async (input, session) => {
-    const result = await publishEntry(getDb(), input.key, input.version, session.userId);
+    const locale = columnaDeIdiomaOpcional(input.idioma);
+    if (locale === null) return idiomaDesconocido();
+
+    const result = await publishEntry(getDb(), input.key, locale, input.version, session.userId);
 
     if (!result.ok) {
       if (result.code === 'VALIDATION_FAILED') return failFields(result.fields ?? []);
@@ -412,7 +473,7 @@ export const publish = defineAction({
     // pulsar "Publicar" dos veces seguidas: avisar ahí despertaría a la web de destino para que
     // volviera a pedir exactamente lo que ya tiene.
     if (result.cambio) {
-      avisar('content.published', [claveAvisada(input.key, result.type)], session);
+      avisar('content.published', [claveAvisada(input.key, result.type, locale)], session);
     }
 
     return ok({ key: input.key, changed: result.cambio });
@@ -426,23 +487,37 @@ export const publishAll = defineAction({
   name: 'content.publishAll',
   role: 'editor',
   bucket: 'publish',
-  input: z.object({}),
+  input: z.object({ idioma: idiomaInput }),
   targetType: 'content',
-  handler: async (_input, session) => {
+  // Sin clave, pero con idioma: es lo único que distingue en el rastro un «Publicar todo» de
+  // otro. Con el de por defecto no se pone nada, como en el resto.
+  targetId: (input) =>
+    input.idioma === undefined || input.idioma === idiomaPorDefecto().codigo
+      ? undefined
+      : input.idioma,
+  handler: async (input, session) => {
+    const locale = columnaDeIdiomaOpcional(input.idioma);
+    if (locale === null) return idiomaDesconocido();
+
     const db = getDb();
+
+    // **Solo el idioma que se está mirando** (ADR-1102). El botón está en el inicio del panel,
+    // que enseña las secciones de un idioma; publicar también lo pendiente en los demás sería
+    // publicar cosas que quien pulsa no tiene delante.
+    const pendientesDelIdioma = and(
+      eq(contentEntries.status, 'changed'),
+      eq(contentEntries.locale, locale)
+    );
 
     // Una cuenta aparte, y no `limit(tope + 1)` mirando cuántas volvieron. Esa versión decía
     // "queda 1" hubiera 1 o hubiera mil, porque nunca traía más de una de sobra — un número
     // que parece exacto y no lo es, que es peor que no darlo.
-    const [total] = await db
-      .select({ n: count() })
-      .from(contentEntries)
-      .where(eq(contentEntries.status, 'changed'));
+    const [total] = await db.select({ n: count() }).from(contentEntries).where(pendientesDelIdioma);
 
     const tanda = await db
       .select({ key: contentEntries.key })
       .from(contentEntries)
-      .where(eq(contentEntries.status, 'changed'))
+      .where(pendientesDelIdioma)
       .orderBy(asc(contentEntries.key))
       .limit(MAX_PUBLISH_ALL);
 
@@ -476,7 +551,7 @@ export const publishAll = defineAction({
       // la de la validación.
       let result: PublishOutcome;
       try {
-        result = await publishEntry(db, key, null, session.userId);
+        result = await publishEntry(db, key, locale, null, session.userId);
       } catch (error) {
         console.error(`[content.publishAll] '${key}' lanzó`, error);
         result = { ok: false, code: 'INTERNAL' };
@@ -489,7 +564,7 @@ export const publishAll = defineAction({
         // El mismo criterio que en `publish`: solo lo que cambió de verdad. Aquí la tanda sale
         // de un `status = 'changed'`, así que en principio todas cambian — pero "en principio"
         // no es una garantía, y el filtro cuesta una línea.
-        if (result.cambio) avisadas.push(claveAvisada(key, result.type));
+        if (result.cambio) avisadas.push(claveAvisada(key, result.type, locale));
       } else {
         fallidas.push({
           key,
@@ -581,10 +656,13 @@ export const revertDraft = defineAction({
   name: 'content.revertDraft',
   role: 'editor',
   bucket: 'saveDraft',
-  input: z.object({ key: z.string().min(1).max(200) }),
+  input: z.object({ key: z.string().min(1).max(200), idioma: idiomaInput }),
   targetType: 'content',
-  targetId: (input) => input.key,
+  targetId: (input) => enLaAuditoria(input.key, input.idioma),
   handler: async (input, session) => {
+    const locale = columnaDeIdiomaOpcional(input.idioma);
+    if (locale === null) return idiomaDesconocido();
+
     const db = getDb();
 
     return db.transaction(async (tx) => {
@@ -594,7 +672,7 @@ export const revertDraft = defineAction({
       const [row] = await tx
         .select()
         .from(contentEntries)
-        .where(eq(contentEntries.key, input.key))
+        .where(deLaEntrada(input.key, locale))
         .limit(1)
         .for('update');
 
@@ -625,7 +703,7 @@ export const revertDraft = defineAction({
           draftUpdatedAt: new Date(),
           updatedBy: session.userId,
         })
-        .where(eq(contentEntries.key, input.key))
+        .where(deLaEntrada(input.key, locale))
         .returning({ version: contentEntries.version });
 
       return ok({ version: actualizada!.version });
@@ -640,17 +718,21 @@ export const restoreRevision = defineAction({
   input: z.object({
     key: z.string().min(1).max(200),
     revisionId: z.string().uuid(),
+    idioma: idiomaInput,
   }),
   targetType: 'content',
-  targetId: (input) => input.key,
+  targetId: (input) => enLaAuditoria(input.key, input.idioma),
   handler: async (input, session) => {
+    const locale = columnaDeIdiomaOpcional(input.idioma);
+    if (locale === null) return idiomaDesconocido();
+
     const db = getDb();
 
     return db.transaction(async (tx) => {
       const [row] = await tx
         .select()
         .from(contentEntries)
-        .where(eq(contentEntries.key, input.key))
+        .where(deLaEntrada(input.key, locale))
         .limit(1)
         .for('update');
 
@@ -661,10 +743,19 @@ export const restoreRevision = defineAction({
       // fuerza bruta y el editor tiene permiso para tocar todo el contenido, así que el
       // resultado no sería un escalado de privilegios, pero sí un destrozo silencioso —el
       // texto del hero apareciendo dentro de un testimonio— que nadie sabría explicar.
+      //
+      // Y **por idioma**, por lo mismo (spec 17 §5.2): `hero` tiene la misma clave en los dos
+      // idiomas, así que sin este filtro una revisión del español se restauraría en el inglés.
       const [revision] = await tx
         .select({ data: revisions.data })
         .from(revisions)
-        .where(and(eq(revisions.id, input.revisionId), eq(revisions.entryKey, input.key)))
+        .where(
+          and(
+            eq(revisions.id, input.revisionId),
+            eq(revisions.entryKey, input.key),
+            eq(revisions.locale, locale)
+          )
+        )
         .limit(1);
 
       if (revision === undefined) return fail('NOT_FOUND');
@@ -686,10 +777,106 @@ export const restoreRevision = defineAction({
           draftUpdatedAt: new Date(),
           updatedBy: session.userId,
         })
-        .where(eq(contentEntries.key, input.key))
+        .where(deLaEntrada(input.key, locale))
         .returning({ version: contentEntries.version });
 
       return ok({ version: actualizada!.version });
+    });
+  },
+});
+
+// ── Rellenar desde el idioma por defecto ─────────────────────────────────────────────────
+
+/**
+ * Copia el **borrador** del idioma por defecto sobre el de otro idioma (spec 17 §5.3).
+ *
+ * Existe porque los campos no se comparten entre idiomas (ADR-1101): sin esto, traducir la
+ * portada obliga a volver a elegir la misma imagen y escribir el mismo enlace. Es el «Fill in
+ * from another locale» de Strapi.
+ *
+ * Tres decisiones, y las tres son para que no sorprenda:
+ *
+ * - **El borrador, no lo publicado.** Quien traduce suele hacerlo mientras se escribe el
+ *   original, y lo que quiere es lo último que hay, no lo último que salió.
+ * - **Como un guardado, no como una publicación.** Sube la versión, deja `changed` y no toca
+ *   `published`: lo copiado está en español y salir así a la web en inglés sería un error que
+ *   nadie ha decidido cometer.
+ * - **Con bloqueo optimista**, como `saveDraft`. Sustituye todo lo escrito, así que si alguien ha
+ *   guardado algo desde que el panel cargó la página, se para en vez de pisarlo.
+ *
+ * Solo singletons. En una lista los elementos no están enlazados entre idiomas —el testimonio
+ * inglés no «es» ninguno de los españoles— y no hay de dónde copiar.
+ */
+export const rellenarDesdeIdiomaPorDefecto = defineAction({
+  name: 'content.rellenarDesdeIdiomaPorDefecto',
+  role: 'editor',
+  bucket: 'saveDraft',
+  input: z.object({
+    key: z.string().min(1).max(200),
+    idioma: z.string().min(1).max(20),
+    version: z.number().int().min(0),
+  }),
+  targetType: 'content',
+  targetId: (input) => enLaAuditoria(input.key, input.idioma),
+  handler: async (input, session) => {
+    const locale = columnaDeIdiomaOpcional(input.idioma);
+    if (locale === null) return idiomaDesconocido();
+
+    // Copiar el idioma por defecto sobre sí mismo no hace nada útil y sí sube la versión, lo que
+    // daría un conflicto falso al siguiente guardado del editor que lo pulsó.
+    if (locale === COLUMNA_DEL_IDIOMA_POR_DEFECTO) {
+      return fail('CONFLICT', 'Este ya es el idioma por defecto: no hay nada que copiar.');
+    }
+
+    if (!Object.hasOwn(appConfig.singletons, input.key)) {
+      return fail('CONFLICT', 'Solo se puede rellenar una sección fija, no un elemento de lista.');
+    }
+
+    const schema = schemaFor(input.key);
+    if (schema === null) return fail('NOT_FOUND');
+
+    const db = getDb();
+
+    return db.transaction(async (tx) => {
+      const [origen] = await tx
+        .select({ draft: contentEntries.draft })
+        .from(contentEntries)
+        .where(deLaEntrada(input.key, COLUMNA_DEL_IDIOMA_POR_DEFECTO))
+        .limit(1);
+
+      // Sin fila en el idioma por defecto no hay nada escrito. Copiar un vacío borraría lo que el
+      // editor tuviera en este idioma a cambio de nada.
+      if (origen === undefined) return fail('NOT_FOUND');
+
+      // El mismo filtro que restaurar una revisión: lo copiado puede no encajar ya con
+      // `cms.config.ts`, y se queda solo con lo que el formulario sabe pintar.
+      const copiado = pickValidFields(schema, origen.draft, enLaAuditoria(input.key, input.idioma));
+
+      const [actualizada] = await tx
+        .update(contentEntries)
+        .set({
+          draft: copiado,
+          status: 'changed',
+          version: sql`${contentEntries.version} + 1`,
+          draftUpdatedAt: new Date(),
+          updatedBy: session.userId,
+        })
+        .where(and(deLaEntrada(input.key, locale), eq(contentEntries.version, input.version)))
+        .returning({ version: contentEntries.version });
+
+      if (actualizada !== undefined) return ok({ version: actualizada.version });
+
+      // El `UPDATE` no tocó nada, y eso tiene dos causas que no se pueden confundir: que la
+      // versión haya cambiado, o que el idioma destino no tenga fila —nadie ha abierto todavía
+      // su editor, que es quien la crea—. Responder `VERSION_CONFLICT` a lo segundo haría decir
+      // al panel «otra persona guardó cambios mientras editabas» cuando no hay nadie más.
+      const [destino] = await tx
+        .select({ version: contentEntries.version })
+        .from(contentEntries)
+        .where(deLaEntrada(input.key, locale))
+        .limit(1);
+
+      return fail(destino === undefined ? 'NOT_FOUND' : 'VERSION_CONFLICT');
     });
   },
 });
@@ -716,7 +903,7 @@ function collectionDefinition(name: string): { schema: ObjectSchema } | null {
   return declared ?? null;
 }
 
-const collectionInput = z.object({ collection: z.string().min(1).max(100) });
+const collectionInput = z.object({ collection: z.string().min(1).max(100), idioma: idiomaInput });
 
 export const createItem = defineAction({
   name: 'content.createItem',
@@ -724,12 +911,16 @@ export const createItem = defineAction({
   bucket: 'saveDraft',
   input: collectionInput,
   targetType: 'content',
+  targetId: (input) => enLaAuditoria(input.collection, input.idioma),
   handler: async (input, session) => {
     const definition = collectionDefinition(input.collection);
     // La colección tiene que estar declarada en la config. Sin esta comprobación, se podrían
     // crear filas de un `type` que ningún formulario sabe editar ni ninguna vista mostrar:
-    // basura invisible que solo se ve mirando la tabla.
+    // basura invisible que solo se ve mirando la tabla. Y el idioma, por lo mismo.
     if (definition === null) return fail('NOT_FOUND');
+
+    const locale = columnaDeIdiomaOpcional(input.idioma);
+    if (locale === null) return idiomaDesconocido();
 
     const db = getDb();
 
@@ -750,10 +941,13 @@ export const createItem = defineAction({
       // de por creación. El orden sigue siendo **determinista** —hay un test que lo fija— y
       // el editor los arrastra. Poner maquinaria de concurrencia para eso sería pagar
       // complejidad permanente por un detalle cosmético.
+      //
+      // El máximo es **de la lista de este idioma** (ADR-1101): cada idioma ordena la suya, y
+      // contando las dos el primer testimonio en inglés nacería en la posición siete.
       const [ultimo] = await tx
         .select({ max: sql<number | null>`max(${contentEntries.sortOrder})` })
         .from(contentEntries)
-        .where(eq(contentEntries.type, input.collection));
+        .where(and(eq(contentEntries.type, input.collection), eq(contentEntries.locale, locale)));
 
       // El borrador inicial es el resultado de aplicar los `default` sobre un objeto vacío,
       // con el esquema laxo, que es el que admite ausencias. Mismo criterio que el seed de
@@ -774,6 +968,7 @@ export const createItem = defineAction({
         .insert(contentEntries)
         .values({
           key,
+          locale,
           type: input.collection,
           draft: inicial.data as Record<string, unknown>,
           published: null,
@@ -794,17 +989,22 @@ export const deleteItem = defineAction({
   name: 'content.deleteItem',
   role: 'editor',
   bucket: 'admin',
-  input: z.object({ key: z.string().min(1).max(200) }),
+  input: z.object({ key: z.string().min(1).max(200), idioma: idiomaInput }),
   targetType: 'content',
-  targetId: (input) => input.key,
+  targetId: (input) => enLaAuditoria(input.key, input.idioma),
   handler: async (input, session) => {
+    const locale = columnaDeIdiomaOpcional(input.idioma);
+    if (locale === null) return idiomaDesconocido();
+
     const db = getDb();
 
     const result = await db.transaction(async (tx) => {
+      // Con el idioma en la condición, un elemento de la lista española no se puede borrar
+      // desde la pantalla de la inglesa aunque alguien mande su clave a mano (T-ID-15).
       const [row] = await tx
         .select({ type: contentEntries.type })
         .from(contentEntries)
-        .where(eq(contentEntries.key, input.key))
+        .where(deLaEntrada(input.key, locale))
         .limit(1)
         .for('update');
 
@@ -825,8 +1025,10 @@ export const deleteItem = defineAction({
       // entrada que ya no existe, invisibles desde el panel —que las lista por entrada— y
       // sin forma de volver a verlas ni de borrarlas. Contenido fantasma creciendo en la
       // base de datos.
-      await tx.delete(revisions).where(eq(revisions.entryKey, input.key));
-      await tx.delete(contentEntries).where(eq(contentEntries.key, input.key));
+      await tx
+        .delete(revisions)
+        .where(and(eq(revisions.entryKey, input.key), eq(revisions.locale, locale)));
+      await tx.delete(contentEntries).where(deLaEntrada(input.key, locale));
 
       return ok({ key: input.key, collection: row.type });
     });
@@ -840,7 +1042,11 @@ export const deleteItem = defineAction({
       // Hacia fuera se avisa de **la colección**, no del elemento: lo que la web puede volver a
       // pedir es la lista, y el elemento ya no está en ella. Ese es justo el dato que el aviso
       // tiene que dar — sin él, una web que cachea seguiría enseñando lo borrado.
-      avisar('content.deleted', [{ key: result.data.collection, tipo: 'coleccion' }], session);
+      avisar(
+        'content.deleted',
+        [{ key: result.data.collection, tipo: 'coleccion', idioma: codigoDeColumna(locale) }],
+        session
+      );
     }
 
     return result;
@@ -854,11 +1060,15 @@ export const reorderItems = defineAction({
   input: z.object({
     collection: z.string().min(1).max(100),
     orderedKeys: z.array(z.string().min(1).max(200)).max(500),
+    idioma: idiomaInput,
   }),
   targetType: 'content',
-  targetId: (input) => input.collection,
+  targetId: (input) => enLaAuditoria(input.collection, input.idioma),
   handler: async (input, session) => {
     if (collectionDefinition(input.collection) === null) return fail('NOT_FOUND');
+
+    const locale = columnaDeIdiomaOpcional(input.idioma);
+    if (locale === null) return idiomaDesconocido();
 
     // Claves repetidas dejarían elementos sin posición asignada y otros con dos. Se rechaza
     // antes de tocar nada.
@@ -869,10 +1079,12 @@ export const reorderItems = defineAction({
     const db = getDb();
 
     const result = await db.transaction(async (tx) => {
+      // La lista de **este idioma**: una clave de la lista española en la inglesa es una clave
+      // que no es de esta lista, y se rechaza como tal (T-ID-14).
       const actuales = await tx
         .select({ key: contentEntries.key })
         .from(contentEntries)
-        .where(eq(contentEntries.type, input.collection))
+        .where(and(eq(contentEntries.type, input.collection), eq(contentEntries.locale, locale)))
         .for('update');
 
       const existentes = new Set(actuales.map((row) => row.key));
@@ -896,7 +1108,7 @@ export const reorderItems = defineAction({
         await tx
           .update(contentEntries)
           .set({ sortOrder: posicion })
-          .where(eq(contentEntries.key, key));
+          .where(deLaEntrada(key, locale));
       }
 
       return ok({ collection: input.collection, count: input.orderedKeys.length });
@@ -910,7 +1122,11 @@ export const reorderItems = defineAction({
       // Reordenar cambia lo que devuelve `GET /api/content/:coleccion` —el orden es parte de la
       // respuesta— aunque no cambie ni un texto. Una web que cachea la lista se quedaría con el
       // orden viejo, que es un cambio invisible para quien lo hizo: en el panel se ve movido.
-      avisar('content.reordered', [{ key: input.collection, tipo: 'coleccion' }], session);
+      avisar(
+        'content.reordered',
+        [{ key: input.collection, tipo: 'coleccion', idioma: codigoDeColumna(locale) }],
+        session
+      );
     }
 
     return result;

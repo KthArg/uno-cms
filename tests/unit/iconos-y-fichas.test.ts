@@ -154,6 +154,9 @@ describe('T-215-4 — ningún icono llega a la landing pública', () => {
     const deLaLanding = [
       'app/(site)/layout.tsx',
       'app/(site)/page.tsx',
+      // Desde la spec 17 la composición vive aquí, y `/[idioma]` la reutiliza.
+      'app/(site)/landing.tsx',
+      'app/(site)/[idioma]/page.tsx',
       'components/site/Hero.tsx',
       'components/site/About.tsx',
       'components/site/Faqs.tsx',

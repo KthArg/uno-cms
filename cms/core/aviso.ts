@@ -55,6 +55,15 @@ export interface ClaveAvisada {
   readonly tipo: 'singleton' | 'item' | 'coleccion';
   /** Solo en `item`: a qué colección pertenece. */
   readonly coleccion?: string;
+  /**
+   * El **código** del idioma en el que cambió (spec 17 §5.8), también el de por defecto.
+   *
+   * Es un campo añadido al contrato de la spec 16, y por eso no cambia `tags`: una web que no
+   * sepa de idiomas sigue volviendo a pedir `content:<clave>` y se lleva el idioma por defecto,
+   * que es lo que pedía. Va siempre, también en un sitio con un solo idioma, para que quien sí
+   * lo lea no tenga que deducir su ausencia.
+   */
+  readonly idioma: string;
 }
 
 /** Lo que se manda. Es el contrato público de esta fase: cambiarlo rompe a quien lo reciba. */

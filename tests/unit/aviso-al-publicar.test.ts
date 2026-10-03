@@ -92,7 +92,7 @@ const SOBRE_DE_PRUEBA = {
   id: 'aviso-de-prueba',
   evento: 'content.published' as const,
   ts: 1_757_404_800_123,
-  claves: [{ key: SINGLETON, tipo: 'singleton' as const }],
+  claves: [{ key: SINGLETON, tipo: 'singleton' as const, idioma: 'es' }],
   tags: [`content:${SINGLETON}`],
 };
 
@@ -236,14 +236,14 @@ describe('T-A-6 a T-A-9 — la firma', () => {
 
 describe('T-A-11, T-A-12 y T-A-18 — qué tags viajan', () => {
   it('T-A-11: un singleton manda su propio tag', () => {
-    expect(tagsDe('content.published', [{ key: SINGLETON, tipo: 'singleton' }])).toEqual([
-      `content:${SINGLETON}`,
-    ]);
+    expect(
+      tagsDe('content.published', [{ key: SINGLETON, tipo: 'singleton', idioma: 'es' }])
+    ).toEqual([`content:${SINGLETON}`]);
   });
 
   it('T-A-12: un elemento de colección manda el tag de LA COLECCIÓN, no el suyo', () => {
     const tags = tagsDe('content.published', [
-      { key: ELEMENTO, tipo: 'item', coleccion: COLECCION },
+      { key: ELEMENTO, tipo: 'item', coleccion: COLECCION, idioma: 'es' },
     ]);
 
     expect(tags).toEqual([`content:${COLECCION}`]);
@@ -255,9 +255,9 @@ describe('T-A-11, T-A-12 y T-A-18 — qué tags viajan', () => {
   it('T-A-12b: varios elementos de la misma colección son UN tag', () => {
     expect(
       tagsDe('content.published', [
-        { key: `${COLECCION}.a`, tipo: 'item', coleccion: COLECCION },
-        { key: `${COLECCION}.b`, tipo: 'item', coleccion: COLECCION },
-        { key: `${COLECCION}.c`, tipo: 'item', coleccion: COLECCION },
+        { key: `${COLECCION}.a`, tipo: 'item', coleccion: COLECCION, idioma: 'es' },
+        { key: `${COLECCION}.b`, tipo: 'item', coleccion: COLECCION, idioma: 'es' },
+        { key: `${COLECCION}.c`, tipo: 'item', coleccion: COLECCION, idioma: 'es' },
       ])
     ).toEqual([`content:${COLECCION}`]);
   });
@@ -267,15 +267,17 @@ describe('T-A-11, T-A-12 y T-A-18 — qué tags viajan', () => {
     // datos. Su tag saldría hacia fuera y la web pediría una clave que responde 404.
     expect(
       tagsDe('content.published', [
-        { key: SINGLETON, tipo: 'singleton' },
-        { key: 'seccion-fantasma', tipo: 'singleton' },
-        { key: 'x.1', tipo: 'item', coleccion: 'coleccion-fantasma' },
+        { key: SINGLETON, tipo: 'singleton', idioma: 'es' },
+        { key: 'seccion-fantasma', tipo: 'singleton', idioma: 'es' },
+        { key: 'x.1', tipo: 'item', coleccion: 'coleccion-fantasma', idioma: 'es' },
       ])
     ).toEqual([`content:${SINGLETON}`]);
   });
 
   it('un item sin colección no inventa un tag a partir de su clave', () => {
-    expect(tagsDe('content.published', [{ key: ELEMENTO, tipo: 'item' }])).toEqual([]);
+    expect(tagsDe('content.published', [{ key: ELEMENTO, tipo: 'item', idioma: 'es' }])).toEqual(
+      []
+    );
   });
 
   it('los ajustes mandan su tag, y ninguna clave de contenido', () => {
@@ -283,7 +285,7 @@ describe('T-A-11, T-A-12 y T-A-18 — qué tags viajan', () => {
   });
 
   it('T-A-16: los medios van sin tags', () => {
-    const claves = [{ key: SINGLETON, tipo: 'singleton' as const }];
+    const claves = [{ key: SINGLETON, tipo: 'singleton' as const, idioma: 'es' }];
 
     expect(tagsDe('media.uploaded', claves)).toEqual([]);
     expect(tagsDe('media.deleted', claves)).toEqual([]);
@@ -405,7 +407,7 @@ describe('T-A-19 a T-A-24 — la entrega', () => {
   });
 
   it('T-A-24: dos sobres seguidos llevan id distintos', () => {
-    const claves = [{ key: SINGLETON, tipo: 'singleton' as const }];
+    const claves = [{ key: SINGLETON, tipo: 'singleton' as const, idioma: 'es' }];
 
     expect(componerSobre('content.published', claves).id).not.toBe(
       componerSobre('content.published', claves).id
@@ -416,7 +418,7 @@ describe('T-A-19 a T-A-24 — la entrega', () => {
     const { buscar, llamadas } = fetchQueContesta(200);
     const sobre = componerSobre(
       'content.published',
-      [{ key: 'hero', tipo: 'singleton' }],
+      [{ key: 'hero', tipo: 'singleton', idioma: 'es' }],
       () => 1_000_000_000_000
     );
 
@@ -433,7 +435,7 @@ describe('T-A-23 y T-A-27 — lo que queda registrado', () => {
     vi.stubEnv('WEBHOOK_URL', undefined);
     vi.stubEnv('WEBHOOK_SECRET', undefined);
 
-    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton' }]);
+    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton', idioma: 'es' }]);
 
     // La comprobación va **antes** del `after`, no dentro: un despliegue sin esto configurado
     // —la inmensa mayoría— no arrastra una tarea diferida por cada publicación.
@@ -451,7 +453,7 @@ describe('T-A-23 y T-A-27 — lo que queda registrado', () => {
     });
 
     expect(() => {
-      avisar('content.published', [{ key: SINGLETON, tipo: 'singleton' }]);
+      avisar('content.published', [{ key: SINGLETON, tipo: 'singleton', idioma: 'es' }]);
     }).not.toThrow();
 
     // Y no en silencio: el aviso no salió, y eso tiene que quedar dicho en algún sitio.
@@ -463,7 +465,7 @@ describe('T-A-23 y T-A-27 — lo que queda registrado', () => {
     encender();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
 
-    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton' }], {
+    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton', idioma: 'es' }], {
       userId: 'u1',
       email: 'quien@publica.com',
     });
@@ -485,7 +487,7 @@ describe('T-A-23 y T-A-27 — lo que queda registrado', () => {
     encender();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 500 }));
 
-    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton' }]);
+    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton', idioma: 'es' }]);
     await after.mock.results[0]?.value;
 
     const evento = audit.mock.calls[0]?.[0] as Record<string, unknown>;
@@ -497,7 +499,7 @@ describe('T-A-23 y T-A-27 — lo que queda registrado', () => {
     encender();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 200 }));
 
-    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton' }]);
+    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton', idioma: 'es' }]);
     await after.mock.results[0]?.value;
 
     const registrado = JSON.stringify(audit.mock.calls[0]?.[0]);
@@ -518,7 +520,7 @@ describe('T-A-23 y T-A-27 — lo que queda registrado', () => {
     encender();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 200 }));
 
-    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton' }]);
+    avisar('content.published', [{ key: SINGLETON, tipo: 'singleton', idioma: 'es' }]);
     await after.mock.results[0]?.value;
 
     const meta = audit.mock.calls[0]?.[0].meta;

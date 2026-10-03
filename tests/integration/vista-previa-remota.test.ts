@@ -60,7 +60,10 @@ async function ponerEntrada(key: string, type: string, draft: object, published:
       published: published as Record<string, unknown> | null,
       status: published === null ? 'draft' : 'changed',
     })
-    .onConflictDoUpdate({ target: contentEntries.key, set: { draft, published } });
+    .onConflictDoUpdate({
+      target: [contentEntries.key, contentEntries.locale],
+      set: { draft, published },
+    });
 }
 
 describeIntegration('la ruta que sirve borradores hacia fuera', () => {
