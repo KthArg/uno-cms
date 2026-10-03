@@ -348,6 +348,21 @@ describeIntegration('idiomas: cada uno va por su lado', () => {
     expect(ingles?.published).toEqual({ title: 'Published English' });
   });
 
+  it('T-ID-21b: sin fila en el idioma destino es NOT_FOUND, no un conflicto inventado', async () => {
+    // Nadie ha abierto todavía el editor inglés, que es quien crea la fila. Un `VERSION_CONFLICT`
+    // aquí haría decir al panel que otra persona guardó cambios, y no hay nadie más.
+    await crearEntrada({ key: 'hero', locale: ES, draft: { title: 'Español' } });
+
+    const resultado = await rellenarDesdeIdiomaPorDefecto({
+      key: 'hero',
+      idioma: 'en',
+      version: 0,
+    });
+
+    expect(!resultado.ok && resultado.code).toBe('NOT_FOUND');
+    expect(await leer('hero', EN)).toBeUndefined();
+  });
+
   it('T-ID-21: con una versión vieja no copia nada', async () => {
     await crearEntrada({ key: 'hero', locale: ES, draft: { title: 'Español' } });
     await crearEntrada({ key: 'hero', locale: EN, draft: { title: 'Mine' }, version: 5 });

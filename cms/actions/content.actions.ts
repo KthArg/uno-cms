@@ -864,9 +864,19 @@ export const rellenarDesdeIdiomaPorDefecto = defineAction({
         .where(and(deLaEntrada(input.key, locale), eq(contentEntries.version, input.version)))
         .returning({ version: contentEntries.version });
 
-      if (actualizada === undefined) return fail('VERSION_CONFLICT');
+      if (actualizada !== undefined) return ok({ version: actualizada.version });
 
-      return ok({ version: actualizada.version });
+      // El `UPDATE` no tocó nada, y eso tiene dos causas que no se pueden confundir: que la
+      // versión haya cambiado, o que el idioma destino no tenga fila —nadie ha abierto todavía
+      // su editor, que es quien la crea—. Responder `VERSION_CONFLICT` a lo segundo haría decir
+      // al panel «otra persona guardó cambios mientras editabas» cuando no hay nadie más.
+      const [destino] = await tx
+        .select({ version: contentEntries.version })
+        .from(contentEntries)
+        .where(deLaEntrada(input.key, locale))
+        .limit(1);
+
+      return fail(destino === undefined ? 'NOT_FOUND' : 'VERSION_CONFLICT');
     });
   },
 });
