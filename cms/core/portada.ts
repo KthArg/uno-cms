@@ -40,12 +40,14 @@ const VACIA: PortadaDelPanel = { titulo: '', imagen: '' };
  * poder elegirla, es un ajuste y una decisión aparte.
  */
 export async function leerPortadaDelPanel(
-  secciones: readonly SectionSummary[]
+  secciones: readonly SectionSummary[],
+  idioma?: string
 ): Promise<PortadaDelPanel> {
   const primera = secciones.find((seccion) => seccion.tipo === 'singleton');
   if (primera === undefined) return VACIA;
 
-  const entrada = await readEntryForEditor(primera.key);
+  // La del idioma que se está mirando: el inicio en inglés enseña el título inglés.
+  const entrada = await readEntryForEditor(primera.key, idioma);
   if (entrada === null) return VACIA;
 
   const schema = schemaForType(entrada.type);

@@ -6,6 +6,7 @@ import { useState } from 'react';
 import type { ElementoDeColeccion } from '@/cms/core/collections';
 import { ConfirmarAccion } from './ConfirmarAccion';
 import { EstadoDeSeccion } from './EstadoDeSeccion';
+import { EtiquetaDeIdioma } from './EtiquetaDeIdioma';
 import { Icono } from './iconos';
 import { FALLO_DE_RED } from './fallo-de-red';
 import { BOTON_ICONO, BOTON_PRINCIPAL, TARJETA, TITULO } from './estilos';
@@ -36,6 +37,8 @@ export interface CollectionScreenProps {
   readonly onReordenar: (orderedKeys: string[]) => Promise<{ ok: boolean; message?: string }>;
   readonly onEliminar: (key: string) => Promise<{ ok: boolean; message?: string }>;
   readonly puedeEliminar: boolean;
+  /** El nombre del idioma de esta lista, solo con varios idiomas (spec 17 §5.9). */
+  readonly idioma?: string;
 }
 
 export function CollectionScreen({
@@ -45,6 +48,7 @@ export function CollectionScreen({
   onReordenar,
   onEliminar,
   puedeEliminar,
+  idioma,
 }: CollectionScreenProps) {
   const router = useRouter();
   const [orden, setOrden] = useState<readonly ElementoDeColeccion[]>(elementos);
@@ -138,7 +142,10 @@ export function CollectionScreen({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className={TITULO}>{nombreColeccion}</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className={TITULO}>{nombreColeccion}</h1>
+          {idioma !== undefined && <EtiquetaDeIdioma nombre={idioma} />}
+        </div>
         <button
           type="button"
           disabled={ocupado}

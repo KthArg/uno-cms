@@ -81,23 +81,32 @@ export interface ContenidoDeVistaPrevia {
   readonly objetivo: ObjetivoDeLaVistaPrevia;
 }
 
-export async function previewContent(key: string): Promise<Record<string, unknown>> {
+export async function previewContent(
+  key: string,
+  idioma?: string
+): Promise<Record<string, unknown>> {
   const singletons = Object.keys(appConfig.singletons) as SingletonKey[];
   const collections = Object.keys(appConfig.collections) as CollectionKey[];
 
+  // **Todo en el idioma del token** (spec 17 §5.7): el borrador de la entrada y lo publicado del
+  // resto. Con el resto en el idioma por defecto, la vista previa de la portada inglesa saldría
+  // con los testimonios en español, que no es ninguna página que vaya a existir.
   const entradas = await Promise.all([
     ...singletons.map(async (nombre): Promise<[string, unknown]> => [
       nombre,
       // `getDraft` no se cachea a propósito: cambia cada pocos segundos mientras alguien edita,
       // y un caché aquí haría que el editor viese su propio texto con retraso.
-      nombre === key ? await getDraft(nombre) : await readContent(nombre),
+      nombre === key ? await getDraft(nombre, idioma) : await readContent(nombre, idioma),
     ]),
     ...collections.map(async (nombre): Promise<[string, unknown]> => {
       const alcance = alcanceEnColeccion(key, nombre);
 
-      if (alcance === null) return [nombre, await readCollection(nombre)];
+      if (alcance === null) return [nombre, await readCollection(nombre, idioma)];
 
-      return [nombre, await readCollectionForPreview(nombre, alcance === 'toda' ? null : alcance)];
+      return [
+        nombre,
+        await readCollectionForPreview(nombre, alcance === 'toda' ? null : alcance, idioma),
+      ];
     }),
   ]);
 
@@ -111,8 +120,11 @@ export async function previewContent(key: string): Promise<Record<string, unknow
  * depende del orden con el que se compuso la lista, y separarlas dejaría dos sitios que tienen
  * que estar de acuerdo sobre ese orden.
  */
-export async function previewContentConObjetivo(key: string): Promise<ContenidoDeVistaPrevia> {
-  const contenido = await previewContent(key);
+export async function previewContentConObjetivo(
+  key: string,
+  idioma?: string
+): Promise<ContenidoDeVistaPrevia> {
+  const contenido = await previewContent(key, idioma);
 
   const collections = Object.keys(appConfig.collections);
   const coleccion = collections.find((nombre) => alcanceEnColeccion(key, nombre) === key);
@@ -126,7 +138,7 @@ export async function previewContentConObjetivo(key: string): Promise<ContenidoD
   // elementos sin publicar —que la que se pinta deja fuera— y cada uno anterior corría el índice
   // una posición. El resultado era el borrador escrito en el hueco de al lado: o sustituyendo al
   // vecino en silencio, o creciendo la lista y enseñando el elemento dos veces.
-  const claves = await collectionKeysInOrder(coleccion as CollectionKey, key);
+  const claves = await collectionKeysInOrder(coleccion as CollectionKey, key, idioma);
   const indice = claves.indexOf(key);
 
   // Si no está —lo borraron entre emitir el token y abrir la vista previa— no hay dónde aplicar

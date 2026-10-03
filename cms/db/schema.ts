@@ -97,6 +97,12 @@ export const contentEntries = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     key: text('key').notNull(), // 'home', 'testimonials.item-abc'
+    /**
+     * El idioma de la fila (spec 17 §5.2). **`''` es el idioma por defecto**, no su código: así
+     * lo que existía antes de que hubiera idiomas ya es del idioma por defecto sin migrar datos
+     * (ADR-1100). La traducción vive en `cms/core/idiomas.ts` y en ningún otro sitio.
+     */
+    locale: text('locale').notNull().default(''),
     type: text('type').notNull(), // nombre del schema en cms.config.ts
     draft: jsonb('draft').notNull(), // estado editable (validado con el esquema laxo)
     published: jsonb('published'), // null = nunca publicado
@@ -111,7 +117,8 @@ export const contentEntries = pgTable(
     version: integer('version').notNull().default(0), // optimistic locking (SPEC §5.3)
   },
   (t) => [
-    uniqueIndex('content_key_idx').on(t.key),
+    // Una vez por idioma (spec 17 §5.2): `hero` en español y `hero` en inglés son dos filas.
+    uniqueIndex('content_key_locale_idx').on(t.key, t.locale),
     index('content_type_idx').on(t.type),
     check('content_status_check', sql`${t.status} in ('draft', 'published', 'changed')`),
   ]
@@ -123,12 +130,15 @@ export const revisions = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     entryKey: text('entry_key').notNull(),
+    // El de la entrada (spec 17 §5.2). Sin él, el historial de `hero` en inglés enseñaría lo
+    // publicado en español, y restaurarlo lo copiaría al idioma equivocado.
+    locale: text('locale').notNull().default(''),
     data: jsonb('data').notNull(), // snapshot de lo publicado
     publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
     publishedBy: uuid('published_by').references(() => users.id, { onDelete: 'set null' }),
     note: text('note'),
   },
-  (t) => [index('revisions_key_idx').on(t.entryKey, t.publishedAt)]
+  (t) => [index('revisions_key_idx').on(t.entryKey, t.locale, t.publishedAt)]
 );
 
 export const media = pgTable(

@@ -217,6 +217,41 @@ Las lecturas van por `getContent` y `getCollection`, que llevan caché con el ta
 Y si añades secciones, acuérdate de `app/preview/page.tsx`: monta las mismas, con el proveedor
 de vista previa. Es el único sitio donde la lista de secciones aparece dos veces.
 
+### 4. Si tu web habla más de un idioma
+
+Declara los idiomas en `cms.config.ts`. **El primero es el de por defecto**:
+
+```ts
+export default defineConfig({
+  siteName: 'Mi Empresa',
+  idiomas: [
+    { codigo: 'es', nombre: 'Español' },
+    { codigo: 'en', nombre: 'English' },
+  ],
+  // …
+});
+```
+
+Con eso, cada idioma se alimenta por separado: su borrador, su publicación, su historial y sus
+listas (spec 17, ADR-1101). En el panel aparece un selector de idioma en la cabecera, y cada
+pantalla dice en cuál estás. La landing de ejemplo sirve el de por defecto en `/` y los demás en
+`/<codigo>`; si compones tu página a mano, pasa el código a las lecturas:
+
+```tsx
+const hero = await getContent('hero', 'en');
+const faqs = await getCollection('faqs', 'en');
+```
+
+Tres cosas que conviene saber antes de que te sorprendan:
+
+- **No hay fallback.** Lo que no está publicado en inglés sale vacío en inglés, no en español.
+  En el panel lo verás como «Sin publicar todavía».
+- **Los campos no se comparten entre idiomas.** Para no volver a elegir las imágenes al traducir,
+  en una sección fija de otro idioma tienes «Rellenar desde Español», que copia el borrador sin
+  publicar nada.
+- **Sin `idiomas`, no cambia nada.** Un sitio que no lo declara tiene uno, `es`, y ni selector ni
+  rutas nuevas.
+
 ### Lo que obtienes sin escribir nada más
 
 Panel con autoguardado, publicación con bloqueo optimista, historial con "volver a una versión
@@ -310,6 +345,11 @@ serverless, una ruta de tu backend— que pida el contenido y se lo pase a tu Ja
 Hay un ejemplo completo y desplegable en [`examples/web-remota/`](../examples/web-remota/), con
 tests que lo sostienen.
 
+**Con varios idiomas**, pide el que quieras con `?idioma=`: `/api/content/hero?idioma=en`. La
+respuesta lleva siempre el campo `idioma` con el que te ha servido, y un idioma que el CMS no
+declara responde 400 `idioma_desconocido`. El aviso al publicar dice en qué idioma cambió cada
+clave, pero los `tags` son los de siempre: si no te interesan los idiomas, puedes ignorarlo.
+
 ### 4. Lo que tienes que tocar en TU configuración, y es lo que más falla
 
 Si tu web tiene su propia CSP —y debería—, el navegador va a bloquear esto y el mensaje aparecerá
@@ -362,7 +402,9 @@ y este cuerpo:
   "id": "e2a1…",
   "evento": "content.published",
   "ts": 1757404800123,
-  "claves": [{ "key": "testimonials.a1b2", "tipo": "item", "coleccion": "testimonials" }],
+  "claves": [
+    { "key": "testimonials.a1b2", "tipo": "item", "coleccion": "testimonials", "idioma": "es" }
+  ],
   "tags": ["content:testimonials"]
 }
 ```
@@ -494,6 +536,8 @@ exhaustivo a propósito: si olvidas el componente, **no compila**.
 
 Dos tablas para el contenido: `content_entries` —con `draft` y `published` separados, que es
 lo que permite escribir a medias sin que lo vea nadie— y `revisions`, con un máximo de veinte
-por entrada. Las migraciones se generan con `pnpm db:generate` y se aplican con `pnpm db:migrate`.
+por entrada **y por idioma**. Las dos llevan `locale`, donde la cadena vacía es el idioma por
+defecto y no su código (ADR-1100): nunca la escribas a mano, usa `cms/core/idiomas.ts`. Las
+migraciones se generan con `pnpm db:generate` y se aplican con `pnpm db:migrate`.
 
 Cambiar `cms.config.ts` **no** genera migraciones: el contenido es JSONB.

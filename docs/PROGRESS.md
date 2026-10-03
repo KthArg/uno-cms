@@ -2095,3 +2095,54 @@ Ninguna de las dos tenía issue. Es #162 → #164 otra vez: un pendiente que se 
 - **Verificar la documentación de un tercero antes de decidir vale una tarde.** Con la firma `(req, res)` de Vercel el cuerpo llega **ya analizado**, así que la firma HMAC no se puede comprobar: solo parecerlo hasta el primer sobre que se serialice distinto.
 - **Escribir una fragilidad no es cerrarla, y dos de las seis se podían cerrar el mismo día** (#291). Al releerlas para contestar «¿ya está arreglado?» salió que sí para dos: el `after()` se puede ejercitar apuntando el aviso al propio servidor de la suite, y lo que ningún test funcional puede sostener lo sostiene una guarda estática. La lista honesta servía; releerla, más.
 - **Y al mirarlas apareció un fallo que ninguna cubría.** `playwright.config.ts` neutraliza `PREVIEW_ORIGINS` y `BLOB_READ_WRITE_TOKEN` para que la suite no toque nada de fuera, y no se le añadieron las del aviso: quien pusiera su web real en `.env.local` —que es lo que hay que hacer para probar la fase— le habría mandado avisos firmados a producción con cada `pnpm test:e2e`.
+
+---
+
+## Idiomas ✅
+
+**Cerrado** el 2 de octubre de 2026. Spec [`17-idiomas.md`](specs/17-idiomas.md), issue [#14](https://github.com/KthArg/uno-cms/issues/14) —que llevaba en el backlog desde el MVP como «i18n de contenido»—, ADR-1100 a ADR-1102 y la enmienda de SPEC §4, §5.2, §5.3 y §10.
+
+### De dónde salió
+
+De una pregunta: si el CMS soporta cambiar de idioma y alimentar cada idioma por separado, como Strapi. No lo soportaba, y no por descuido: SPEC §10 lo dejaba fuera. `content_entries.key` era único, la API no tenía dónde decir el idioma y `<html lang="es">` estaba escrito a mano.
+
+### Qué funciona
+
+| Área                | Estado                                                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| La configuración    | `idiomas` en `cms.config.ts`, el primero por defecto. Sin el campo, un idioma y nada cambia. Se valida al arrancar: formato, repetidos y choque con `/admin`… |
+| Los datos           | Columna `locale` en `content_entries` y `revisions`, índice único `(key, locale)`. **El de por defecto es `''`** y la migración no toca datos (ADR-1100)      |
+| Por separado        | Borrador, publicación, versión, historial y listas propias por idioma. Sin fallback y sin elementos compartidos (ADR-1101)                                    |
+| Las actions         | Todas aceptan `idioma`; sin él, el de por defecto. Uno desconocido es `NOT_FOUND` antes de escribir. «Publicar todo» no cruza idiomas                         |
+| Rellenar            | «Rellenar desde Español» en las secciones fijas de otro idioma: copia el borrador como un guardado, con confirmación y sin publicar                           |
+| La lectura y la API | `getContent('hero', 'en')`, caché separada por idioma con el mismo tag, y `GET /api/content/:key?idioma=en` con 400 para un idioma desconocido                |
+| La landing          | `/` el de por defecto, `/en` el resto, `/es` redirige a `/`. `lang` en el `<main>`, y el `<html>` sale de la configuración. Sitemap con `hreflang`            |
+| La vista previa     | El idioma va firmado en el token; la página se compone entera en ese idioma                                                                                   |
+| El aviso            | Cada clave lleva `idioma`; los `tags` no cambian                                                                                                              |
+| El panel            | Selector en la cabecera (cookie), etiqueta «En English» en cada pantalla, y cada página fija su idioma al componerse (ADR-1102)                               |
+
+**1085 tests rápidos y 348 de integración**, más los cinco casos e2e de `idiomas.spec.ts`. **Las 31 mutaciones de los casos nuevos mueren**: cada uno se comprobó rompiendo la línea que protege, sobre una copia y restaurando desde ella.
+
+### Lo que se probó a mano, en local y con Chrome
+
+Contra `pnpm dev` y `unocms_dev`, recorrido entero: escribir y publicar la portada en español; cambiar a English y ver el editor vacío (no hereda el español) con la etiqueta «En English»; «Rellenar desde Español», que trae título y subtítulo; traducir y publicar; `/en` en inglés con `<main lang="en">`, `/` en español sin una letra cambiada, `/es` redirigiendo a `/`, y la API respondiendo por idioma y 400 a `fr`. En las listas: un elemento creado en la inglesa no aparece en la española, y **cambiar de idioma con texto sin guardar lo guarda en su idioma**: al pulsar el selector el campo pierde el foco, el autoguardado sale, y va al inglés porque el idioma está cerrado en la action. Comprobado en la base.
+
+### Qué es frágil
+
+1. **Cambiar el idioma por defecto a uno que ya tiene contenido lo esconde.** Es el precio de ADR-1100, está en `PENDIENTES.md` y se arregla con una sentencia, pero nada lo avisa.
+2. **Nada de esto se ha ejercitado contra un despliegue.** La migración se ha aplicado en tres bases locales, no en Neon.
+3. **El selector no se ha mirado en modo oscuro ni en un móvil de verdad.** El e2e mide que cada botón tenga 44 px —y lo cazó con 36— pero medir no es mirar.
+4. **La web remota de ejemplo no sabe de idiomas.** Pide el de por defecto, que es lo que pedía. El contrato para pedir otro está en `DEVELOPER.md`, sin ejemplo que lo ejecute.
+
+### Qué probaría a mano
+
+- Desplegar con la migración sobre una base con contenido real, y comprobar que el sitio sigue igual sin tocar `cms.config.ts`.
+- El panel en un móvil y en modo oscuro, con el selector a la vista.
+- Dos pestañas, una en cada idioma, guardando a la vez: es lo que ADR-1102 promete y solo lo prueba un test de componentes.
+
+### Lo que enseñó esta pasada
+
+- **El prefijo de los casos estaba cogido.** La spec se escribió con `T-I-n` y `T-I` ya era de la spec 05 (vista previa). Se vio leyendo `SECURITY.md`, donde `T-I-2` ya existía con otro significado. Se renombraron a `T-ID-n` antes del PR; con dos `T-I-2` en el repositorio, el modelo de amenazas habría podido citar uno y comprobarse con el otro.
+- **La guarda del móvil sirvió para algo que no sabía que existía.** Los botones del selector medían 36 px y T-213-3 lo cazó en la primera pasada de la e2e.
+- **Una fila de `PENDIENTES.md` era falsa y se escribió por prudencia.** Decía que un borrador sin guardar se perdía al cambiar de idioma. Probado a mano, no se pierde. Una deuda inventada vale lo mismo que una deuda escondida: hace mirar donde no hay nada.
+- **Un test de componentes probaba la versión que el editor ya tenía.** El de «Rellenar» comprobaba la llamada sin haber escrito nada antes, y entonces la versión de antes y la de después de guardar son la misma. Se rehízo escribiendo primero, y la mutación que quita el guardado previo ahora lo mata.

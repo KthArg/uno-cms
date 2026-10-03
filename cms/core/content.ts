@@ -1,10 +1,11 @@
 import 'server-only';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import appConfig from '@/cms.config';
 import { contentEntries, getDb } from '@/cms/db';
 import type { AnyField, ObjectSchema } from './config';
+import { COLUMNA_DEL_IDIOMA_POR_DEFECTO, columnaDeIdiomaDeclarado } from './idiomas';
 import { buildObjectSchema } from './schema-gen';
 import { ensureSingletonRow } from './seed';
 import type { CollectionItem, CollectionKey, Content, Draft, SingletonKey } from './types';
@@ -121,16 +122,27 @@ function resolveObject(
  * Devuelve **solo contenido publicado**: el borrador no se asoma nunca a la landing, que es
  * la razón de que exista la columna `published` separada (SPEC §4).
  */
-export async function readContent<K extends SingletonKey>(key: K): Promise<Content<K>> {
+export async function readContent<K extends SingletonKey>(
+  key: K,
+  idioma?: string
+): Promise<Content<K>> {
   const schema: ObjectSchema = appConfig.singletons[key];
+  const locale = columnaDeIdiomaDeclarado(idioma);
 
   const [row] = await getDb()
     .select({ published: contentEntries.published })
     .from(contentEntries)
-    .where(eq(contentEntries.key, key))
+    .where(and(eq(contentEntries.key, key), eq(contentEntries.locale, locale)))
     .limit(1);
 
-  return resolveObject(schema, row?.published, key) as Content<K>;
+  // Sin fallback al idioma por defecto (ADR-1101): un inglés que nadie ha publicado sale con
+  // valores vacíos, no con el texto en español.
+  return resolveObject(schema, row?.published, contextoDeLectura(key, locale)) as Content<K>;
+}
+
+/** Cómo se nombra una entrada en la consola: con su idioma, si no es el de por defecto. */
+function contextoDeLectura(key: string, locale: string): string {
+  return locale === COLUMNA_DEL_IDIOMA_POR_DEFECTO ? key : `${key}@${locale}`;
 }
 
 /**
@@ -143,10 +155,17 @@ export async function readContent<K extends SingletonKey>(key: K): Promise<Conte
  *   el primer render tras publicar —que es justo cuando alguien está mirando— haría una
  *   consulta por componente en lugar de una.
  */
-export const getContent = cache(<K extends SingletonKey>(key: K): Promise<Content<K>> =>
-  unstable_cache(() => readContent(key), ['content', key], {
-    tags: [contentTag(key)],
-  })()
+export const getContent = cache(
+  <K extends SingletonKey>(key: K, idioma?: string): Promise<Content<K>> => {
+    // La columna y no el código en la clave de caché: `getContent('hero')` y
+    // `getContent('hero', 'es')` son la misma lectura y tienen que compartir entrada. Y el tag
+    // **no** lleva idioma (spec 17 §5.4): publicar en inglés invalida también el español, que
+    // es invalidar de más a cambio de que nadie tenga que saber de idiomas para invalidar bien.
+    const locale = columnaDeIdiomaDeclarado(idioma);
+    return unstable_cache(() => readContent(key, idioma), ['content', key, locale], {
+      tags: [contentTag(key)],
+    })();
+  }
 );
 
 /**
@@ -156,13 +175,14 @@ export const getContent = cache(<K extends SingletonKey>(key: K): Promise<Conten
  * caché aquí haría que el editor viese su propio texto con retraso — que es la forma más
  * rápida de que deje de fiarse del CMS.
  */
-export async function getDraft<K extends SingletonKey>(key: K): Promise<Draft<K>> {
+export async function getDraft<K extends SingletonKey>(key: K, idioma?: string): Promise<Draft<K>> {
   const schema: ObjectSchema = appConfig.singletons[key];
+  const locale = columnaDeIdiomaDeclarado(idioma);
 
   const [row] = await getDb()
     .select({ draft: contentEntries.draft })
     .from(contentEntries)
-    .where(eq(contentEntries.key, key))
+    .where(and(eq(contentEntries.key, key), eq(contentEntries.locale, locale)))
     .limit(1);
 
   const parsed = buildObjectSchema(schema, 'draft').safeParse(row?.draft ?? {});
@@ -186,14 +206,18 @@ export async function getDraft<K extends SingletonKey>(key: K): Promise<Draft<K>
  * landing barajara los testimonios entre despliegues.
  */
 export async function readCollection<K extends CollectionKey>(
-  key: K
+  key: K,
+  idioma?: string
 ): Promise<CollectionItem<K>[]> {
   const schema: ObjectSchema = appConfig.collections[key].schema;
+  const locale = columnaDeIdiomaDeclarado(idioma);
 
   const rows = await getDb()
     .select({ id: contentEntries.id, published: contentEntries.published })
     .from(contentEntries)
-    .where(eq(contentEntries.type, key))
+    // Cada idioma tiene su lista (ADR-1101): sin este filtro, `/en` enseñaría los testimonios
+    // en inglés y en español mezclados.
+    .where(and(eq(contentEntries.type, key), eq(contentEntries.locale, locale)))
     // Desempate por `key`, que es único: dos elementos con el mismo `sortOrder` deben salir
     // siempre en el mismo orden. Sin desempate, Postgres no promete ninguno y la landing
     // barajaría los testimonios entre despliegues.
@@ -221,9 +245,11 @@ export async function readCollection<K extends CollectionKey>(
  */
 export async function readCollectionForPreview<K extends CollectionKey>(
   key: K,
-  itemKey: string | null
+  itemKey: string | null,
+  idioma?: string
 ): Promise<CollectionItem<K>[]> {
   const schema: ObjectSchema = appConfig.collections[key].schema;
+  const locale = columnaDeIdiomaDeclarado(idioma);
 
   const rows = await getDb()
     .select({
@@ -233,7 +259,7 @@ export async function readCollectionForPreview<K extends CollectionKey>(
       published: contentEntries.published,
     })
     .from(contentEntries)
-    .where(eq(contentEntries.type, key))
+    .where(and(eq(contentEntries.type, key), eq(contentEntries.locale, locale)))
     .orderBy(asc(contentEntries.sortOrder), asc(contentEntries.key));
 
   return rows
@@ -278,12 +304,17 @@ export async function readCollectionForPreview<K extends CollectionKey>(
  */
 export async function collectionKeysInOrder(
   key: CollectionKey,
-  itemKey: string | null = null
+  itemKey: string | null = null,
+  idioma?: string
 ): Promise<string[]> {
+  const locale = columnaDeIdiomaDeclarado(idioma);
+
   const rows = await getDb()
     .select({ key: contentEntries.key, published: contentEntries.published })
     .from(contentEntries)
-    .where(eq(contentEntries.type, key))
+    // El mismo filtro que `readCollectionForPreview`, por la misma razón que el resto de este
+    // comentario: los índices tienen que contar los mismos elementos que la lectura (#246).
+    .where(and(eq(contentEntries.type, key), eq(contentEntries.locale, locale)))
     .orderBy(asc(contentEntries.sortOrder), asc(contentEntries.key));
 
   return rows.filter((row) => row.published !== null || row.key === itemKey).map((row) => row.key);
@@ -291,10 +322,13 @@ export async function collectionKeysInOrder(
 
 /** Ídem que `getContent`: caché entre peticiones y deduplicación dentro de una. */
 export const getCollection = cache(
-  <K extends CollectionKey>(key: K): Promise<CollectionItem<K>[]> =>
-    unstable_cache(() => readCollection(key), ['collection', key], {
+  <K extends CollectionKey>(key: K, idioma?: string): Promise<CollectionItem<K>[]> => {
+    // Mismo criterio que `getContent`: el idioma en la clave de caché, no en el tag.
+    const locale = columnaDeIdiomaDeclarado(idioma);
+    return unstable_cache(() => readCollection(key, idioma), ['collection', key, locale], {
       tags: [contentTag(key)],
-    })()
+    })();
+  }
 );
 
 // ── Resumen para el panel ────────────────────────────────────────────────────────────────
@@ -327,7 +361,9 @@ function estadoDeFila(fila: { published: unknown; status: string }): SectionStat
  * y el panel es una pantalla que se abre entera. Una consulta por sección serían diez viajes
  * a la base de datos para pintar diez tarjetas.
  */
-export async function listSections(): Promise<SectionSummary[]> {
+export async function listSections(idioma?: string): Promise<SectionSummary[]> {
+  const locale = columnaDeIdiomaDeclarado(idioma);
+
   const filas = await getDb()
     .select({
       key: contentEntries.key,
@@ -335,7 +371,11 @@ export async function listSections(): Promise<SectionSummary[]> {
       published: contentEntries.published,
       status: contentEntries.status,
     })
-    .from(contentEntries);
+    .from(contentEntries)
+    // El inicio del panel es del idioma que se está mirando (spec 17 §5.9). Sin el filtro, el
+    // `Map` por clave de abajo se quedaría con la última fila de `hero` que llegara, de un idioma
+    // cualquiera.
+    .where(eq(contentEntries.locale, locale));
 
   const porClave = new Map(filas.map((fila) => [fila.key, fila]));
   const resumen: SectionSummary[] = [];
@@ -401,11 +441,17 @@ export interface EntryForEditor {
   readonly estado: SectionState;
 }
 
-export async function readEntryForEditor(key: string): Promise<EntryForEditor | null> {
+export async function readEntryForEditor(
+  key: string,
+  idioma?: string
+): Promise<EntryForEditor | null> {
+  const locale = columnaDeIdiomaDeclarado(idioma);
+
   // Un singleton declarado en la configuración **existe** aunque no tenga fila: la fila es un
   // detalle de implementación que se crea la primera vez que hace falta. Ver
-  // `ensureSingletonRow`, y el fallo que documenta.
-  await ensureSingletonRow(key);
+  // `ensureSingletonRow`, y el fallo que documenta. En un idioma que no es el de por defecto es
+  // el caso normal: `hero` en inglés no existe hasta que alguien abre su editor.
+  await ensureSingletonRow(key, idioma);
 
   const [row] = await getDb()
     .select({
@@ -417,7 +463,7 @@ export async function readEntryForEditor(key: string): Promise<EntryForEditor | 
       version: contentEntries.version,
     })
     .from(contentEntries)
-    .where(eq(contentEntries.key, key))
+    .where(and(eq(contentEntries.key, key), eq(contentEntries.locale, locale)))
     .limit(1);
 
   if (row === undefined) return null;

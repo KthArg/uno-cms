@@ -32,6 +32,7 @@ export {
   deleteItem,
   publish,
   publishAll,
+  rellenarDesdeIdiomaPorDefecto,
   reorderItems,
   restoreRevision,
   revertDraft,

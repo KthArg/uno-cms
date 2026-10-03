@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { SectionSummary } from '@/cms/core/content';
 import type { DiaConPublicaciones } from '@/cms/core/publicaciones';
 import { EstadoDeSeccion } from './EstadoDeSeccion';
+import { EtiquetaDeIdioma } from './EtiquetaDeIdioma';
 import { Icono } from './iconos';
 import { PublicacionesPorDia } from './PublicacionesPorDia';
 import { ANILLO_DE_FOCO, TARJETA } from './estilos';
@@ -63,6 +64,11 @@ export interface PanelDeInicioProps {
   readonly ultimoAviso: UltimoAvisoParaElPanel | null;
   /** El instante con el que se calcula el «hace…». Llega de fuera para poder probarlo. */
   readonly ahora: number;
+  /**
+   * El nombre del idioma que se está mirando, solo con varios idiomas (spec 17 §5.9). Las
+   * secciones, las cifras y «Publicar todo» son de ese idioma, y sin la etiqueta nada lo diría.
+   */
+  readonly idioma?: string;
 }
 
 export function PanelDeInicio({
@@ -77,6 +83,7 @@ export function PanelDeInicio({
   pendientes,
   ultimoAviso,
   ahora,
+  idioma,
 }: PanelDeInicioProps) {
   return (
     <div className="space-y-4">
@@ -90,7 +97,10 @@ export function PanelDeInicio({
        *
        * `sr-only` no: se pinta. La referencia también lleva el nombre de la pantalla arriba a la
        * izquierda, y esconderlo sería quitar de la vista algo que ayuda a los dos lados. */}
-      <h1 className="px-1 text-2xl font-semibold tracking-tight text-tinta">Contenido</h1>
+      <div className="flex flex-wrap items-center gap-3 px-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-tinta">Contenido</h1>
+        {idioma !== undefined && <EtiquetaDeIdioma nombre={idioma} />}
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-3 2xl:grid-cols-4">
         {/* La pieza que manda. Ocupa dos tercios y es lo primero que se lee. */}

@@ -3,6 +3,13 @@ import { redirect } from 'next/navigation';
 import { auth, signOut } from '@/cms/auth';
 import { invalidateSessions } from '@/cms/auth/authenticate';
 import { fuenteDelPanel } from '@/app/fuente';
+import { hayVariosIdiomas, idiomas } from '@/cms/core/idiomas';
+import {
+  COOKIE_DE_IDIOMA,
+  destinoAlCambiarDeIdioma,
+  idiomaDelPanel,
+  leerIdiomaDelPanel,
+} from '@/cms/core/idioma-del-panel';
 import { COOKIE_DE_TEMA, DURACION_DE_LA_COOKIE, elContrario, leerTema } from '@/cms/tema';
 import { PanelShell } from '@/cms/ui/PanelShell';
 
@@ -93,6 +100,32 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     await signOut({ redirectTo: '/admin/login' });
   }
 
+  /**
+   * Cambia el idioma en el que se trabaja (spec 17 §5.9, ADR-1102).
+   *
+   * El valor que llega del formulario pasa por `leerIdiomaDelPanel`, igual que el que se lee de
+   * la cookie: un código que no está declarado se guarda como el de por defecto en vez de dejar
+   * en la cookie algo que después habría que desconfiar al leer.
+   */
+  async function cambiarDeIdioma(datos: FormData): Promise<void> {
+    'use server';
+
+    const pedido = datos.get('idioma');
+    const codigo = leerIdiomaDelPanel(typeof pedido === 'string' ? pedido : undefined);
+
+    (await cookies()).set(COOKIE_DE_IDIOMA, codigo, {
+      maxAge: DURACION_DE_LA_COOKIE,
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    const ruta = datos.get('ruta');
+    const destino = typeof ruta === 'string' ? destinoAlCambiarDeIdioma(ruta) : null;
+    if (destino !== null) redirect(destino);
+  }
+
+  const idiomaActual = await idiomaDelPanel();
+
   return (
     <PanelShell
       rol={session.user.role}
@@ -102,6 +135,15 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       tema={tema}
       onCambiarDeTema={cambiarDeTema}
       claseDeFuente={fuenteDelPanel.className}
+      {...(hayVariosIdiomas()
+        ? {
+            idiomas: {
+              lista: idiomas().map(({ codigo, nombre }) => ({ codigo, nombre })),
+              actual: idiomaActual,
+              onCambiar: cambiarDeIdioma,
+            },
+          }
+        : {})}
     >
       {children}
     </PanelShell>

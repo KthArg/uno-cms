@@ -1,9 +1,10 @@
 import 'server-only';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import appConfig from '@/cms.config';
 import { contentEntries, getDb } from '@/cms/db';
 import type { ObjectSchema } from './config';
 import type { SectionState } from './content';
+import { columnaDeIdiomaDeclarado } from './idiomas';
 
 /**
  * La lectura de una colección para el panel (SPEC §5.1, §9).
@@ -59,9 +60,14 @@ export function tituloDeElemento(borrador: unknown, titleField: string): string 
   return limpio.length > 80 ? `${limpio.slice(0, 80)}…` : limpio;
 }
 
-export async function listCollectionItems(key: string): Promise<ElementoDeColeccion[]> {
+export async function listCollectionItems(
+  key: string,
+  idioma?: string
+): Promise<ElementoDeColeccion[]> {
   const definicion = definicionDeColeccion(key);
   if (definicion === null) return [];
+
+  const locale = columnaDeIdiomaDeclarado(idioma);
 
   const filas = await getDb()
     .select({
@@ -72,7 +78,8 @@ export async function listCollectionItems(key: string): Promise<ElementoDeColecc
       sortOrder: contentEntries.sortOrder,
     })
     .from(contentEntries)
-    .where(eq(contentEntries.type, key))
+    // La lista del idioma que se está editando (ADR-1101).
+    .where(and(eq(contentEntries.type, key), eq(contentEntries.locale, locale)))
     // El mismo orden que sirve la landing, con el mismo desempate: si el panel enseñara otro,
     // arrastrar un elemento aquí movería otra cosa allí.
     .orderBy(asc(contentEntries.sortOrder), asc(contentEntries.key));

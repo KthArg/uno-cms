@@ -1,9 +1,10 @@
 import 'server-only';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { getDb, revisions, users } from '@/cms/db';
 import { definicionDeColeccion } from './collections';
 import type { AnyField, ObjectSchema } from './config';
 import { schemaForType } from './content';
+import { columnaDeIdiomaDeclarado } from './idiomas';
 
 /**
  * La lectura del historial de una entrada (SPEC §4, §9).
@@ -67,8 +68,13 @@ export function resumenDeRevision(data: unknown, campo: string | null): string {
  * sección dentro de otra. La action ya lo impide por su lado (#79), pero una pantalla que
  * ofrece lo que la action va a rechazar es una pantalla que miente.
  */
-export async function listRevisions(key: string, type: string): Promise<RevisionDelHistorial[]> {
+export async function listRevisions(
+  key: string,
+  type: string,
+  idioma?: string
+): Promise<RevisionDelHistorial[]> {
   const campo = campoDeResumen(type);
+  const locale = columnaDeIdiomaDeclarado(idioma);
 
   const filas = await getDb()
     .select({
@@ -80,7 +86,8 @@ export async function listRevisions(key: string, type: string): Promise<Revision
     })
     .from(revisions)
     .leftJoin(users, eq(revisions.publishedBy, users.id))
-    .where(eq(revisions.entryKey, key))
+    // El historial de un idioma no enseña lo publicado en otro (spec 17 §5.2).
+    .where(and(eq(revisions.entryKey, key), eq(revisions.locale, locale)))
     .orderBy(desc(revisions.publishedAt), desc(revisions.id));
 
   return filas.map((fila) => ({
