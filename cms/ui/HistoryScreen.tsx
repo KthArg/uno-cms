@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { RevisionDelHistorial } from '@/cms/core/history';
 import { ConfirmarAccion } from './ConfirmarAccion';
+import { EtiquetaDeIdioma } from './EtiquetaDeIdioma';
 import { FALLO_DE_RED } from './fallo-de-red';
 import { Icono } from './iconos';
 import { ANILLO_DE_FOCO, BOTON_SUAVE, TARJETA, TITULO } from './estilos';
@@ -31,6 +32,8 @@ export interface HistoryScreenProps {
   readonly onRestaurar: (revisionId: string) => Promise<{ ok: boolean; message?: string }>;
   /** Si el borrador tiene cambios que se perderían al restaurar. */
   readonly hayCambiosSinPublicar: boolean;
+  /** El nombre del idioma de este historial, solo con varios idiomas (spec 17 §5.9). */
+  readonly idioma?: string;
 }
 
 export function HistoryScreen({
@@ -39,6 +42,7 @@ export function HistoryScreen({
   revisiones,
   onRestaurar,
   hayCambiosSinPublicar,
+  idioma,
 }: HistoryScreenProps) {
   const router = useRouter();
   const [aRestaurar, setARestaurar] = useState<RevisionDelHistorial | null>(null);
@@ -78,7 +82,10 @@ export function HistoryScreen({
           <Icono de="volver" tamano={16} />
           Volver a {nombreSeccion}
         </Link>
-        <h1 className={`${TITULO} mt-2`}>Versiones anteriores de {nombreSeccion}</h1>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <h1 className={TITULO}>Versiones anteriores de {nombreSeccion}</h1>
+          {idioma !== undefined && <EtiquetaDeIdioma nombre={idioma} />}
+        </div>
         <p className="mt-1 text-tinta-suave">
           Cada vez que publicas, se guarda la versión que había antes. Puedes recuperar cualquiera
           de estas.

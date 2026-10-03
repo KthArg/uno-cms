@@ -20,6 +20,7 @@ import { EntryForm, type ValoresDeEntrada } from './EntryForm';
 import { EstadoGuardado } from './EstadoGuardado';
 import { MediaPicker, type MediaPickerProps } from './MediaPicker';
 import { useAutosave, type ResultadoGuardado } from './useAutosave';
+import { EtiquetaDeIdioma } from './EtiquetaDeIdioma';
 import { Icono } from './iconos';
 import {
   ANILLO_DE_FOCO,
@@ -86,6 +87,22 @@ export interface EntryEditorProps {
   readonly registrarImagen?: MediaPickerProps['registrar'];
   /** Solo para tests: acorta la espera del autosave. */
   readonly esperaMs?: number;
+  /**
+   * El idioma en el que se edita (spec 17 §5.9). Solo llega en un sitio con varios idiomas.
+   *
+   * Además de pintar la etiqueta, separa **la copia local del borrador** por idioma: esa copia se
+   * guarda en `localStorage` con el nombre de la sección, y sin el idioma en la clave el editor
+   * inglés ofrecería «recuperar» lo que se escribió en el español.
+   */
+  readonly idioma?: { readonly codigo: string; readonly nombre: string };
+  /**
+   * «Rellenar desde Español» (spec 17 §5.3). Solo en un singleton de un idioma que no es el de
+   * por defecto: la página decide si llega, porque es quien sabe las dos cosas.
+   */
+  readonly rellenar?: {
+    readonly desde: string;
+    readonly accion: (version: number) => Promise<ResultadoGuardado>;
+  };
 }
 
 export function EntryEditor({
@@ -108,10 +125,13 @@ export function EntryEditor({
   almacenLocal,
   registrarImagen,
   esperaMs,
+  idioma,
+  rellenar,
 }: EntryEditorProps) {
   const [valores, setValores] = useState<ValoresDeEntrada>(valoresIniciales);
   const [campoDeImagen, setCampoDeImagen] = useState<string | null>(null);
   const [confirmandoDeshacer, setConfirmandoDeshacer] = useState(false);
+  const [confirmandoRellenar, setConfirmandoRellenar] = useState(false);
   const [erroresDePublicar, setErroresDePublicar] = useState<readonly ActionFieldError[]>([]);
   const [avisoDePublicar, setAvisoDePublicar] = useState<string | null>(null);
 
@@ -241,7 +261,7 @@ export function EntryEditor({
   );
 
   const autosave = useAutosave({
-    key: nombreSeccion,
+    key: idioma === undefined ? nombreSeccion : `${nombreSeccion}@${idioma.codigo}`,
     versionInicial,
     guardar,
     ...(esperaMs === undefined ? {} : { esperaMs }),
@@ -286,6 +306,31 @@ export function EntryEditor({
     setAvisoDePublicar(resultado.message ?? 'No se ha podido publicar.');
   };
 
+  const alRellenar = async (): Promise<void> => {
+    setConfirmandoRellenar(false);
+    if (rellenar === undefined) return;
+
+    // Se guarda primero, como al publicar: la action comprueba la versión, y la que hay que
+    // mandar es la de **después** del último tecleo. Con la del estado, lo pendiente de guardar
+    // daría un conflicto contra uno mismo.
+    let resultado;
+    try {
+      const version = await autosave.guardarYa();
+      resultado = await rellenar.accion(version);
+    } catch {
+      setAvisoDePublicar(FALLO_DE_RED);
+      return;
+    }
+
+    if (!resultado.ok) {
+      setAvisoDePublicar(resultado.message ?? 'No se ha podido copiar.');
+      return;
+    }
+
+    // Lo mismo que al deshacer: lo que hay que enseñar es lo que quedó en la base de datos.
+    window.location.reload();
+  };
+
   const alDeshacer = async (): Promise<void> => {
     setConfirmandoDeshacer(false);
 
@@ -312,14 +357,31 @@ export function EntryEditor({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className={TITULO}>{nombreSeccion}</h1>
-          <Link
-            href={`/admin/history/${entryKey}`}
-            className={`mt-1 inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave pulsable hover:text-tinta ${ANILLO_DE_FOCO}`}
-          >
-            <Icono de="historial" tamano={16} />
-            Ver versiones anteriores
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className={TITULO}>{nombreSeccion}</h1>
+            {idioma !== undefined && <EtiquetaDeIdioma nombre={idioma.nombre} />}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4">
+            <Link
+              href={`/admin/history/${entryKey}`}
+              className={`mt-1 inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave pulsable hover:text-tinta ${ANILLO_DE_FOCO}`}
+            >
+              <Icono de="historial" tamano={16} />
+              Ver versiones anteriores
+            </Link>
+            {rellenar !== undefined && (
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmandoRellenar(true);
+                }}
+                className={`mt-1 inline-flex h-11 items-center gap-1.5 text-sm text-tinta-suave pulsable hover:text-tinta ${ANILLO_DE_FOCO}`}
+              >
+                <Icono de="idioma" tamano={16} />
+                Rellenar desde {rellenar.desde}
+              </button>
+            )}
+          </div>
         </div>
         <EstadoGuardado estado={autosave.estado} />
       </div>
@@ -335,6 +397,20 @@ export function EntryEditor({
       )}
 
       {autosave.estado.tipo === 'conflicto' && <AvisoDeConflicto />}
+
+      {confirmandoRellenar && rellenar !== undefined && (
+        <ConfirmarAccion
+          titulo={`¿Rellenar con lo escrito en ${rellenar.desde}?`}
+          descripcion={`Se sustituye todo lo que hay en esta sección por lo último que se escribió en ${rellenar.desde}, también las imágenes y los enlaces. No se publica: lo traduces y publicas cuando esté listo.`}
+          textoConfirmar="Sí, rellenar"
+          onConfirmar={() => {
+            void alRellenar();
+          }}
+          onCancelar={() => {
+            setConfirmandoRellenar(false);
+          }}
+        />
+      )}
 
       {confirmandoDeshacer && (
         <ConfirmarAccion

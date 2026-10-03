@@ -3,6 +3,7 @@ import { restoreRevision } from '@/cms/actions';
 import { definicionDeColeccion, tituloDeElemento } from '@/cms/core/collections';
 import { readEntryForEditor, schemaForType } from '@/cms/core/content';
 import { listRevisions } from '@/cms/core/history';
+import { idiomaDeLaPantalla } from '@/cms/core/idioma-del-panel';
 import { HistoryScreen } from '@/cms/ui/HistoryScreen';
 
 /**
@@ -16,7 +17,9 @@ export const dynamic = 'force-dynamic';
 export default async function HistorialDeEntrada({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
 
-  const entrada = await readEntryForEditor(key);
+  const idioma = await idiomaDeLaPantalla();
+
+  const entrada = await readEntryForEditor(key, idioma.codigo);
   if (entrada === null) notFound();
 
   const schema = schemaForType(entrada.type);
@@ -28,18 +31,20 @@ export default async function HistorialDeEntrada({ params }: { params: Promise<{
       ? (schema.label ?? entrada.key)
       : `${coleccion.label}: ${tituloDeElemento(entrada.draft, coleccion.titleField)}`;
 
-  const revisiones = await listRevisions(key, entrada.type);
+  const revisiones = await listRevisions(key, entrada.type, idioma.codigo);
 
   async function restaurar(revisionId: string): Promise<{ ok: boolean; message?: string }> {
     'use server';
 
-    const resultado = await restoreRevision({ key, revisionId });
+    const resultado = await restoreRevision({ key, revisionId, idioma: idioma.codigo });
 
     return resultado.ok ? { ok: true } : { ok: false, message: resultado.message };
   }
 
   return (
     <HistoryScreen
+      key={idioma.codigo}
+      {...(idioma.etiqueta === undefined ? {} : { idioma: idioma.etiqueta })}
       nombreSeccion={nombre}
       entryKey={key}
       revisiones={revisiones}
