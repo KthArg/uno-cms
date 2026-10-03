@@ -248,6 +248,15 @@ jobs:
       # primer día; no hay ruido que justifique lo contrario (los tres advisories high que
       # arrastraba `next` se cierran con overrides en package.json).
       - run: pnpm audit --audit-level=high
+      # #304: `package.json` ignora GHSA-vfj7-8cjw-p6xm (`braces`, sin parche) porque solo llega
+      # por herramientas de desarrollo. La excepción es global, así que su motivo se comprueba:
+      # si `braces` aparece en el árbol de producción, el motivo ya no es verdad y esto falla.
+      - name: la excepción de braces solo vale fuera de producción
+        run: |
+          if [ -n "$(pnpm ls braces --prod --depth Infinity --parseable)" ]; then
+            echo "braces es alcanzable desde producción: la excepción de package.json ya no vale (#304)"
+            exit 1
+          fi
 
   # ── Agregador ─────────────────────────────────────────────────────────────────────
   # Este es el ÚNICO check que exige la protección de rama. Enumerar cada job en la
