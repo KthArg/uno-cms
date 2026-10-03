@@ -1,6 +1,8 @@
 Landing pública (SPEC §3, §6.3, §8).
 
-`page.tsx` lee el contenido **publicado** con `getContent`/`getCollection`, lo pasa a
+`page.tsx` sirve `/` con el idioma por defecto y `[idioma]/page.tsx` sirve `/en` y el resto de
+idiomas declarados (spec 17 §5.6); los dos componen la misma página, que vive en `landing.tsx`.
+Esa composición lee el contenido **publicado** con `getContent`/`getCollection`, lo pasa a
 `StaticContentProvider` y compone las secciones de `components/site/`. El visitante no abre
 ninguna petición de datos: el contenido viaja dentro del árbol que manda el servidor, y hay un
 e2e que cuenta las peticiones para comprobarlo.

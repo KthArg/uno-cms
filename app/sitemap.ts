@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { direccionDelSitio } from '@/cms/auth/panel';
+import { hayVariosIdiomas, idiomaPorDefecto, idiomas } from '@/cms/core/idiomas';
 import { laWebViveFuera } from '@/cms/vista-previa-remota';
 
 /**
@@ -43,11 +44,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const sitio = await direccionDelSitio();
 
-  return [
-    {
-      url: `${sitio}/`,
-      changeFrequency: 'weekly',
-      priority: 1,
-    },
-  ];
+  // Una URL por idioma (spec 17 §5.6): `/` para el de por defecto y `/<codigo>` para los demás.
+  // Cada una lleva **todas** las alternativas, también la suya, que es lo que pide `hreflang`:
+  // sin la propia, un buscador puede tomar la página como huérfana de su grupo.
+  const urlDe = (codigo: string): string =>
+    codigo === idiomaPorDefecto().codigo ? `${sitio}/` : `${sitio}/${codigo}`;
+
+  const alternativas = Object.fromEntries(idiomas().map(({ codigo }) => [codigo, urlDe(codigo)]));
+
+  return idiomas().map(({ codigo }) => ({
+    url: urlDe(codigo),
+    changeFrequency: 'weekly' as const,
+    priority: codigo === idiomaPorDefecto().codigo ? 1 : 0.9,
+    // Con un solo idioma no hay grupo que describir, y el sitemap queda como era.
+    ...(hayVariosIdiomas() ? { alternates: { languages: alternativas } } : {}),
+  }));
 }

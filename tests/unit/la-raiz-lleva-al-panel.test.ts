@@ -25,7 +25,11 @@ import { REPO_ROOT } from '../support/module-boundary';
  */
 
 const ORIGENES = 'https://mi-web.com';
-const LANDING = sinComentarios(readFileSync(join(REPO_ROOT, 'app', '(site)', 'page.tsx'), 'utf8'));
+// La composición de la landing, que desde la spec 17 vive en `landing.tsx`: la usan `/` y
+// `/[idioma]`, así que las dos rutas heredan el mismo orden de comprobaciones.
+const LANDING = sinComentarios(
+  readFileSync(join(REPO_ROOT, 'app', '(site)', 'landing.tsx'), 'utf8')
+);
 const SITEMAP = sinComentarios(readFileSync(join(REPO_ROOT, 'app', 'sitemap.ts'), 'utf8'));
 
 describe('T-248-1 a T-248-3 — cuándo se considera que la web vive fuera', () => {
