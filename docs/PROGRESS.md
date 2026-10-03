@@ -2121,7 +2121,7 @@ De una pregunta: si el CMS soporta cambiar de idioma y alimentar cada idioma por
 | El aviso            | Cada clave lleva `idioma`; los `tags` no cambian                                                                                                              |
 | El panel            | Selector en la cabecera (cookie), etiqueta «En English» en cada pantalla, y cada página fija su idioma al componerse (ADR-1102)                               |
 
-**1085 tests rápidos y 347 de integración**, más los cinco casos e2e de `idiomas.spec.ts`. **Las 30 mutaciones de los casos nuevos mueren**: cada uno se comprobó rompiendo la línea que protege, sobre una copia y restaurando desde ella.
+**1085 tests rápidos y 348 de integración**, más los cinco casos e2e de `idiomas.spec.ts`. **Las 31 mutaciones de los casos nuevos mueren**: cada uno se comprobó rompiendo la línea que protege, sobre una copia y restaurando desde ella.
 
 ### Lo que se probó a mano, en local y con Chrome
 
