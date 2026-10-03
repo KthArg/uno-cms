@@ -520,6 +520,10 @@ describeIntegration('idiomas: cada uno va por su lado', () => {
   });
 
   it('T-ID-35 y T-ID-36: el idioma va firmado en el token, y el de por defecto no se añade', async () => {
+    // El secreto lo pone el test y no el entorno: en local venía de `.env.local` y el caso pasaba;
+    // en CI no hay, y firmar lanza. Es lo que hace `settings-preview.test.ts`.
+    vi.stubEnv('APP_SECRET', 'secreto-de-pruebas-con-mas-de-treinta-y-dos-caracteres');
+
     const ingles = await createPreviewToken({ key: 'hero', idioma: 'en' });
     const espanol = await createPreviewToken({ key: 'hero', idioma: 'es' });
     const sinIdioma = await createPreviewToken({ key: 'hero' });
