@@ -1,5 +1,6 @@
 import appConfig from '@/cms.config';
 import { readCollection, readContent } from '@/cms/core/content';
+import { idiomaDeCodigo, idiomaPorDefecto } from '@/cms/core/idiomas';
 import type { CollectionKey, SingletonKey } from '@/cms/core/types';
 
 /**
@@ -32,7 +33,7 @@ function isCollection(key: string): key is CollectionKey {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ key: string }> }
 ): Promise<Response> {
   const { key } = await context.params;
@@ -41,12 +42,32 @@ export async function GET(
     'Cache-Control': `public, s-maxage=${S_MAXAGE}, stale-while-revalidate=${STALE_WHILE_REVALIDATE}`,
   };
 
+  if (!isSingleton(key) && !isCollection(key)) {
+    // Sin cabecera de caché: una respuesta de "no existe" cacheada durante un minuto haría que
+    // una clave recién añadida a la configuración pareciera seguir sin existir.
+    return Response.json({ error: 'not_found' }, { status: 404 });
+  }
+
+  // El idioma (spec 17 §5.5). Se mira **después** de la clave para que una clave inexistente
+  // responda el mismo 404 de siempre, con idioma o sin él: lo contrario diría qué claves existen
+  // a quien pruebe con un idioma inventado.
+  //
+  // Y es un 400, no un 404: la clave existe, lo que está mal es la pregunta. Sin caché, por lo
+  // mismo que el 404: declarar el idioma mañana no puede tardar un minuto en notarse.
+  const pedido = new URL(request.url).searchParams.get('idioma') ?? undefined;
+  const idioma = pedido ?? idiomaPorDefecto().codigo;
+  if (idiomaDeCodigo(idioma) === null) {
+    return Response.json({ error: 'idioma_desconocido' }, { status: 400 });
+  }
+
+  // `idioma` va siempre en la respuesta, también cuando no se pidió: quien la lee no tiene por
+  // qué saber cuál es el de por defecto para saber qué le han dado.
   if (isSingleton(key)) {
-    return Response.json({ key, data: await readContent(key) }, { headers });
+    return Response.json({ key, idioma, data: await readContent(key, idioma) }, { headers });
   }
 
   if (isCollection(key)) {
-    return Response.json({ key, items: await readCollection(key) }, { headers });
+    return Response.json({ key, idioma, items: await readCollection(key, idioma) }, { headers });
   }
 
   // Sin cabecera de caché: una respuesta de "no existe" cacheada durante un minuto haría que

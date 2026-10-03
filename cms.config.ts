@@ -10,6 +10,13 @@ import { defineConfig, s } from '@/cms/core/config';
 export default defineConfig({
   siteName: 'Mi Empresa',
 
+  // IDIOMAS: el primero es el de por defecto y se sirve en `/`; los demás, en `/<codigo>`. Cada
+  // uno se edita y se publica por separado (spec 17). Sin este campo, el sitio tiene uno, `es`.
+  idiomas: [
+    { codigo: 'es', nombre: 'Español' },
+    { codigo: 'en', nombre: 'English' },
+  ],
+
   // SINGLETONS: exactamente una instancia. Las secciones fijas de la landing.
   singletons: {
     hero: s.object(

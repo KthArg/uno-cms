@@ -9,3 +9,8 @@ prueba, `getContent` la que sirve la landing con su tag de invalidación. La mis
 repite en `settings.ts` y en `preview-content.ts`, y por el mismo motivo — `unstable_cache` lanza
 fuera de una petición de Next, y un módulo que solo se puede ejecutar dentro de un servidor acaba
 sin tests.
+
+`idiomas.ts` es el único sitio que traduce entre el **código** de un idioma (`es`, `en`) y lo que
+guarda la columna `locale`, donde el de por defecto es la cadena vacía (ADR-1100). Ninguna consulta
+escribe esa cadena a mano. `idioma-del-panel.ts` lee y valida la cookie con la que el panel recuerda
+en qué idioma se trabaja (ADR-1102).

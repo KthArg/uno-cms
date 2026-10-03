@@ -373,8 +373,95 @@ export interface CmsConfig<
   C = Record<string, CollectionDefinition>,
 > {
   readonly siteName: string;
+  /**
+   * Los idiomas del contenido (spec 17 §5.1). El primero es el de por defecto.
+   *
+   * En el objeto que devuelve `defineConfig` está **siempre**: si `cms.config.ts` no lo declara,
+   * vale `IDIOMAS_SI_NO_SE_DECLARAN`. Así nadie que lo lea tiene que acordarse del caso de un
+   * solo idioma.
+   */
+  readonly idiomas: readonly [Idioma, ...Idioma[]];
   readonly singletons: S;
   readonly collections: C;
+}
+
+/** Un idioma del contenido, tal como se declara en `cms.config.ts` (spec 17 §5.1). */
+export interface Idioma {
+  /** `es`, `ast`, `pt-BR`. Va en la URL de la landing y en el atributo `lang`. */
+  readonly codigo: string;
+  /** Lo que ve el editor en el selector del panel. */
+  readonly nombre: string;
+}
+
+/**
+ * Lo que vale `idiomas` cuando `cms.config.ts` no lo declara.
+ *
+ * Es el idioma que el sitio tenía escrito a mano en `<html lang="es">` antes de esta fase, así
+ * que un sitio que no declara nada sigue exactamente como estaba (spec 17 §6).
+ */
+export const IDIOMAS_SI_NO_SE_DECLARAN: readonly [Idioma] = [{ codigo: 'es', nombre: 'Español' }];
+
+/**
+ * `xx`, `xxx` o `xx-XX`. No es BCP 47 entero —que admite escrituras, variantes y extensiones—
+ * sino la parte que cabe sin sorpresas en un segmento de URL y en `lang`.
+ *
+ * Partido por el guion y comprobado a trozos, en vez de con una sola expresión con un grupo
+ * opcional: esa la marca `security/detect-unsafe-regex`, y aunque aquí no haya retroceso que
+ * explotar, una excepción a esa regla en el fichero que valida la configuración enseñaría a
+ * ponerlas.
+ */
+function esCodigoDeIdioma(codigo: string): boolean {
+  const [lengua, region, ...sobra] = codigo.split('-');
+  if (lengua === undefined || !/^[a-z]{2,3}$/.test(lengua) || sobra.length > 0) return false;
+  return region === undefined || /^[A-Z]{2}$/.test(region);
+}
+
+/**
+ * Los segmentos de primer nivel que ya son nuestros. La landing en otro idioma vive en
+ * `/<codigo>` (spec 17 §5.6), y un idioma llamado `admin` competiría con el panel.
+ *
+ * Solo hacen falta los de dos o tres letras minúsculas —lo que deja pasar `esCodigoDeIdioma`—,
+ * pero se listan todos los de `app/` para que añadir una ruta corta no exija acordarse de esto.
+ */
+const SEGMENTOS_PROPIOS = new Set(['admin', 'api', 'preview', 'setup']);
+
+function validarIdiomas(idiomas: readonly Idioma[]): void {
+  if (idiomas.length === 0) {
+    throw new ConfigError(
+      'idiomas: la lista está vacía. Quita el campo para tener un solo idioma, o declara al menos uno.'
+    );
+  }
+
+  const vistos = new Set<string>();
+
+  for (const [posicion, idioma] of idiomas.entries()) {
+    const donde = `idiomas[${String(posicion)}]`;
+
+    if (!esCodigoDeIdioma(idioma.codigo)) {
+      throw new ConfigError(
+        `${donde}.codigo: '${idioma.codigo}' no es un código de idioma válido. ` +
+          `Se usan dos o tres letras minúsculas, con región opcional en mayúsculas: es, ast, pt-BR.`
+      );
+    }
+
+    if (SEGMENTOS_PROPIOS.has(idioma.codigo)) {
+      throw new ConfigError(
+        `${donde}.codigo: '${idioma.codigo}' choca con la ruta /${idioma.codigo} del CMS, ` +
+          `y la landing en ese idioma tiene que vivir ahí.`
+      );
+    }
+
+    if (vistos.has(idioma.codigo)) {
+      throw new ConfigError(`${donde}.codigo: '${idioma.codigo}' está repetido.`);
+    }
+    vistos.add(idioma.codigo);
+
+    if (idioma.nombre.trim() === '') {
+      throw new ConfigError(
+        `${donde}.nombre: está vacío, y es lo que ve quien edita en el selector de idioma.`
+      );
+    }
+  }
 }
 
 /**
@@ -430,6 +517,7 @@ export function defineConfig<
   const C extends CollectionsOf<C>,
 >(input: {
   readonly siteName: string;
+  readonly idiomas?: readonly [Idioma, ...Idioma[]];
   readonly singletons: S;
   readonly collections?: C;
 }): CmsConfig<S, C> {
@@ -489,8 +577,13 @@ export function defineConfig<
     );
   }
 
+  // El tipo exige al menos un elemento, pero quien escribe `cms.config.ts` en JavaScript —o con
+  // un `as`— puede pasar una lista vacía, y eso hay que pararlo aquí y no en una página cualquiera.
+  if (input.idiomas !== undefined) validarIdiomas(input.idiomas);
+
   return {
     siteName: input.siteName,
+    idiomas: input.idiomas ?? IDIOMAS_SI_NO_SE_DECLARAN,
     singletons: input.singletons,
     collections: (input.collections ?? {}) as C,
   };

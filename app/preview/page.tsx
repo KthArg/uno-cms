@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { idiomaDeCodigo } from '@/cms/core/idiomas';
 import { previewContentConObjetivo } from '@/cms/core/preview-content';
 import { PreviewProvider } from '@/cms/preview/PreviewProvider';
 import { verifyToken } from '@/cms/security/tokens';
@@ -37,9 +38,12 @@ export default async function VistaPrevia({
   const { token } = await searchParams;
 
   let key: string | undefined;
+  let idioma: string | undefined;
   try {
     const verificado = verifyToken('preview', token);
     key = verificado.ok ? verificado.data['key'] : undefined;
+    // Sin idioma dentro es un token del de por defecto: todos los de antes de la spec 17 lo son.
+    idioma = verificado.ok ? verificado.data['idioma'] : undefined;
   } catch {
     // `verifyToken` **lanza** si `APP_SECRET` falta o es corto: es un despliegue mal
     // configurado, no un token inválido. Desde una ruta pública se responde 404 igualmente,
@@ -50,17 +54,21 @@ export default async function VistaPrevia({
 
   if (key === undefined) notFound();
 
+  // Un token firmado para un idioma que `cms.config.ts` ya no declara: el enlace es nuestro, pero
+  // apunta a algo que ha dejado de existir, y eso es un 404 y no un 500.
+  if (idioma !== undefined && idiomaDeCodigo(idioma) === null) notFound();
+
   // Lo publicado de todo, y el borrador de lo que autoriza el token (ADR-501). Esta ruta **no
   // escribe nada**: la vista previa no llama a ninguna action.
   //
   // El objetivo dice a dónde aplicar los cambios que lleguen por `postMessage`. Lo calcula el
   // servidor porque, para un elemento de colección, hace falta su posición en la lista — y la
   // lista que ve la landing no lleva claves.
-  const { contenido, objetivo } = await previewContentConObjetivo(key);
+  const { contenido, objetivo } = await previewContentConObjetivo(key, idioma);
 
   return (
     <PreviewProvider initial={contenido} objetivo={objetivo}>
-      <main>
+      <main lang={idioma}>
         <Hero />
         <About />
         <Testimonials />

@@ -26,7 +26,10 @@ async function ponerEntrada(
       published,
       status: published === null ? 'draft' : 'changed',
     })
-    .onConflictDoUpdate({ target: contentEntries.key, set: { draft, published } });
+    .onConflictDoUpdate({
+      target: [contentEntries.key, contentEntries.locale],
+      set: { draft, published },
+    });
 }
 
 describeIntegration('contenido de la vista previa', () => {

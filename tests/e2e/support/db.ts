@@ -83,7 +83,7 @@ export function dejarSinPublicar(key: string, draft: Record<string, unknown>, ty
   ejecutarSql(
     `insert into content_entries (key, type, draft, published, status)
      values ($1, $2, $3::jsonb, null, 'changed')
-     on conflict (key) do update
+     on conflict (key, locale) do update
        set draft = excluded.draft, published = null, status = 'changed'`,
     [key, type, JSON.stringify(draft)]
   );
@@ -106,7 +106,7 @@ export function ponerBorrador(key: string, draft: Record<string, unknown>): void
   ejecutarSql(
     `insert into content_entries (key, type, draft)
      values ($1, $1, $2::jsonb)
-     on conflict (key) do update set draft = excluded.draft`,
+     on conflict (key, locale) do update set draft = excluded.draft`,
     [key, JSON.stringify(draft)]
   );
 }

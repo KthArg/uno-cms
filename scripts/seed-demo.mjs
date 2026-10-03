@@ -104,7 +104,7 @@ try {
     await pool.query(
       `insert into content_entries (key, type, draft, published, status)
        values ($1, $2, $3::jsonb, $3::jsonb, 'published')
-       on conflict (key) do update set draft = $3::jsonb, published = $3::jsonb, status = 'published'`,
+       on conflict (key, locale) do update set draft = $3::jsonb, published = $3::jsonb, status = 'published'`,
       [key, type, JSON.stringify(datos)]
     );
   }
@@ -114,7 +114,7 @@ try {
       await pool.query(
         `insert into content_entries (key, type, draft, published, status, sort_order)
          values ($1, $2, $3::jsonb, $3::jsonb, 'published', $4)
-         on conflict (key) do update set draft = $3::jsonb, published = $3::jsonb, status = 'published'`,
+         on conflict (key, locale) do update set draft = $3::jsonb, published = $3::jsonb, status = 'published'`,
         [`${coleccion}.demo-${String(indice)}`, coleccion, JSON.stringify(datos), indice]
       );
     }

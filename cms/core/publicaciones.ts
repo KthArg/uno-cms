@@ -72,7 +72,9 @@ export async function publicacionesPorDia(
       .from(contentEntries)
       .where(
         sql`${contentEntries.publishedAt} >= ${desde} and not exists (
-          select 1 from ${revisions} where ${revisions.entryKey} = ${contentEntries.key}
+          select 1 from ${revisions}
+          where ${revisions.entryKey} = ${contentEntries.key}
+            and ${revisions.locale} = ${contentEntries.locale}
         )`
       ),
   ]);
