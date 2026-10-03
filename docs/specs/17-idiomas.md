@@ -177,7 +177,7 @@ GET /api/content/hero?idioma=en
 | `/xx` desconocido         | 404                                                                      |
 
 - `<html lang>` lleva el código del **idioma por defecto**, sacado de `cms.config.ts` y no escrito a
-  mano. El contenido de `/en` va dentro de un `<div lang="en">`: el `<html>` lo comparte el layout
+  mano. El contenido de `/en` va dentro de un `<main lang="en">`: el `<html>` lo comparte el layout
   raíz con el panel, y saber la ruta ahí obligaría a volver dinámica cualquier página. El atributo
   `lang` en un elemento es HTML válido y los lectores de pantalla lo respetan.
 - `sitemap.xml` lista una URL por idioma, cada una con sus alternativas (`hreflang`).
@@ -264,12 +264,13 @@ que pedía.
 
 ### 7.4 Rellenar desde el idioma por defecto
 
-| Caso    | Qué comprueba                                                                         |
-| ------- | ------------------------------------------------------------------------------------- |
-| T-ID-19 | Copia el borrador español sobre el inglés, sube la versión y deja el estado `changed` |
-| T-ID-20 | No publica: lo publicado en inglés sigue igual                                        |
-| T-ID-21 | Con una versión vieja responde `VERSION_CONFLICT` y no copia nada                     |
-| T-ID-22 | Para el idioma por defecto o para un elemento de lista responde `CONFLICT`            |
+| Caso     | Qué comprueba                                                                         |
+| -------- | ------------------------------------------------------------------------------------- |
+| T-ID-19  | Copia el borrador español sobre el inglés, sube la versión y deja el estado `changed` |
+| T-ID-20  | No publica: lo publicado en inglés sigue igual                                        |
+| T-ID-21  | Con una versión vieja responde `VERSION_CONFLICT` y no copia nada                     |
+| T-ID-21b | Sin fila en el idioma destino responde `NOT_FOUND`, no un conflicto que no existe     |
+| T-ID-22  | Para el idioma por defecto o para un elemento de lista responde `CONFLICT`            |
 
 ### 7.5 La lectura y la API
 

@@ -402,7 +402,9 @@ y este cuerpo:
   "id": "e2a1…",
   "evento": "content.published",
   "ts": 1757404800123,
-  "claves": [{ "key": "testimonials.a1b2", "tipo": "item", "coleccion": "testimonials" }],
+  "claves": [
+    { "key": "testimonials.a1b2", "tipo": "item", "coleccion": "testimonials", "idioma": "es" }
+  ],
   "tags": ["content:testimonials"]
 }
 ```

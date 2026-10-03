@@ -108,12 +108,15 @@ El cuerpo:
   "evento": "content.published",
   "ts": 1757404800123,
   "claves": [
-    { "key": "hero", "tipo": "singleton" },
-    { "key": "testimonials.a1b2", "tipo": "item", "coleccion": "testimonials" }
+    { "key": "hero", "tipo": "singleton", "idioma": "es" },
+    { "key": "testimonials.a1b2", "tipo": "item", "coleccion": "testimonials", "idioma": "es" }
   ],
   "tags": ["content:hero", "content:testimonials"]
 }
 ```
+
+`idioma` lo añadió la spec 17 (§5.8): el código del idioma en el que cambió cada clave, también el
+de por defecto. No cambia `tags`.
 
 Y un campo más, **solo en los eventos que lo tienen** (#285):
 
