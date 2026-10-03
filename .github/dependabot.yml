@@ -1,10 +1,13 @@
 version: 2
+# Mensual y no semanal (#307). Con PR cada lunes se acumulaban sin revisar —cinco abiertos, el más
+# viejo de tres semanas—, que es justo el flujo que los comentarios de abajo dicen que acaba
+# mergeándose sin mirar. Los avisos de seguridad no esperan a esta frecuencia: `pnpm audit` corre
+# en el CI de cada PR y lo tumba en cuanto aparece uno alto (#304).
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     open-pull-requests-limit: 5
     labels: [infra]
     commit-message:
@@ -57,7 +60,7 @@ updates:
         update-types: [minor, patch]
     ignore:
       # Next, React y TypeScript están fijados por SPEC §2 y ADR-100/101. Subir de mayor es
-      # un trabajo con su propio ADR y su propio PR, no algo que se mergee un lunes.
+      # un trabajo con su propio ADR y su propio PR, no algo que entre con la actualización del mes.
       - dependency-name: next
         update-types: [version-update:semver-major]
       # eslint-config-next es el config oficial del framework y su serie SIGUE a la de
@@ -74,12 +77,17 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: zod
         update-types: [version-update:semver-major]
+      # Los tipos de Node van con la mayor de Node que se ejecuta (Node 24 en CI, `engines` >=22).
+      # Con los de una mayor posterior, `tsc` acepta funciones que el runtime no tiene y el fallo
+      # sale en producción en vez de en el typecheck. Dependabot propuso la 26 en #297 (#307).
+      # Se suben a mano, en el mismo PR que sube el runtime.
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     labels: [infra]
     commit-message:
       prefix: ci
