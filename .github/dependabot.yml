@@ -60,7 +60,7 @@ updates:
         update-types: [minor, patch]
     ignore:
       # Next, React y TypeScript están fijados por SPEC §2 y ADR-100/101. Subir de mayor es
-      # un trabajo con su propio ADR y su propio PR, no algo que se mergee un lunes.
+      # un trabajo con su propio ADR y su propio PR, no algo que entre con la actualización del mes.
       - dependency-name: next
         update-types: [version-update:semver-major]
       # eslint-config-next es el config oficial del framework y su serie SIGUE a la de
