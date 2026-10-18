@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { getCollection, getContent } from '@/cms/core/content';
 import { isSiteConfigured } from '@/cms/core/settings';
 import { StaticContentProvider } from '@/cms/preview/ContentContext';
-import { laWebViveFuera } from '@/cms/vista-previa-remota';
+import { webExterna } from '@/cms/core/web-externa';
 import { About } from '@/components/site/About';
 import { Faqs } from '@/components/site/Faqs';
 import { Hero } from '@/components/site/Hero';
@@ -17,26 +17,28 @@ import { Testimonials } from '@/components/site/Testimonials';
  * aplica igual: esta es la composición que se toca.
  */
 export async function Landing({ idioma }: { idioma: string }) {
-  // Antes que nada: un sitio recién desplegado no tiene contenido **ni** dueño, y lo útil ahí no
-  // es una página en blanco.
-  //
-  // **Y va delante del redirect de abajo a propósito** (spec 14 §3, caso T-248-4). Hoy nada más
-  // en la aplicación lleva a `/setup`: esta pantalla es la única forma de descubrir esa dirección
-  // en un despliegue recién hecho. Con el orden al revés, quien despliegue el CMS para una web de
-  // fuera se queda sin puerta de entrada y tiene que conocer `/setup` de memoria.
-  if (!(await isSiteConfigured())) return <SinConfigurar />;
-
   /**
    * Si la web vive fuera (ADR-701), esta landing no es la de nadie: es la de ejemplo con el
    * contenido de verdad dentro, servida en el dominio del panel. Quien escribe esa dirección
-   * quiere el panel.
+   * quiere el panel, o configurarlo si todavía no lo está (spec 18).
    *
-   * `redirect` emite un **307**, temporal, y eso importa: esto depende de una variable de entorno
-   * que quien despliega puede quitar, y un 308 se queda cacheado en el navegador de cada
-   * visitante mucho después. El coste de equivocarse en ese sentido lo paga alguien que ya no ve
-   * su propia web y no sabe por qué.
+   * Los dos `redirect` emiten un **307**, temporal, y eso importa: dependen de un estado que
+   * cambia. `/setup` responde 404 en cuanto se completa, y la variable de la vista previa la
+   * puede quitar quien despliega; un 308 se quedaría cacheado en el navegador de cada visitante
+   * mandándolo a donde ya no toca.
    */
-  if (laWebViveFuera()) redirect('/admin');
+  const fuera = webExterna();
+
+  // Primero el sitio sin configurar (spec 14 §3): un despliegue recién hecho no tiene contenido
+  // **ni** dueño. Con la web en casa se enseña el camino a `/setup` en vez de saltar, y esa
+  // pantalla es la única forma de descubrir la dirección. Con la web fuera se va directamente:
+  // en este dominio no hay nada más que hacer que configurar el panel (ADR-1200).
+  if (!(await isSiteConfigured())) {
+    if (fuera) redirect('/setup');
+    return <SinConfigurar />;
+  }
+
+  if (fuera) redirect('/admin');
 
   // Las cuatro lecturas van en paralelo. Son independientes entre sí y cada una tiene su propia
   // entrada de caché, así que encadenarlas con `await` sueltos solo añadiría latencia.

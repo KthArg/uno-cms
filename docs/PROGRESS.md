@@ -2146,3 +2146,28 @@ Contra `pnpm dev` y `unocms_dev`, recorrido entero: escribir y publicar la porta
 - **La guarda del móvil sirvió para algo que no sabía que existía.** Los botones del selector medían 36 px y T-213-3 lo cazó en la primera pasada de la e2e.
 - **Una fila de `PENDIENTES.md` era falsa y se escribió por prudencia.** Decía que un borrador sin guardar se perdía al cambiar de idioma. Probado a mano, no se pierde. Una deuda inventada vale lo mismo que una deuda escondida: hace mirar donde no hay nada.
 - **Un test de componentes probaba la versión que el editor ya tenía.** El de «Rellenar» comprobaba la llamada sin haber escrito nada antes, y entonces la versión de antes y la de después de guardar son la misma. Se rehízo escribiendo primero, y la mutación que quita el guardado previo ahora lo mata.
+
+## La web externa se declara (spec 18)
+
+**En curso.** Spec [`18-la-web-externa-se-declara.md`](specs/18-la-web-externa-se-declara.md),
+issue [#314](https://github.com/KthArg/uno-cms/issues/314), ADR-1200 y la enmienda de SPEC §5.1 y
+§7.3.
+
+### De dónde salió
+
+Del primer despliegue de verdad para una web de fuera (Boka Verde): la raíz del panel servía la
+landing de ejemplo con el contenido real dentro. La spec 14 decidía «la web vive fuera» solo con
+las variables de la vista previa remota, que son opcionales.
+
+### Qué funciona
+
+- `webExterna: true` en `cms.config.ts` basta para que la raíz no sirva la landing, sin variables.
+- Sin configurar y con la web fuera, la raíz va a `/setup`; configurado, a `/admin`.
+- Sin declarar nada, todo como antes.
+
+### Lo verificado y lo que no
+
+Los casos T-18-1 a T-18-10 pasan, y las nueve mutaciones de las líneas que protegen mueren. **No
+está verificado contra un despliegue**: desde la sesión donde se escribió no se podía llegar al
+dominio del panel de Boka Verde, así que lo que se vio allí se conoce por quien lo vio, no se ha
+reproducido.

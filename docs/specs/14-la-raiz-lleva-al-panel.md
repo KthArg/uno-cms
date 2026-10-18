@@ -2,6 +2,10 @@
 
 > Escrita **antes** del código. Los casos de la sección 6 son la definición de "hecho".
 >
+> **Enmendada por la [spec 18](18-la-web-externa-se-declara.md) (ADR-1200, #314).** Qué decide
+> que la web vive fuera (§2) y qué hace la raíz de un sitio sin configurar con la web fuera (§3)
+> son ahora los de la spec 18; T-248-4 y T-248-5 los sustituyen T-18-4 a T-18-7.
+>
 > Origen: [#248](https://github.com/KthArg/uno-cms/issues/248). Continúa la
 > [spec 08](08-vista-previa-remota.md) y no la deroga: usa su misma configuración y su misma
 > función de decisión.

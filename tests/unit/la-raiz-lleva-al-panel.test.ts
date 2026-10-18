@@ -1,36 +1,19 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { laWebViveFuera, urlDeVistaPreviaRemota } from '@/cms/vista-previa-remota';
-import { sinComentarios } from '../support/codigo';
-import { REPO_ROOT } from '../support/module-boundary';
 
 /**
- * T-248-1 a T-248-7: con la web fuera, la raíz lleva al panel (spec 14, issue #248).
+ * T-248-1 a T-248-3: cuándo está puesta la vista previa remota (spec 14, issue #248).
  *
  * ## Lo que se puede comprobar aquí y lo que no
  *
  * La **condición** se ejercita de verdad: es una función pura con sus dos variables por
  * parámetro, y los tres estados que importan tienen su caso.
  *
- * El **cableado** —que la landing la consulte, y en el orden correcto— se comprueba leyendo el
- * fichero, que es análisis de texto y detecta lo que se puede detectar así: que la llamada esté,
- * y que esté **después** de la comprobación del sitio sin configurar. No demuestra que Next
- * redirija; eso lo demostraría un e2e, y esta fase no lo tiene por el motivo que la spec 08 ya
- * aceptó: la suite arranca un servidor con la fase remota apagada a mano, justo para que los
- * casos de la vista previa local sigan valiendo.
- *
- * Se dice aquí en vez de dejarlo implícito, porque una guarda de texto que se lee como si fuera
- * de comportamiento es la que hace creer que algo está cubierto cuando no lo está.
+ * El cableado —que la landing y el sitemap la usen— lo prueba la spec 18, en
+ * `tests/ui/la-raiz-con-la-web-fuera.test.tsx`.
  */
 
 const ORIGENES = 'https://mi-web.com';
-// La composición de la landing, que desde la spec 17 vive en `landing.tsx`: la usan `/` y
-// `/[idioma]`, así que las dos rutas heredan el mismo orden de comprobaciones.
-const LANDING = sinComentarios(
-  readFileSync(join(REPO_ROOT, 'app', '(site)', 'landing.tsx'), 'utf8')
-);
-const SITEMAP = sinComentarios(readFileSync(join(REPO_ROOT, 'app', 'sitemap.ts'), 'utf8'));
 
 describe('T-248-1 a T-248-3 — cuándo se considera que la web vive fuera', () => {
   it('T-248-1: sin `PREVIEW_URL`, no vive fuera', () => {
@@ -62,59 +45,5 @@ describe('T-248-1 a T-248-3 — cuándo se considera que la web vive fuera', () 
   });
 });
 
-describe('T-248-4 y T-248-5 — la landing pregunta, y en el orden correcto', () => {
-  it('T-248-5: usa `laWebViveFuera` y no una condición propia', () => {
-    expect(LANDING).toContain("from '@/cms/vista-previa-remota'");
-    expect(LANDING).toContain('laWebViveFuera()');
-
-    // Y no se ha colado una copia leyendo el entorno por su cuenta, que es como nacen las dos
-    // verdades que el caso de arriba impide en la función.
-    expect(LANDING).not.toContain('PREVIEW_URL');
-    expect(LANDING).not.toContain('PREVIEW_ORIGINS');
-  });
-
-  it('T-248-4: el sitio sin configurar se comprueba ANTES de redirigir', () => {
-    /**
-     * El orden es el caso, no un detalle de estilo.
-     *
-     * Hoy **nada más en la aplicación lleva a `/setup`**: la pantalla de "todavía no está listo"
-     * es la única forma de descubrir esa dirección en un despliegue recién hecho. Con el orden
-     * invertido, quien despliegue el CMS para una web de fuera se queda sin puerta de entrada.
-     */
-    const sinConfigurar = LANDING.indexOf('isSiteConfigured()');
-    const redirige = LANDING.indexOf('laWebViveFuera()');
-
-    expect(
-      sinConfigurar,
-      'la landing ya no comprueba si el sitio está configurado'
-    ).toBeGreaterThan(-1);
-    expect(redirige, 'la landing ya no consulta si la web vive fuera').toBeGreaterThan(-1);
-    expect(
-      sinConfigurar,
-      'redirigir antes de comprobar el sitio deja un despliegue nuevo sin camino a /setup'
-    ).toBeLessThan(redirige);
-  });
-
-  it('y redirige al panel, no a otra parte', () => {
-    expect(LANDING).toContain("redirect('/admin')");
-  });
-});
-
-describe('T-248-6 y T-248-7 — el sitemap', () => {
-  it('T-248-6: con la web fuera no anuncia nada', () => {
-    expect(SITEMAP).toContain('laWebViveFuera()');
-    expect(SITEMAP).toContain('return [];');
-  });
-
-  it('T-248-7: y el corte va antes de construir la lista', () => {
-    // Si estuviera después, el sitemap anunciaría `/` igualmente: una dirección que redirige al
-    // panel, que es `noindex`. Es el mismo error que este fichero evita con `/preview`, en
-    // pequeño.
-    const corte = SITEMAP.indexOf('laWebViveFuera()');
-    const lista = SITEMAP.indexOf('changeFrequency');
-
-    expect(corte).toBeGreaterThan(-1);
-    expect(lista).toBeGreaterThan(-1);
-    expect(corte).toBeLessThan(lista);
-  });
-});
+// T-248-4 a T-248-7 los sustituye la spec 18 (ADR-1200): el cableado de la landing se prueba
+// llamándola en `tests/ui/la-raiz-con-la-web-fuera.test.tsx`, y el del sitemap allí mismo.

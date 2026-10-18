@@ -303,6 +303,10 @@ export default defineConfig({
 });
 ```
 
+> **Enmienda — ADR-1200 (issue #314).** `defineConfig` acepta además `webExterna: true` para
+> declarar que la landing vive fuera de este despliegue (ADR-701). Con ella, la raíz lleva al panel
+> aunque no esté puesta la vista previa remota. La spec es `docs/specs/18-la-web-externa-se-declara.md`.
+
 **Tipos de campo del MVP:** `text` (con `multiline`), `richtext`, `number`, `boolean`, `select`, `link`, `image`, `color`. Post-MVP: `object` anidado, `list` inline, `reference`, `date`.
 
 De este archivo se derivan automáticamente:
@@ -515,6 +519,12 @@ X-Robots-Tag: noindex           # solo en /admin, /preview, /api, /setup
 
 1. El deploy exige `APP_SECRET` y `AUTH_SECRET` (≥ 32 bytes; `.env.example` explica cómo generarlos y el README de Vercel Deploy Button los marca requeridos).
 2. Sin usuarios en BD, toda ruta redirige a `/setup`, que exige el `SETUP_TOKEN` (env var definida por quien despliega). Con token válido se crea el primer admin y se escribe `settings.setup_completed = true`; a partir de ahí `/setup` devuelve 404 aunque el token siga en las env.
+
+> **Enmienda — spec 14 y ADR-1200 (issue #314).** Lo que se implementó en la raíz no es una
+> redirección en todos los casos: con la landing en este despliegue, `/` enseña «Este sitio todavía
+> no está listo» con un enlace a `/setup`. Con la web fuera (`webExterna` o la vista previa remota),
+> `/` sí redirige a `/setup` mientras no esté configurado, y a `/admin` después.
+
 3. Nunca existen credenciales por defecto.
 
 ### 7.4 Env vars
