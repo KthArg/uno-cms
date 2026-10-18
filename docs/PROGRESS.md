@@ -2147,6 +2147,8 @@ Contra `pnpm dev` y `unocms_dev`, recorrido entero: escribir y publicar la porta
 - **Una fila de `PENDIENTES.md` era falsa y se escribió por prudencia.** Decía que un borrador sin guardar se perdía al cambiar de idioma. Probado a mano, no se pierde. Una deuda inventada vale lo mismo que una deuda escondida: hace mirar donde no hay nada.
 - **Un test de componentes probaba la versión que el editor ya tenía.** El de «Rellenar» comprobaba la llamada sin haber escrito nada antes, y entonces la versión de antes y la de después de guardar son la misma. Se rehízo escribiendo primero, y la mutación que quita el guardado previo ahora lo mata.
 
+---
+
 ## La web externa se declara (spec 18)
 
 **En curso.** Spec [`18-la-web-externa-se-declara.md`](specs/18-la-web-externa-se-declara.md),
