@@ -166,3 +166,59 @@ test('T-233-1: la sección marcada cambia al navegar por el menú', async ({ pag
   await expect(page).toHaveURL(/\/admin$/);
   await expect.poll(marcada).toEqual(['Contenido']);
 });
+
+/**
+ * T-318-1 y T-318-2: **el rail está siempre en el centro de la ventana** (issue #318).
+ *
+ * Hasta #318 el rail se centraba en el contenedor, que mide lo que mida la página: al entrar en
+ * una pantalla larga aparecía a media página, y solo se quedaba quieto cuando el scroll lo
+ * alcanzaba. Por eso el caso mide **en los dos extremos del scroll** y sobre una página que se
+ * alarga a propósito: en una pantalla más corta que la ventana el fallo no se ve, porque centro
+ * del contenedor y centro de la ventana coinciden.
+ *
+ * Tiene que ser e2e: jsdom no calcula posiciones, y lo que falla es el CSS.
+ */
+test('T-318-1: en escritorio el rail sigue en el centro de la ventana al desplazarse', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 800 });
+  await crearYEntrar(page, { email: 'rail-centrado@ejemplo.com', role: 'admin' });
+
+  const rail = page.getByRole('navigation', { name: 'Secciones del panel' });
+  await expect(rail).toBeVisible();
+
+  // La página, más larga que la ventana. Sin esto el caso dependería de cuánto contenido haya
+  // en la base de e2e, y con poco pasaría también con el fallo.
+  await page.evaluate(() => {
+    const relleno = document.createElement('div');
+    relleno.style.height = '4000px';
+    document.querySelector('main')?.append(relleno);
+  });
+  const alto = await page.evaluate(() => document.documentElement.scrollHeight);
+  expect(alto, 'la página no quedó más larga que la ventana').toBeGreaterThan(2 * 800);
+
+  async function desvioDelCentro(): Promise<number> {
+    const caja = await rail.boundingBox();
+    expect(caja, 'el rail no tiene caja: no se está pintando').not.toBeNull();
+    return Math.abs(caja!.y + caja!.height / 2 - 800 / 2);
+  }
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  expect(await desvioDelCentro(), 'arriba del todo').toBeLessThanOrEqual(1);
+
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  expect(await desvioDelCentro(), 'abajo del todo').toBeLessThanOrEqual(1);
+});
+
+test('T-318-2: en el móvil la barra de secciones sigue pegada abajo', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await crearYEntrar(page, { email: 'rail-movil@ejemplo.com', role: 'admin' });
+
+  const barra = page.getByRole('navigation', { name: 'Secciones del panel' });
+  await expect(barra).toBeVisible();
+
+  const caja = await barra.boundingBox();
+  expect(caja).not.toBeNull();
+  expect(Math.abs(caja!.y + caja!.height - 844)).toBeLessThanOrEqual(1);
+  expect(caja!.width).toBeCloseTo(390, 0);
+});
