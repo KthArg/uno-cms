@@ -2217,5 +2217,9 @@ comentarios o filas de documentación prometían algo falso, incluida una «deud
 - **Un arreglo era peor que el problema.** Leer la API pública por `unstable_cache` quitaba la
   consulta por petición y, a cambio, auto-hospedado con varias instancias servía contenido viejo
   para siempre. Lo vio la revisión; se retiró (T-S-20) y quedó en `PENDIENTES.md`.
+- **Un test de e2e falló por un carácter invisible.** Al escribir el fichero desde un script, el
+  `` de una expresión regular se convirtió en un retroceso literal. El caso decía que la página
+  no tenía ningún `<script>`, y lo que no tenía era una expresión capaz de encontrarlos. En CI se
+  ve igual un test roto que un código roto; hay que leer cuál de los dos es antes de tocar nada.
 - **El número de la spec estaba cogido**, como el prefijo de los casos en la de idiomas: #317
   añadió la 18 mientras esta se escribía. Se vio porque ADR-1200 la citaba.
