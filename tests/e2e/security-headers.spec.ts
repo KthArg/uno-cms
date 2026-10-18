@@ -244,7 +244,9 @@ test('T-R-1: sin PREVIEW_ORIGINS, la ruta de borradores responde 404', async ({ 
  * Lo que añadió la auditoría de la spec 19, sobre la respuesta real.
  */
 
-test('T-S-22: los <script> de la página llevan el nonce de su propia CSP', async ({ request }) => {
+test('la CSP llega a Next: los <script> llevan el nonce de su propia respuesta', async ({
+  request,
+}) => {
   // El nonce le llega a Next por la cabecera de la petición, y es él quien se lo pone a sus
   // scripts. Si dejara de llegarle, la CSP los bloquearía y la página se quedaría sin hidratar:
   // es lo que comprueba esto, y lo que ningún unitario puede ver.
@@ -252,7 +254,7 @@ test('T-S-22: los <script> de la página llevan el nonce de su propia CSP', asyn
   const nonce = /'nonce-([^']+)'/.exec(respuesta.headers()['content-security-policy'] ?? '')?.[1];
   const html = await respuesta.text();
 
-  const scripts = html.match(/<script[^>]*>/g) ?? [];
+  const scripts = html.match(/<script\b[^>]*>/g) ?? [];
   expect(nonce).toBeTruthy();
   expect(scripts.length).toBeGreaterThan(0);
   for (const script of scripts) {
