@@ -34,7 +34,7 @@ export const dynamic = 'force-dynamic';
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   /**
    * Con la web fuera (ADR-701, specs 14 y 18), este despliegue **no sirve contenido público**: `/`
-   * lleva al panel, que es `noindex` por SPEC §7.2.
+   * lleva al panel, o a `/setup` mientras no esté configurado, y los dos son `noindex` por SPEC §7.2.
    *
    * Anunciarla igualmente sería invitar al buscador a una redirección hacia una página que le
    * pedimos no indexar — el mismo error, en pequeño, que este fichero existe para no cometer con

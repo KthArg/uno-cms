@@ -65,7 +65,8 @@ export async function Landing({ idioma }: { idioma: string }) {
 }
 
 /**
- * Lo que se ve en un despliegue recién hecho, antes de crear la primera cuenta.
+ * Lo que se ve en un despliegue recién hecho con la landing en casa, antes de crear la primera
+ * cuenta. Con la web fuera no se ve nunca: la raíz lleva directamente a `/setup` (spec 18).
  *
  * Dice qué falta y a dónde ir. La alternativa —la landing vacía— deja a quien acaba de
  * desplegar mirando una página en blanco sin saber si ha fallado algo.
