@@ -178,37 +178,44 @@ test('T-233-1: la sección marcada cambia al navegar por el menú', async ({ pag
  *
  * Tiene que ser e2e: jsdom no calcula posiciones, y lo que falla es el CSS.
  */
-test('T-318-1: en escritorio el rail sigue en el centro de la ventana al desplazarse', async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1440, height: 800 });
-  await crearYEntrar(page, { email: 'rail-centrado@ejemplo.com', role: 'admin' });
+/**
+ * Dos anchos porque las cuentas son dos: `top-5` en `lg` y `top-7` en `xl`, cada una atada al
+ * relleno de su tramo. Midiendo solo uno, la otra podía desviarse sin que nada fallara.
+ */
+for (const ancho of [1100, 1440]) {
+  test(`T-318-1: a ${ancho} px el rail sigue en el centro de la ventana al desplazarse`, async ({
+    page,
+  }) => {
+    const alto = 800;
+    await page.setViewportSize({ width: ancho, height: alto });
+    await crearYEntrar(page, { email: `rail-centrado-${ancho}@ejemplo.com`, role: 'admin' });
 
-  const rail = page.getByRole('navigation', { name: 'Secciones del panel' });
-  await expect(rail).toBeVisible();
+    const rail = page.getByRole('navigation', { name: 'Secciones del panel' });
+    await expect(rail).toBeVisible();
 
-  // La página, más larga que la ventana. Sin esto el caso dependería de cuánto contenido haya
-  // en la base de e2e, y con poco pasaría también con el fallo.
-  await page.evaluate(() => {
-    const relleno = document.createElement('div');
-    relleno.style.height = '4000px';
-    document.querySelector('main')?.append(relleno);
+    // La página, más larga que la ventana. Sin esto el caso dependería de cuánto contenido haya
+    // en la base de e2e, y con poco pasaría también con el fallo.
+    await page.evaluate(() => {
+      const relleno = document.createElement('div');
+      relleno.style.height = '4000px';
+      document.querySelector('main')?.append(relleno);
+    });
+    const largo = await page.evaluate(() => document.documentElement.scrollHeight);
+    expect(largo, 'la página no quedó más larga que la ventana').toBeGreaterThan(2 * alto);
+
+    async function desvioDelCentro(): Promise<number> {
+      const caja = await rail.boundingBox();
+      expect(caja, 'el rail no tiene caja: no se está pintando').not.toBeNull();
+      return Math.abs(caja!.y + caja!.height / 2 - alto / 2);
+    }
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    expect(await desvioDelCentro(), 'arriba del todo').toBeLessThanOrEqual(1);
+
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    expect(await desvioDelCentro(), 'abajo del todo').toBeLessThanOrEqual(1);
   });
-  const alto = await page.evaluate(() => document.documentElement.scrollHeight);
-  expect(alto, 'la página no quedó más larga que la ventana').toBeGreaterThan(2 * 800);
-
-  async function desvioDelCentro(): Promise<number> {
-    const caja = await rail.boundingBox();
-    expect(caja, 'el rail no tiene caja: no se está pintando').not.toBeNull();
-    return Math.abs(caja!.y + caja!.height / 2 - 800 / 2);
-  }
-
-  await page.evaluate(() => window.scrollTo(0, 0));
-  expect(await desvioDelCentro(), 'arriba del todo').toBeLessThanOrEqual(1);
-
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  expect(await desvioDelCentro(), 'abajo del todo').toBeLessThanOrEqual(1);
-});
+}
 
 test('T-318-2: en el móvil la barra de secciones sigue pegada abajo', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
