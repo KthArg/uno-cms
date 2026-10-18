@@ -381,6 +381,13 @@ export interface CmsConfig<
    * solo idioma.
    */
   readonly idiomas: readonly [Idioma, ...Idioma[]];
+  /**
+   * Si la landing vive fuera de este despliegue (spec 18, ADR-1200). Con ella, la raíz lleva al
+   * panel —o a `/setup` mientras no esté configurado— aunque falte la vista previa remota.
+   *
+   * Está **siempre**, como `idiomas`: `false` si `cms.config.ts` no la declara.
+   */
+  readonly webExterna: boolean;
   readonly singletons: S;
   readonly collections: C;
 }
@@ -518,6 +525,7 @@ export function defineConfig<
 >(input: {
   readonly siteName: string;
   readonly idiomas?: readonly [Idioma, ...Idioma[]];
+  readonly webExterna?: boolean;
   readonly singletons: S;
   readonly collections?: C;
 }): CmsConfig<S, C> {
@@ -581,9 +589,19 @@ export function defineConfig<
   // un `as`— puede pasar una lista vacía, y eso hay que pararlo aquí y no en una página cualquiera.
   if (input.idiomas !== undefined) validarIdiomas(input.idiomas);
 
+  // Lo mismo desde JavaScript o con un `as`: un `'false'` escrito entre comillas es verdadero
+  // para cualquier `if`, y mandaría la raíz al panel justo cuando se quiso decir que no.
+  const webExterna: unknown = input.webExterna;
+  if (webExterna !== undefined && typeof webExterna !== 'boolean') {
+    throw new ConfigError(
+      `webExterna: tiene que ser true o false, sin comillas. Se recibió ${JSON.stringify(webExterna)}.`
+    );
+  }
+
   return {
     siteName: input.siteName,
     idiomas: input.idiomas ?? IDIOMAS_SI_NO_SE_DECLARAN,
+    webExterna: webExterna ?? false,
     singletons: input.singletons,
     collections: (input.collections ?? {}) as C,
   };

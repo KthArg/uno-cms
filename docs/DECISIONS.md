@@ -1719,3 +1719,18 @@ Y de un caso raro que se acepta sabiendo que existe: si alguien declara `en` com
 **A cambio de qué.** De que no se pueda mandar a alguien un enlace a «la portada en inglés»: se manda el enlace y se le dice que elija English. Y de que dos pestañas puedan enseñar idiomas distintos en el selector: lo que manda en cada una es su etiqueta.
 
 **Qué lo revertiría.** Que hiciera falta enlazar a un idioma concreto (desde un correo, por ejemplo). Entonces se añade el parámetro como **entrada** que fija la cookie al llegar, no como estado que haya que arrastrar por todo el panel.
+
+## ADR-1200 — La web externa se declara en `cms.config.ts`, y con ella la raíz lleva a `/setup` o a `/admin` (resuelve #314)
+
+**Contexto.** La spec 14 decidió que la raíz lleva al panel cuando la web vive fuera, y que «vive fuera» es la misma condición que apunta el iframe de la vista previa: `PREVIEW_URL` y su origen en `PREVIEW_ORIGINS`. En el primer despliegue de verdad (Boka Verde) la raíz servía la landing de ejemplo con el contenido real, porque esas variables son las de una funcionalidad **opcional** y la guía de instalación lo dice así. La raíz dependía de algo que nadie tenía por qué haber puesto.
+
+**Decisión.** Dos cambios, en la spec 18:
+
+1. **`defineConfig` acepta `webExterna: boolean`**, por defecto `false`. La raíz y el sitemap usan `webExterna()` = `appConfig.webExterna || laWebViveFuera()`. Va en el código porque es un hecho del proyecto —quien escribe `cms.config.ts` sabe si su web vive fuera— y porque no es un permiso: quién puede leer borradores sigue en `PREVIEW_ORIGINS`, en el entorno, por lo que dice la spec 08.
+2. **Con el sitio sin configurar y la web fuera, la raíz redirige a `/setup`** (307). El motivo de la spec 14 §3 para no redirigir era no dejar a nadie sin camino a `/setup`; redirigiendo **a** `/setup` se cumple. Con la web en casa, la pantalla de «todavía no está listo» se queda como estaba.
+
+**A cambio de qué.** De la garantía de T-248-5: que la raíz y el iframe no puedan discrepar. Con `webExterna: true` y sin vista previa remota, la raíz lleva al panel y el iframe enseña la landing de ejemplo. Se acepta porque el estado contrario publica el contenido en un dominio que nadie eligió, y el iframe apuntando a casa ya era lo que hacía cualquier despliegue sin vista previa remota. Se conserva la condición antigua en el «o» para que ningún despliegue que hoy redirige deje de hacerlo al actualizar.
+
+**Qué lo revertiría.** Que la vista previa remota dejara de ser opcional para una web de fuera. Entonces la condición única vuelve a valer, y `webExterna` sobra.
+
+**Enmienda.** La spec 14 §2 y §3, y sus casos T-248-4 y T-248-5, quedan sustituidos por la spec 18 §2 y §3. Está anotado al principio de la spec 14.
