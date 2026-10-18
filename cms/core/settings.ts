@@ -84,6 +84,17 @@ export async function readSettings(key: SettingsKey): Promise<Record<string, unk
 }
 
 /**
+ * Un ajuste por la caché de datos, con el tag que invalida `updateSettings` (T-S-20).
+ *
+ * Es lo que lee `/api/settings`. Leía `readSettings` directamente, y su única caché era la de la
+ * CDN, que distingue cada query string: `?r=<aleatorio>` en bucle era una consulta a la base por
+ * petición, sin sesión y sin límite. Ahora la variación de la URL acaba aquí, no en Postgres.
+ */
+export function getSettings(key: SettingsKey): Promise<Record<string, unknown>> {
+  return unstable_cache(() => readSettings(key), ['settings', key], { tags: [SETTINGS_TAG] })();
+}
+
+/**
  * Si el sitio ya está configurado. **La lectura de verdad, sin caché** — es la que se prueba.
  *
  * Misma separación que `readContent`/`getContent` (ADR-405), y por el mismo motivo práctico:

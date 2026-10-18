@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AnyField, ObjectSchema } from './config';
 import { isSafeLink, allowedLinkProtocols } from '@/cms/links';
 import { richTextDocSchema, richTextHasContent } from './richtext';
+import { esImagenLocal } from '@/cms/security/almacen-local';
 
 /**
  * De `cms.config.ts` a Zod (SPEC §5.1): dos esquemas por objeto.
@@ -21,10 +22,25 @@ export type SchemaMode = 'draft' | 'strict';
 
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
+/**
+ * De dónde puede venir la imagen de un campo (T-S-16): vacía, del almacén local (ADR-700) o por
+ * `https`. Antes era `z.string()` a secas, y como la API pública sirve el valor tal cual a las
+ * webs que la consumen, un `javascript:` guardado aquí acababa en el `href` o el `src` de quien
+ * confiara en lo que le da su propio CMS. Nuestra landing no lo pinta, pero no es la única.
+ */
+function esUrlDeImagen(url: string): boolean {
+  if (url === '' || esImagenLocal(url)) return true;
+  try {
+    return new URL(url).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 /** El valor de un `image` (SPEC §5.1). */
 const imageValueSchema = z.object({
   mediaId: z.string(),
-  url: z.string(),
+  url: z.string().refine(esUrlDeImagen, 'La imagen tiene que venir de la biblioteca.'),
   alt: z.string(),
   width: z.number().int().optional(),
   height: z.number().int().optional(),

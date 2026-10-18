@@ -1,11 +1,11 @@
 'use server';
 
 import { del } from '@vercel/blob';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { avisar } from '@/cms/core/aviso';
-import { getDb, media } from '@/cms/db';
-import { esPathnameGenerado } from '@/cms/nombres-de-subida';
+import { contentEntries, getDb, media } from '@/cms/db';
+import { esPathnameGenerado, hostDelAlmacen } from '@/cms/nombres-de-subida';
 import { nombreLegible } from '@/cms/security/uploads';
 import { defineAction, fail, ok } from './pipeline';
 import { borrarDelDisco, esImagenLocal } from '@/cms/security/almacen-local';
@@ -17,9 +17,6 @@ import { borrarDelDisco, esImagenLocal } from '@/cms/security/almacen-local';
  * lo que se emite es un token. Aquí está lo que sí es una mutación nuestra — registrar lo que
  * ya se subió, borrar y describir.
  */
-
-/** El único sitio del que puede venir una imagen nuestra. */
-const ALMACEN = '.public.blob.vercel-storage.com';
 
 /**
  * Deja constancia de una imagen que **ya está subida** (issue #205, ADR-705).
@@ -70,8 +67,10 @@ export const registrarImagen = defineAction({
     // que es donde se enteraría quien añada un tipo a una lista y no a la otra.
     if (!esPathnameGenerado(input.pathname, input.mimeType)) return fail('VALIDATION_FAILED');
 
-    // Y la dirección tiene que ser de **nuestro** almacén. Se compara el host ya analizado y por
-    // sufijo de dominio, no con `includes`: `https://malo.io/?x=.public.blob.vercel-storage.com`
+    // Y la dirección tiene que ser de **nuestro** almacén: el host exacto que dice
+    // `BLOB_READ_WRITE_TOKEN` (T-S-13). Antes se comparaba por el sufijo
+    // `.public.blob.vercel-storage.com`, que comparten todos los almacenes de todos los clientes
+    // de Vercel. Se compara el host ya analizado, no la cadena: `https://malo.io/?x=<nuestro host>`
     // pasaría cualquier comprobación sobre la cadena entera.
     let host: string;
     try {
@@ -82,7 +81,8 @@ export const registrarImagen = defineAction({
       return fail('VALIDATION_FAILED');
     }
 
-    if (!host.endsWith(ALMACEN)) return fail('VALIDATION_FAILED');
+    const nuestro = hostDelAlmacen(process.env['BLOB_READ_WRITE_TOKEN']);
+    if (nuestro === null || host !== nuestro) return fail('VALIDATION_FAILED');
     // La dirección tiene que llevar dentro el nombre que se acaba de comprobar; si no, se estaría
     // guardando un nombre válido apuntando a otro fichero.
     if (!input.url.endsWith(`/${input.pathname}`)) return fail('VALIDATION_FAILED');
@@ -126,6 +126,27 @@ export const registrarImagen = defineAction({
   },
 });
 
+/**
+ * Si algún borrador o algo publicado apunta a esta imagen. `jsonb_path_exists` recorre el
+ * documento entero (`$.**`), así que da igual en qué campo, lista o colección esté. Los dos
+ * valores van como parámetros dentro de `vars`, nunca pegados en la ruta JSON.
+ */
+async function imagenEnUso(id: string, url: string): Promise<boolean> {
+  const ruta = '$.** ? (@.mediaId == $id || @.url == $url)';
+  const variables = sql`jsonb_build_object('id', ${id}::text, 'url', ${url}::text)`;
+
+  const [alguna] = await getDb()
+    .select({ id: contentEntries.id })
+    .from(contentEntries)
+    .where(
+      sql`jsonb_path_exists(${contentEntries.draft}, ${ruta}::jsonpath, ${variables})
+        or jsonb_path_exists(${contentEntries.published}, ${ruta}::jsonpath, ${variables})`
+    )
+    .limit(1);
+
+  return alguna !== undefined;
+}
+
 export const deleteMedia = defineAction({
   name: 'media.delete',
   // `admin` y no `editor`. Borrar una imagen no es editar contenido: es quitar un fichero que
@@ -145,6 +166,15 @@ export const deleteMedia = defineAction({
       .limit(1);
 
     if (fila === undefined) return fail('NOT_FOUND');
+
+    // **Y no se borra lo que se está usando** (SPEC §5.3, T-S-15). Se busca en el borrador y en
+    // lo publicado de todas las entradas, en todos los idiomas: una imagen publicada que
+    // desaparece deja la web con un hueco y nadie se entera. Las revisiones no cuentan, son
+    // historia; contarlas impediría borrar cualquier imagen que se haya usado alguna vez.
+    //
+    // Se busca por `mediaId` **y** por `url`: el valor de un campo lleva los dos, y basta con que
+    // uno apunte aquí para que borrarla rompa algo.
+    if (await imagenEnUso(fila.id, fila.url)) return fail('MEDIA_IN_USE');
 
     // **Primero el fichero, después la fila.**
     //

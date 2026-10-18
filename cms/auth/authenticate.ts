@@ -1,10 +1,10 @@
 import 'server-only';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, lte, or, sql } from 'drizzle-orm';
 import { getDb, users, type UserRow } from '@/cms/db';
 import { audit } from '@/cms/security/audit';
 import { getLoginRateLimiter, loginRateLimitKey } from '@/cms/security/ratelimit';
-import { isLocked, nextFailureState } from './lockout';
-import { verifyDecoy, verifyPassword } from './passwords';
+import { isLocked, LOCKOUT_BASE_MINUTES, LOCKOUT_MAX_MINUTES, LOCKOUT_THRESHOLD } from './lockout';
+import { MAX_PASSWORD_LENGTH, verifyDecoy, verifyPassword } from './passwords';
 
 /**
  * El núcleo de la autenticación (SPEC ADR-004, §7.1).
@@ -74,6 +74,63 @@ async function findByEmail(email: string): Promise<UserRow | undefined> {
   return rows[0];
 }
 
+/** El estado del contador tal como queda después de reservar un intento. */
+export interface IntentoReservado {
+  readonly failedLogins: number;
+  readonly lockedUntil: Date | null;
+}
+
+/**
+ * Reserva un intento de contraseña contra una cuenta **antes** de verificarlo (ADR-1301).
+ *
+ * ## Por qué antes y no después
+ *
+ * Antes se leía la fila, se verificaba con Argon2 —decenas de milisegundos— y se escribía el
+ * contador calculado a partir de lo leído. Con veinte intentos a la vez, los veinte leían el
+ * mismo valor y los veinte escribían ese valor más uno: la ráfaga costaba **un** fallo. Y una
+ * escritura vieja podía quitar un bloqueo que otra acababa de poner.
+ *
+ * Ahora cada intento suma uno, y pone el bloqueo si con eso llega al umbral, **en una sola
+ * sentencia condicionada a que la cuenta no esté bloqueada**. Postgres serializa las
+ * escrituras sobre la misma fila y vuelve a evaluar el `WHERE` con la fila ya cambiada, así que
+ * el quinto intento pone el bloqueo y el sexto no consigue fila: no llega a verificar nada.
+ * Una ráfaga prueba como mucho `LOCKOUT_THRESHOLD` contraseñas, igual que si llegaran de una
+ * en una.
+ *
+ * El cálculo es el de `nextFailureState`, escrito en SQL. Un test compara los dos.
+ *
+ * Devuelve `null` si la cuenta está bloqueada en ese instante: el intento no cuenta ni alarga
+ * nada, como siempre.
+ */
+export async function reservarIntento(userId: string, now: Date): Promise<IntentoReservado | null> {
+  // En el `SET`, la columna vale lo que valía **antes** del `UPDATE`: las tres expresiones ven
+  // el mismo contador viejo, que es lo que hace falta.
+  const siguiente = sql`${users.failedLogins} + 1`;
+  const minutos = sql`least(${LOCKOUT_BASE_MINUTES} * power(2, least(${siguiente} - ${LOCKOUT_THRESHOLD}, 20)), ${LOCKOUT_MAX_MINUTES})`;
+
+  const [fila] = await getDb()
+    .update(users)
+    .set({
+      failedLogins: siguiente,
+      lockedUntil: sql`case when ${siguiente} >= ${LOCKOUT_THRESHOLD}
+        then ${now.toISOString()}::timestamptz + make_interval(mins => ${minutos})
+        else null end`,
+      updatedAt: now,
+    })
+    .where(and(eq(users.id, userId), or(isNull(users.lockedUntil), lte(users.lockedUntil, now))))
+    .returning({ failedLogins: users.failedLogins, lockedUntil: users.lockedUntil });
+
+  return fila ?? null;
+}
+
+/** Un acierto: los fallos que cuentan son los **consecutivos**. */
+export async function olvidarFallos(userId: string, now: Date): Promise<void> {
+  await getDb()
+    .update(users)
+    .set({ failedLogins: 0, lockedUntil: null, updatedAt: now })
+    .where(eq(users.id, userId));
+}
+
 export async function authenticate(
   input: AuthenticateInput,
   options: { readonly now?: () => Date } = {}
@@ -99,6 +156,22 @@ export async function authenticate(
     return FAILED;
   }
 
+  // Más larga que cualquier contraseña que se pueda elegir: no puede ser la buena, y no se le
+  // da a Argon2 tal cual (T-S-5). Se responde **antes** de buscar la cuenta, así que no dice
+  // nada de si existe, y pagando el señuelo con un recorte, para que tampoco lo diga el reloj.
+  if (input.password.length > MAX_PASSWORD_LENGTH) {
+    limiter.check(limitKey);
+    await verifyDecoy(input.password.slice(0, MAX_PASSWORD_LENGTH));
+    await audit({
+      action: 'login.fail',
+      actorEmail: email,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      meta: { motivo: 'contrasena-demasiado-larga' },
+    });
+    return FAILED;
+  }
+
   const user = await findByEmail(email);
 
   if (user === undefined) {
@@ -120,7 +193,10 @@ export async function authenticate(
   if (isLocked(user.lockedUntil, now)) {
     limiter.check(limitKey);
     // No se verifica la contraseña ni se toca el contador: un intento durante el bloqueo no
-    // lo alarga (ver `nextFailureState`).
+    // lo alarga (ver `nextFailureState`). **Pero se paga el señuelo** (T-S-4): sin él, una
+    // cuenta bloqueada respondía en microsegundos y una inexistente en lo que tarda Argon2, y
+    // bloquear un correo a propósito bastaba para saber si existía.
+    await verifyDecoy(input.password);
     await audit({
       action: 'login.locked',
       actorId: user.id,
@@ -150,20 +226,27 @@ export async function authenticate(
     return FAILED;
   }
 
+  // El intento se reserva **antes** de verificar (ADR-1301). Si no hay fila, otro intento
+  // concurrente acaba de bloquear la cuenta: este se trata como uno durante el bloqueo.
+  const reserva = await reservarIntento(user.id, now);
+
+  if (reserva === null) {
+    limiter.check(limitKey);
+    await verifyDecoy(input.password);
+    await audit({
+      action: 'login.locked',
+      actorId: user.id,
+      actorEmail: user.email,
+      ip: input.ip,
+      userAgent: input.userAgent,
+    });
+    return FAILED;
+  }
+
   const passwordOk = await verifyPassword(user.passwordHash, input.password);
 
   if (!passwordOk) {
     limiter.check(limitKey);
-
-    const next = nextFailureState(
-      { failedLogins: user.failedLogins, lockedUntil: user.lockedUntil },
-      now
-    );
-
-    await getDb()
-      .update(users)
-      .set({ failedLogins: next.failedLogins, lockedUntil: next.lockedUntil, updatedAt: now })
-      .where(eq(users.id, user.id));
 
     await audit({
       action: 'login.fail',
@@ -171,19 +254,13 @@ export async function authenticate(
       actorEmail: user.email,
       ip: input.ip,
       userAgent: input.userAgent,
-      meta: { intentosFallidos: next.failedLogins, bloqueada: next.lockedUntil !== null },
+      meta: { intentosFallidos: reserva.failedLogins, bloqueada: reserva.lockedUntil !== null },
     });
 
     return FAILED;
   }
 
-  // Un acierto reinicia el contador: los fallos que cuentan son los **consecutivos**.
-  if (user.failedLogins !== 0 || user.lockedUntil !== null) {
-    await getDb()
-      .update(users)
-      .set({ failedLogins: 0, lockedUntil: null, updatedAt: now })
-      .where(eq(users.id, user.id));
-  }
+  await olvidarFallos(user.id, now);
 
   limiter.reset(limitKey);
 

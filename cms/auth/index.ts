@@ -1,6 +1,8 @@
 import 'server-only';
 import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import { SESSION_MAX_AGE_SECONDS, secretoDeSesionValido, sesionCaducada } from '@/cms/sesion';
+import { ipDelCliente } from '@/cms/security/ip';
 import { authenticate, isSessionStillValid } from './authenticate';
 
 /**
@@ -15,8 +17,27 @@ import { authenticate, isSessionStillValid } from './authenticate';
  * probarlo exigiría montar media librería, y lo que cuesta probar se acaba probando poco.
  */
 
-/** SPEC §7.1: cookies httpOnly, Secure, SameSite=Lax; sesión de 7 días. */
-const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+/**
+ * El secreto con el que Auth.js firma las sesiones, el mismo que lee él (`AUTH_SECRET`, y
+ * `NEXTAUTH_SECRET` por compatibilidad).
+ */
+function secretoDeSesion(): string | undefined {
+  return process.env['AUTH_SECRET'] ?? process.env['NEXTAUTH_SECRET'];
+}
+
+/**
+ * Falla cerrado con un secreto corto (T-S-10), igual que `APP_SECRET` en `tokens.ts`. Se
+ * comprueba **al usarlo** y no al cargar el módulo: `next build` importa esto para recoger datos
+ * de las páginas, y un build sin secretos tiene que seguir siendo posible.
+ */
+function exigirSecretoDeSesion(): void {
+  if (!secretoDeSesionValido(secretoDeSesion())) {
+    throw new Error(
+      'AUTH_SECRET debe existir y tener al menos 32 caracteres. Genéralo con ' +
+        '`openssl rand -base64 32`; ver .env.example.'
+    );
+  }
+}
 
 /**
  * El JWT que viaja en la cookie.
@@ -66,10 +87,11 @@ export const authConfig = {
 
         if (typeof email !== 'string' || typeof password !== 'string') return null;
 
-        // La IP llega de la cabecera que pone la plataforma. Se coge la primera entrada de
-        // `x-forwarded-for`: las siguientes las puede escribir el cliente.
-        const forwarded = request.headers.get('x-forwarded-for');
-        const ip = forwarded?.split(',')[0]?.trim();
+        exigirSecretoDeSesion();
+
+        // De dónde sale la IP, y por qué no de la primera entrada de `x-forwarded-for`, que es
+        // la que escribe el cliente: `cms/security/ip.ts` (ADR-1302).
+        const ip = ipDelCliente(request.headers);
 
         const result = await authenticate({
           email,
@@ -106,8 +128,17 @@ export const authConfig = {
         token.sub = authenticated.id;
         token['role'] = authenticated.role;
         token['pwdV'] = authenticated.passwordVersion;
+        // Cuándo se entró, y no se mueve: es lo que pone la caducidad absoluta (T-S-8).
+        token['authTime'] = Math.floor(Date.now() / 1000);
         return token;
       }
+
+      // Un secreto corto no firma nada que valga (T-S-10): ninguna sesión sobrevive con él.
+      if (!secretoDeSesionValido(secretoDeSesion())) return null;
+
+      // La vida absoluta. El `maxAge` de la cookie se renueva con cada petición, así que sin
+      // esto una sesión usada a diario no caducaba nunca (T-S-8).
+      if (sesionCaducada(token['authTime'], Math.floor(Date.now() / 1000))) return null;
 
       // En el resto de peticiones se comprueba que la sesión siga viva (ADR-301). Cuesta
       // una consulta por petición autenticada, y es el precio de que cambiar la contraseña

@@ -18,6 +18,7 @@ test('T-60-2: la landing lleva todas las cabeceras de SPEC §7.2', async ({ requ
   expect(headers['x-content-type-options']).toBe('nosniff');
   expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
   expect(headers['permissions-policy']).toContain('camera=()');
+  expect(headers['cross-origin-opener-policy']).toBe('same-origin');
 });
 
 test('T-60-3: la CSP lleva nonce y frame-ancestors self', async ({ request }) => {
@@ -154,6 +155,8 @@ const CABECERAS_DE_TODAS = {
   'referrer-policy': 'strict-origin-when-cross-origin',
   'permissions-policy': 'camera=(), microphone=(), geolocation=()',
   'strict-transport-security': 'max-age=63072000; includeSubDomains; preload',
+  // T-S-22. No está en §7.2; la añadió la auditoría de la spec 19.
+  'cross-origin-opener-policy': 'same-origin',
 };
 
 test('T-N-1: el panel CON sesión lleva las cabeceras y noindex', async ({ page }) => {
@@ -230,4 +233,49 @@ test('T-R-1: sin PREVIEW_ORIGINS, la ruta de borradores responde 404', async ({ 
 
   expect(respuesta.status()).toBe(404);
   expect(await respuesta.text()).toBe('');
+});
+
+/**
+ * Lo que añadió la auditoría de la spec 19, sobre la respuesta real.
+ */
+
+test('T-S-22: los <script> de la página llevan el nonce de su propia CSP', async ({ request }) => {
+  // El nonce le llega a Next por la cabecera de la petición, y es él quien se lo pone a sus
+  // scripts. Si dejara de llegarle, la CSP los bloquearía y la página se quedaría sin hidratar:
+  // es lo que comprueba esto, y lo que ningún unitario puede ver.
+  const respuesta = await request.get('/');
+  const nonce = /'nonce-([^']+)'/.exec(respuesta.headers()['content-security-policy'] ?? '')?.[1];
+  const html = await respuesta.text();
+
+  const scripts = html.match(/<script[^>]*>/g) ?? [];
+  expect(nonce).toBeTruthy();
+  expect(scripts.length).toBeGreaterThan(0);
+  for (const script of scripts) {
+    expect(script, 'cada <script> con el nonce de esta respuesta').toContain(`nonce="${nonce}"`);
+  }
+});
+
+test('T-S-7: la cookie de sesión que reemite el middleware vive siete días, no treinta', async ({
+  page,
+}) => {
+  await crearYEntrar(page, { email: 'vida-de-la-sesion@ejemplo.com', role: 'editor' });
+  // Una petición cualquiera que pase por el middleware: es él quien reemite la cookie.
+  await page.goto('/admin');
+
+  const sesion = (await page.context().cookies()).find((c) => c.name.endsWith('session-token'));
+  const siete = 7 * 24 * 60 * 60;
+
+  expect(sesion, 'la cookie de sesión').toBeDefined();
+  // Un minuto de margen por lo que tarda el test; sin el arreglo serían treinta días.
+  expect(sesion!.expires).toBeLessThanOrEqual(Date.now() / 1000 + siete + 60);
+  expect(sesion!.expires).toBeGreaterThan(Date.now() / 1000 + siete - 3600);
+});
+
+test('T-S-1: con sesión, ?next= a otro sitio se queda en el panel', async ({ page, baseURL }) => {
+  await crearYEntrar(page, { email: 'redireccion-abierta@ejemplo.com', role: 'editor' });
+
+  await page.goto('/admin/login?next=https://ajeno.example/admin/login');
+
+  expect(new URL(page.url()).origin).toBe(new URL(baseURL!).origin);
+  expect(new URL(page.url()).pathname).toBe('/admin');
 });

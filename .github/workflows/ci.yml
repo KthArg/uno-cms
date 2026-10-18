@@ -12,6 +12,13 @@ concurrency:
   cancel-in-progress: true
 
 # Mínimo privilegio: ningún job de este workflow escribe en el repositorio.
+#
+# Y dos cosas más de cadena de suministro (spec 19, T-S-21):
+# - Las acciones de **terceros** van ancladas por SHA, con la versión en un comentario para que
+#   Dependabot las siga actualizando. Las de `actions/` siguen por etiqueta, con el motivo en
+#   `docs/SECURITY.md`. `pnpm/action-setup` no es de GitHub y corre en todos los jobs.
+# - `persist-credentials: false` en cada checkout: ningún job hace `git push`, así que el token
+#   no tiene por qué quedarse escrito en `.git/config` para los pasos que vienen después.
 permissions:
   contents: read
 
@@ -28,7 +35,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -46,7 +55,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -60,7 +71,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -78,7 +91,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -117,7 +132,9 @@ jobs:
       DATABASE_URL: postgres://unocms:unocms@localhost:5432/unocms_test
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -183,7 +200,9 @@ jobs:
       APP_SECRET: e2e-otro-distinto-tambien-de-mas-de-treinta-y-dos
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -238,7 +257,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -290,7 +311,9 @@ jobs:
       APP_SECRET: lighthouse-otro-distinto-de-mas-de-treinta-y-dos
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}

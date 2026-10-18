@@ -17,7 +17,14 @@ import { isSafeLink } from '@/cms/links';
  * inyectarse markup.
  */
 
-/** Nodo de ProseMirror → etiqueta de SPEC §6.3. */
+/**
+ * Nodo de ProseMirror → etiqueta de SPEC §6.3.
+ *
+ * **Se consulta con `Object.hasOwn`, nunca con `in` ni `lista[tipo]`** (T-S-18). Esas dos
+ * encuentran también lo heredado, y un nodo llamado `constructor` o `toString` pasaba la
+ * allowlist, se guardaba y se publicaba. Lo mismo para las marcas. Los atributos sí se buscan
+ * con `lista[tipo]`, porque para entonces el tipo ya ha pasado por aquí.
+ */
 const ALLOWED_NODES = {
   doc: '(raíz)',
   paragraph: 'p',
@@ -97,7 +104,7 @@ const markSchema = z
     attrs: z.record(z.unknown()).optional(),
   })
   .superRefine((mark, ctx) => {
-    if (!(mark.type in ALLOWED_MARKS)) {
+    if (!Object.hasOwn(ALLOWED_MARKS, mark.type)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `Marca no permitida: '${mark.type}'. Permitidas: ${allowedRichTextMarks.join(', ')}.`,
@@ -137,7 +144,7 @@ const nodeSchema: z.ZodType<NodeShape> = z.lazy(() =>
       content: z.array(nodeSchema).optional(),
     })
     .superRefine((node, ctx) => {
-      if (!(node.type in ALLOWED_NODES)) {
+      if (!Object.hasOwn(ALLOWED_NODES, node.type)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `Nodo no permitido: '${node.type}'. Permitidos: ${allowedRichTextNodes.join(', ')}.`,
@@ -263,7 +270,7 @@ function sanitizeNode(node: unknown): Record<string, unknown> | null {
 
   if (typeof type !== 'string') return null;
   // `doc` solo es válido en la raíz; anidado, es basura.
-  if (type === 'doc' || !(type in ALLOWED_NODES)) return null;
+  if (type === 'doc' || !Object.hasOwn(ALLOWED_NODES, type)) return null;
 
   // Un `heading` con nivel raro se degrada en vez de desaparecer: el texto del titular
   // importa más que su nivel.
@@ -297,7 +304,7 @@ function sanitizeMarks(marks: unknown): unknown[] {
     if (typeof mark !== 'object' || mark === null) continue;
 
     const { type, attrs } = mark as { type?: unknown; attrs?: unknown };
-    if (typeof type !== 'string' || !(type in ALLOWED_MARKS)) continue;
+    if (typeof type !== 'string' || !Object.hasOwn(ALLOWED_MARKS, type)) continue;
 
     const attrsLimpios = sanitizeAttrs(attrs, ALLOWED_MARK_ATTRS[type] ?? []);
 

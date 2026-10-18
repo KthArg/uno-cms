@@ -49,6 +49,11 @@ export function isSafeLink(raw: unknown): raw is string {
   const value = raw.trim();
   if (value === '') return false;
 
+  // La barra invertida, fuera en cualquier posición (T-S-2). En las URL `http` y `https` el
+  // navegador la lee como `/`, así que `/\evil.com` es `//evil.com` con otro disfraz: pasaba la
+  // comprobación de abajo y salía de la web. Un enlace legítimo no la necesita nunca.
+  if (value.includes('\\')) return false;
+
   if (value.startsWith('/')) {
     // Una ruta interna, sí. Pero `//evil.com` es una URL relativa al protocolo: el
     // navegador la resuelve como externa, aunque empiece por barra igual que una ruta.

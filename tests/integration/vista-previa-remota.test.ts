@@ -5,6 +5,13 @@ import { contentEntries, getDb } from '@/cms/db';
 import { signToken } from '@/cms/security/tokens';
 import { describeIntegration } from './env';
 
+// `unstable_cache` lanza fuera de una petición (ADR-405), y desde T-S-20 la ruta pública lee por
+// ella. Aquí se prueba qué sirve cada ruta, no que cachee.
+vi.mock('next/cache', async () => {
+  const actual = await vi.importActual<typeof import('next/cache')>('next/cache');
+  return { ...actual, unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn };
+});
+
 /**
  * T-R-1 y T-R-4 … T-R-14: **la única ruta por la que un borrador sale de la aplicación**
  * (spec 08 §4.3, ADR-701).

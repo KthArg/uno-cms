@@ -2,6 +2,7 @@ import NextAuth from 'next-auth';
 import { NextResponse, type NextRequest } from 'next/server';
 import { construirCsp } from '@/cms/csp';
 import { esNoIndexable, esRutaPublicaDelPanel } from '@/cms/routes';
+import { SESSION_MAX_AGE_SECONDS } from '@/cms/sesion';
 import { origenesDeVistaPreviaRemota } from '@/cms/vista-previa-remota';
 
 /**
@@ -33,7 +34,11 @@ const { auth } = NextAuth({
   // Mismo motivo y mismas mitigaciones que en `cms/auth/index.ts`: el proyecto es
   // auto-hospedable y Auth.js solo detecta el host por su cuenta en Vercel.
   trustHost: true,
-  session: { strategy: 'jwt' },
+  // **El mismo `maxAge` que `cms/auth`, y no es un detalle** (T-S-7). Auth.js reemite la cookie
+  // en cada petición que pasa por aquí, con el `maxAge` de **esta** configuración. Sin él ponía
+  // el suyo, treinta días, y era el que mandaba: las páginas leen la cookie pero no pueden
+  // escribirla.
+  session: { strategy: 'jwt', maxAge: SESSION_MAX_AGE_SECONDS },
   providers: [],
   callbacks: {
     // Sin callbacks de base de datos: en edge no hay base de datos.
@@ -44,30 +49,34 @@ const { auth } = NextAuth({
 /** Métodos que modifican estado y por tanto exigen comprobación de origen (SPEC §7.1). */
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-function applySecurityHeaders(response: NextResponse, request: NextRequest, nonce: string): void {
-  const isDevelopment = process.env.NODE_ENV === 'development';
+/** La CSP de esta petición, con su nonce. La misma va en la respuesta y a Next (ver abajo). */
+function cspDeLaPeticion(nonce: string): string {
+  return construirCsp({
+    nonce,
+    desarrollo: process.env.NODE_ENV === 'development',
+    // La variable se nombra aquí, escrita entera, y no se lee por una clave calculada:
+    // los empaquetadores sustituyen `process.env.ALGO` cuando lo ven literal y no cuando
+    // lo ven como `entorno[clave]`, y ese fallo dejaría la lista vacía **en el despliegue**
+    // con todos los tests en verde.
+    //
+    // Que aquí haga falta no está comprobado: con `next build && next start`, una
+    // `PREVIEW_ORIGINS` definida solo al arrancar llegó igualmente y la cabecera salió con
+    // sus orígenes. Lo que sí está comprobado es que así llega; escribirla literal cuesta
+    // nada y cubre el caso en que el empaquetado sea otro.
+    origenesEmpotrables: origenesDeVistaPreviaRemota(process.env.PREVIEW_ORIGINS),
+  });
+}
 
-  response.headers.set(
-    'Content-Security-Policy',
-    construirCsp({
-      nonce,
-      desarrollo: isDevelopment,
-      // La variable se nombra aquí, escrita entera, y no se lee por una clave calculada:
-      // los empaquetadores sustituyen `process.env.ALGO` cuando lo ven literal y no cuando
-      // lo ven como `entorno[clave]`, y ese fallo dejaría la lista vacía **en el despliegue**
-      // con todos los tests en verde.
-      //
-      // Que aquí haga falta no está comprobado: con `next build && next start`, una
-      // `PREVIEW_ORIGINS` definida solo al arrancar llegó igualmente y la cabecera salió con
-      // sus orígenes. Lo que sí está comprobado es que así llega; escribirla literal cuesta
-      // nada y cubre el caso en que el empaquetado sea otro.
-      origenesEmpotrables: origenesDeVistaPreviaRemota(process.env.PREVIEW_ORIGINS),
-    })
-  );
+function applySecurityHeaders(response: NextResponse, request: NextRequest, nonce: string): void {
+  response.headers.set('Content-Security-Policy', cspDeLaPeticion(nonce));
   response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  // Otra pestaña abierta desde aquí, o que nos abra, no se queda con una referencia a esta
+  // ventana (T-S-22). Cierra `window.opener` y las fugas entre orígenes que se apoyan en él. No
+  // toca la vista previa: un iframe es `window.parent`, no `opener`, y nada aquí abre ventanas.
+  response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
 
   // Solo en las rutas privadas. En la landing sería un error caro: costaría el
   // posicionamiento del sitio entero y nadie lo notaría hasta semanas después.
@@ -133,10 +142,13 @@ export default auth((request) => {
     return redirect;
   }
 
-  // El nonce viaja a la página por una cabecera de petición, que es como Next lo expone a
-  // los componentes de servidor.
+  // **La CSP también va en la petición, y es como Next se entera del nonce.** Next lo saca de la
+  // cabecera `Content-Security-Policy` de la petición para ponérselo a sus propios `<script>`
+  // (`app-render.js`). Antes aquí se ponía una `x-nonce` que no leía nadie, con un comentario
+  // que decía que era el camino; la CSP llegaba igualmente porque Next copia las cabeceras de la
+  // respuesta del middleware a la petición, y eso es un detalle interno, no un contrato.
   const headers = new Headers(request.headers);
-  headers.set('x-nonce', nonce);
+  headers.set('Content-Security-Policy', cspDeLaPeticion(nonce));
   // La ruta, por el mismo camino. La usa el layout del panel para pintar el **primer** render
   // con la sección correcta; a partir de ahí manda `usePathname()` en el cliente.
   //

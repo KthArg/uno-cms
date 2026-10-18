@@ -4,7 +4,12 @@ import { esPathnameGenerado } from '@/cms/nombres-de-subida';
 import { getDb, media } from '@/cms/db';
 import { audit } from '@/cms/security/audit';
 import { mensajeNuestro, SUBIDA_FALLIDA } from '@/cms/mensajes-de-subida';
-import { decidirSubida, nombreLegible, TIPOS_PERMITIDOS } from '@/cms/security/uploads';
+import {
+  decidirSubida,
+  nombreLegible,
+  TAMANO_MAXIMO_BYTES,
+  TIPOS_PERMITIDOS,
+} from '@/cms/security/uploads';
 
 /**
  * `POST /api/media/upload` — el token firmado de subida (SPEC §5.3, ADR-005).
@@ -39,13 +44,19 @@ import { decidirSubida, nombreLegible, TIPOS_PERMITIDOS } from '@/cms/security/u
  * —fija la ruta y los tipos que el token autoriza— pero como segunda cerradura, no como la
  * única.
  *
- * ## Y una cosa que el token no puede evitar
+ * ## El tamaño, en dos sitios y por dos motivos
  *
  * El token que devuelve `handleUpload` autoriza **una** subida con la ruta y el tipo que
- * fijamos aquí, así que un cliente no puede usarlo para escribir otra cosa. Lo que sí puede es
- * mentir sobre el tamaño: lo declara antes de subir, y quien miente sube más. Vercel Blob
- * aplica su propio límite por fichero, que es el suelo real; el nuestro está para que el
- * rechazo llegue **antes** de gastar la subida y para que el editor lea un motivo en español.
+ * fijamos aquí, así que un cliente no puede usarlo para escribir otra cosa. El tamaño lo
+ * declara el cliente antes de subir, y comprobar esa declaración solo sirve para que el
+ * rechazo llegue **antes** y el editor lea un motivo en español.
+ *
+ * Lo que de verdad lo impone es `maximumSizeInBytes`, **dentro del token**: el SDK lo firma
+ * con `BLOB_READ_WRITE_TOKEN` y Vercel lo aplica al recibir los bytes (T-S-11). Aquí decía antes
+ * que el límite de Vercel era «el suelo real», y ese límite son cinco terabytes: con un token
+ * pedido para un PNG de un kilo se podía subir cualquier cosa durante una hora, y lo pagaba
+ * quien despliega. Que lo aplique Vercel es lo que dice su documentación; comprobado contra el
+ * despliegue solo lo está con `pnpm test:humo`.
  */
 export const runtime = 'nodejs';
 
@@ -68,8 +79,33 @@ function exigeSesion(cuerpo: HandleUploadBody): boolean {
   return cuerpo.type !== 'blob.upload-completed';
 }
 
+/**
+ * Si el cuerpo tiene la forma que `handleUpload` espera. Antes se leía con `request.json()` fuera
+ * de todo `try` y se accedía a `cuerpo.type` sin mirar: un cuerpo que no era JSON, o `null`,
+ * acababa en un 500 sin capturar (T-S-12).
+ */
+function esCuerpoDeSubida(cuerpo: unknown): cuerpo is HandleUploadBody {
+  if (typeof cuerpo !== 'object' || cuerpo === null) return false;
+  const { type, payload } = cuerpo as { type?: unknown; payload?: unknown };
+  if (typeof payload !== 'object' || payload === null) return false;
+  // Del contenido de `payload` se ocupa `comprobarAntesDeDelegar`: un `pathname` ausente o raro
+  // ya lo rechaza `decidirSubida`. Aquí solo lo que hace falta para no lanzar al leerlo.
+  return type === 'blob.upload-completed' || type === 'blob.generate-client-token';
+}
+
+/** Cuánto vale el token de subida. Se pide justo antes de subir; una hora era de sobra. */
+const VIDA_DEL_TOKEN_MS = 5 * 60_000;
+
 export async function POST(request: Request): Promise<Response> {
-  const cuerpo = (await request.json()) as HandleUploadBody;
+  let cuerpo: unknown;
+  try {
+    cuerpo = await request.json();
+  } catch {
+    cuerpo = null;
+  }
+  if (!esCuerpoDeSubida(cuerpo)) {
+    return Response.json({ error: 'cuerpo_invalido' }, { status: 400 });
+  }
 
   // La sesión, solo donde es la credencial que toca. Se responde igual que a un cuerpo
   // inválido: quien prueba no aprende si la ruta existe ni qué espera.
@@ -115,6 +151,15 @@ export async function POST(request: Request): Promise<Response> {
 
         return {
           allowedContentTypes: [...TIPOS_PERMITIDOS],
+          // El límite que de verdad se aplica: va firmado en el token y lo impone Vercel al
+          // recibir los bytes, mienta lo que mienta el cliente al pedirlo (T-S-11).
+          maximumSizeInBytes: TAMANO_MAXIMO_BYTES,
+          validUntil: Date.now() + VIDA_DEL_TOKEN_MS,
+          // Los dos son ya el valor por defecto del SDK. Se escriben porque lo que impiden
+          // —sobrescribir una imagen publicada, o que el nombre deje de ser el que
+          // comprobamos arriba— no puede depender de que un valor por defecto ajeno no cambie.
+          addRandomSuffix: false,
+          allowOverwrite: false,
           // Viaja firmado hasta el callback de abajo, que es quien escribe en la base de
           // datos: sin esto habría que fiarse de lo que el cliente diga entonces.
           tokenPayload: JSON.stringify({

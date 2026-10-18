@@ -2173,3 +2173,41 @@ Los casos T-18-1 a T-18-10 pasan, y las nueve mutaciones de las líneas que prot
 está verificado contra un despliegue**: desde la sesión donde se escribió no se podía llegar al
 dominio del panel de Boka Verde, así que lo que se vio allí se conoce por quien lo vio, no se ha
 reproducido.
+
+---
+
+## La auditoría de seguridad de octubre (spec 19)
+
+**En curso.** Spec [`19-auditoria-de-seguridad.md`](specs/19-auditoria-de-seguridad.md), issue
+[#319](https://github.com/KthArg/uno-cms/issues/319), ADR-1300 a ADR-1302 y la enmienda de SPEC
+§5.3.
+
+### De dónde salió
+
+De una revisión del repositorio entero contra OWASP ASVS 5.0 nivel 2, en cuatro partes en
+paralelo —autenticación, rutas y medios, actions, cabeceras y cadena de suministro—, con cada
+hallazgo comprobado después contra el código. Veinte hallazgos, ninguno crítico ni alto, y casi
+todos con la misma forma: **una defensa que existía y no cubría lo que su comentario decía**. Seis
+comentarios o filas de documentación prometían algo falso, incluida una «deuda aceptada» de
+`PENDIENTES.md` cuyo motivo no era cierto.
+
+### Qué funciona
+
+- Tras entrar solo se va al panel, también con la sesión ya abierta.
+- Intentos de contraseña en paralelo prueban como mucho el umbral, también desde «Cambiar
+  contraseña».
+- La sesión vive siete días de verdad, y siete como mucho desde que se entra.
+- La IP del límite ya no la elige el cliente.
+- El token de subida lleva el límite de tamaño firmado, y solo cuenta el almacén de este
+  despliegue.
+- Borrar elementos de colección es de admin; borrar una imagen en uso, imposible.
+
+### Lo que enseñó esta pasada
+
+- **La mutación desmontó dos comprobaciones mías.** En `destinoInterno`, las de `//` y `\` no
+  mataban ninguna mutación: una ruta que empieza por `/admin/` no puede cambiar de host, así que
+  lo que protege es el prefijo. Lo mismo con los atributos de richtext: para cuando se buscan, el
+  tipo heredado ya está rechazado. Las dos se quitaron en vez de dejar código que aparenta
+  proteger.
+- **El número de la spec estaba cogido**, como el prefijo de los casos en la de idiomas: #317
+  añadió la 18 mientras esta se escribía. Se vio porque ADR-1200 la citaba.

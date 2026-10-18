@@ -124,6 +124,30 @@ describe('T-39-8 — image exige alt salvo que sea decorativa', () => {
   });
 });
 
+describe('T-S-16 — la url de una imagen viene de la biblioteca, no de cualquier sitio', () => {
+  const conFoto = s.object({ foto: s.image({ label: 'Foto', decorative: true }) });
+  const con = (url: string) => ({ foto: { mediaId: 'm1', url, alt: '' } });
+
+  it.each([
+    ['vacía', ''],
+    ['del almacén local', '/api/media/local/media/2026-10/a.png'],
+    ['por https', 'https://tienda.public.blob.vercel-storage.com/media/2026-10/a.png'],
+  ])('acepta una %s', (_caso, url) => {
+    expect(draftSchema(conFoto).safeParse(con(url)).success).toBe(true);
+  });
+
+  it.each([
+    ['javascript:', 'javascript:alert(1)'],
+    ['data:', 'data:image/svg+xml,<svg onload=alert(1)>'],
+    ['http sin cifrar', 'http://ejemplo.com/a.png'],
+    ['una ruta cualquiera', '/otra/cosa.png'],
+    ['algo que no es una url', 'no es una url'],
+  ])('rechaza %s, también en borrador', (_caso, url) => {
+    expect(draftSchema(conFoto).safeParse(con(url)).success).toBe(false);
+    expect(strictSchema(conFoto).safeParse(con(url)).success).toBe(false);
+  });
+});
+
 describe('T-39-9 / T-39-12 — color y number', () => {
   const tema = s.object({
     fondo: s.color({ label: 'Fondo' }),

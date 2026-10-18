@@ -76,3 +76,43 @@ export function esNoIndexable(path: string): boolean {
     (prefijo) => path === prefijo || path.startsWith(`${prefijo}/`)
   );
 }
+
+/** Caracteres de control C0 y DEL. */
+function tieneControles(valor: string): boolean {
+  for (const caracter of valor) {
+    const codigo = caracter.codePointAt(0) ?? 0;
+    if (codigo <= 0x1f || codigo === 0x7f) return true;
+  }
+  return false;
+}
+
+/**
+ * A dónde se manda a alguien después de entrar, a partir del `?next=` de la página de acceso
+ * (spec 19, T-S-1).
+ *
+ * ## Por qué una función y no la comprobación que había
+ *
+ * Había una, pero **solo en la rama del formulario**. La otra —quien llega con sesión—
+ * redirigía a lo que trajera `?next=` sin mirar, y `redirect()` acepta URL absolutas: un enlace
+ * de nuestro propio dominio llevaba a quien ya estaba dentro a una copia de esta página en otro,
+ * que le pedía la contraseña «porque la sesión ha caducado». Dos ramas con dos comprobaciones
+ * divergen; una función compartida no puede.
+ *
+ * ## Lo que protege es el prefijo, y nada más
+ *
+ * Solo se admite `/admin`, `/admin/…` o `/admin?…`: es lo único a lo que el guard manda aquí, y
+ * una lista de lo permitido no tiene los agujeros de una de lo prohibido. Una ruta que empieza
+ * por `/admin/` no puede cambiar de host —el host solo se lee al principio—, así que `//host`,
+ * `/\host` y sus variantes quedan fuera por no empezar así, no por una comprobación aparte. La
+ * hubo, y la mutación demostró que no protegía nada.
+ *
+ * Los caracteres de control se rechazan por otro motivo: un salto de línea en `Location` hace
+ * que Node lance al escribir la cabecera, y eso sería un 500 en vez de una redirección.
+ */
+export function destinoInterno(next: unknown): string {
+  const porDefecto = '/admin';
+  if (typeof next !== 'string' || tieneControles(next)) return porDefecto;
+  const delPanel =
+    next === porDefecto || next.startsWith(`${porDefecto}/`) || next.startsWith(`${porDefecto}?`);
+  return delPanel ? next : porDefecto;
+}

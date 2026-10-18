@@ -1734,3 +1734,41 @@ Y de un caso raro que se acepta sabiendo que existe: si alguien declara `en` com
 **Qué lo revertiría.** Que la vista previa remota dejara de ser opcional para una web de fuera. Entonces la condición única vuelve a valer, y `webExterna` sobra.
 
 **Enmienda.** La spec 14 §2 y §3, y sus casos T-248-4 y T-248-5, quedan sustituidos por la spec 18 §2 y §3. Está anotado al principio de la spec 14.
+
+## ADR-1300 — Eliminar elementos de una colección es de administración (resuelve #319)
+
+**Contexto.** SPEC §5.3 daba `deleteItem` al rol `editor`. La pantalla de colecciones, en cambio, le escondía el botón al editor con un comentario que decía «eliminar es de administración, igual que en la biblioteca de imágenes», y un test de interfaz lo vigilaba. El servidor hacía lo que decía la SPEC: cualquier editor podía llamar a la action a mano y borrar un elemento publicado con todas sus revisiones. Era una contradicción resuelta en silencio, y en el sitio equivocado: la defensa vivía en la capa que el atacante controla.
+
+**Decisión.** `deleteItem` exige `admin` en el servidor. La decidió el dueño del producto en la auditoría de la spec 19.
+
+**A cambio de qué.** Un editor que crea un elemento por error no puede quitarlo: tiene que pedírselo a quien administra. Es el mismo trato que borrar una imagen, y por el mismo motivo: borrar quita contenido que puede estar publicado y no tiene deshacer, mientras que dejarlo sin publicar no rompe nada.
+
+**Qué lo revertiría.** Una papelera: un borrado que se pueda deshacer deja de ser una operación de administración.
+
+**Enmienda.** SPEC §5.3, fila de `deleteItem`.
+
+## ADR-1301 — El intento de contraseña se reserva antes de verificarlo (resuelve #319)
+
+**Contexto.** El bloqueo de cuenta (ADR-303 lo llama «la defensa que de verdad sostiene el caso») se calculaba así: leer la fila, verificar con Argon2 —decenas de milisegundos—, y escribir el contador calculado a partir de lo leído. Con intentos en paralelo, todos leían el mismo valor antes de que nadie escribiera: una ráfaga de cien contraseñas costaba un fallo. Y una escritura vieja podía quitar un bloqueo que otra acababa de poner. Ningún test lanzaba intentos concurrentes.
+
+**Decisión.** Cada intento **reserva** su fallo antes de verificar, con un solo `UPDATE … SET failed_logins = failed_logins + 1, locked_until = CASE … END WHERE id = $1 AND (locked_until IS NULL OR locked_until <= $now) RETURNING …`. Postgres serializa las escrituras sobre una fila y vuelve a evaluar el `WHERE` con la fila ya cambiada, así que el intento que llega al umbral pone el bloqueo y los siguientes no consiguen fila: no verifican. Un acierto pone el contador a cero. `changePassword` usa la misma reserva: tantear la contraseña actual desde esa pantalla bloquea la cuenta igual que hacerlo en el acceso.
+
+`nextFailureState` se queda como **referencia**: un test comprueba, intento a intento, que la sentencia deja la fila igual que dice la función.
+
+**A cambio de qué.** Un acierto escribe siempre en la base, también cuando no había fallos. Y quien tiene una sesión robada puede bloquear la cuenta desde «Cambiar contraseña»; ya podía hacer cosas peores con esa sesión, y el bloqueo es lo que le impide llevarse la cuenta.
+
+**Qué lo revertiría.** Un limitador global (Upstash, ADR-303) no lo sustituye: limita por IP, y esto protege la cuenta.
+
+## ADR-1302 — La IP es la que añade el proxy de delante, no la que escribe el cliente (resuelve #319)
+
+**Contexto.** Tres sitios —el acceso, `/setup` y las invitaciones— cogían la **primera** entrada de `X-Forwarded-For`, con un comentario que decía que las siguientes las podía escribir el cliente. Es al revés: cada proxy añade al final, así que la primera es la que traía la petición. Con una cabecera inventada en cada intento, el límite por IP no limitaba, y la auditoría guardaba la IP que quisiera el atacante.
+
+**Decisión.** Una sola función, `ipDelCliente`, y un test que impide leer la cabecera en ningún otro sitio:
+
+- En Vercel (`VERCEL=1`), `x-real-ip`, que escribe la plataforma.
+- Fuera, la **última** entrada de `X-Forwarded-For`: la que añadió el proxy que tenemos delante.
+- Sin ninguna, `desconocida`.
+
+**A cambio de qué.** Detrás de **dos** proxys (una CDN y un nginx, por ejemplo), la última entrada es la de la CDN y todos los visitantes comparten límite. Falla del lado seguro —limita de más, no de menos— y se arregla con una variable de saltos de confianza si alguien lo necesita. Y con `next start` expuesto directamente no hay forma fiable: Next no deja leer la dirección del socket. Está dicho en `.env.example`.
+
+**Qué lo revertiría.** Que Next expusiera la dirección de la conexión a las rutas.

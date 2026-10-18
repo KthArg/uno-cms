@@ -51,6 +51,11 @@ export function isLocked(lockedUntil: Date | null | undefined, now: Date = new D
 /**
  * Estado de la cuenta tras un intento fallido.
  *
+ * **No es lo que escribe en la base**: eso lo hace `reservarIntento`, en SQL y en una sola
+ * sentencia, porque calcularlo aquí y escribirlo después dejaba que intentos concurrentes se
+ * pisaran (ADR-1301). Esta función es la **referencia**: un test comprueba que la sentencia
+ * deja la fila exactamente como dice esto, intento a intento.
+ *
  * **Un intento durante el bloqueo no cuenta y no alarga nada.** Si lo alargara, cualquiera
  * podría mantener fuera a un usuario legítimo indefinidamente sabiendo solo su correo: le
  * bastaría con reintentar cada pocos minutos. La defensa se convertiría en el ataque.

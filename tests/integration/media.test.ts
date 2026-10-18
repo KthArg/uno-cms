@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { deleteMedia, updateMediaAlt } from '@/cms/actions';
 import { resetBucketsForTests, setSessionProviderForTests } from '@/cms/actions/pipeline';
 import { listMedia } from '@/cms/core/media';
-import { getDb, media, users } from '@/cms/db';
+import { contentEntries, getDb, media, users } from '@/cms/db';
 import { describeIntegration } from './env';
 
 /**
@@ -81,6 +81,75 @@ describeIntegration('biblioteca de imágenes', () => {
     // reintentar. Un residuo que se ve es recuperable; uno que no, no.
     expect(await getDb().select().from(media)).toHaveLength(1);
     expect(errores).toHaveBeenCalled();
+  });
+
+  /** Una entrada que usa la imagen, en el borrador o en lo publicado, y en el idioma que toque. */
+  async function usarEn(
+    donde: 'draft' | 'published',
+    valor: Record<string, unknown>,
+    locale = ''
+  ): Promise<void> {
+    const documento = { titulo: 'Portada', fondo: valor };
+    await getDb()
+      .insert(contentEntries)
+      .values({
+        key: `hero-${donde}-${locale || 'base'}`,
+        type: 'hero',
+        locale,
+        draft: donde === 'draft' ? documento : {},
+        published: donde === 'published' ? documento : null,
+        status: donde === 'draft' ? 'draft' : 'published',
+      });
+  }
+
+  it.each([
+    [
+      'en un borrador, por mediaId',
+      'draft' as const,
+      (id: string) => ({ mediaId: id, url: '', alt: 'x' }),
+      '',
+    ],
+    [
+      'en lo publicado, por mediaId',
+      'published' as const,
+      (id: string) => ({ mediaId: id, url: '', alt: 'x' }),
+      '',
+    ],
+    [
+      'en lo publicado de otro idioma',
+      'published' as const,
+      (id: string) => ({ mediaId: id, url: '', alt: 'x' }),
+      'en',
+    ],
+  ])('T-S-15: una imagen usada %s no se borra', async (_caso, donde, valor, locale) => {
+    await crearUsuario('admin');
+    const imagen = await crearImagen();
+    await usarEn(donde, valor(imagen.id), locale);
+
+    const resultado = await deleteMedia({ id: imagen.id });
+
+    expect(resultado).toMatchObject({ ok: false, code: 'MEDIA_IN_USE' });
+    // Ni el fichero ni la fila: la web sigue sirviendo la imagen.
+    expect(borrarEnBlob).not.toHaveBeenCalled();
+    expect(await getDb().select().from(media)).toHaveLength(1);
+  });
+
+  it('T-S-15: también si solo coincide la url', async () => {
+    await crearUsuario('admin');
+    const imagen = await crearImagen();
+    await usarEn('draft', { mediaId: 'otro-id', url: imagen.url, alt: 'x' });
+
+    expect(await deleteMedia({ id: imagen.id })).toMatchObject({ code: 'MEDIA_IN_USE' });
+  });
+
+  it('T-S-15: y una que nadie usa se borra, aunque haya contenido con otras', async () => {
+    await crearUsuario('admin');
+    const usada = await crearImagen('media/2026-01/usada.png');
+    const libre = await crearImagen('media/2026-01/libre.png');
+    await usarEn('published', { mediaId: usada.id, url: usada.url, alt: 'x' });
+
+    expect((await deleteMedia({ id: libre.id })).ok).toBe(true);
+    expect(borrarEnBlob).toHaveBeenCalledWith(libre.url);
   });
 
   it('un editor no puede borrar imágenes', async () => {

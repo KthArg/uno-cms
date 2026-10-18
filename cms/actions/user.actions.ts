@@ -2,6 +2,7 @@
 
 import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { olvidarFallos, reservarIntento } from '@/cms/auth/authenticate';
 import { checkPasswordPolicy, hashPassword, verifyPassword } from '@/cms/auth/passwords';
 import { getDb, users } from '@/cms/db';
 import { signToken } from '@/cms/security/tokens';
@@ -267,9 +268,26 @@ export const changePassword = defineAction({
     // comprobar quién eres deja que alguien con la sesión robada tantee políticas sin
     // conocer la contraseña — y, sobre todo, la contraseña actual es lo que autoriza el
     // cambio, así que es lo primero que hay que exigir.
+    //
+    // **Y cada intento cuenta como uno de entrar** (T-S-6). Sin esto, esta pantalla era un
+    // tanteo de la contraseña sin bloqueo: con una sesión robada, el límite del bucket dejaba
+    // probar cientos por hora, y acertar convertía el robo de una sesión —que se acaba al
+    // pulsar «Salir»— en el de la cuenta. Se reserva igual que en el login (ADR-1301), así que
+    // `LOCKOUT_THRESHOLD` fallos bloquean la cuenta también para entrar.
+    const ahora = new Date();
+    const reserva = await reservarIntento(session.userId, ahora);
+    if (reserva === null) {
+      return fail(
+        'FORBIDDEN',
+        'Demasiados intentos fallidos. Espera unos minutos y vuelve a probar.'
+      );
+    }
+
     if (!(await verifyPassword(usuario.passwordHash, input.currentPassword))) {
       return fail('FORBIDDEN', 'La contraseña actual no es correcta.');
     }
+
+    await olvidarFallos(session.userId, ahora);
 
     const politica = checkPasswordPolicy(input.newPassword);
     if (!politica.ok) return fail('VALIDATION_FAILED', politica.reason);

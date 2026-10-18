@@ -82,6 +82,15 @@ describe('casos límite que no son obvios', () => {
     expect(isSafeLink('//evil.com/phishing')).toBe(false);
   });
 
+  it('T-S-2 — rechaza /\\evil.com, que es //evil.com con la barra al revés', () => {
+    // El navegador lee `\` como `/` en las URL http y https: `new URL('/\\evil.com', base)` da
+    // `https://evil.com/`. Pasaba porque solo se miraba `//`.
+    expect(new URL('/\\evil.com', 'https://sitio.example').host).toBe('evil.com');
+    expect(isSafeLink('/\\evil.com')).toBe(false);
+    expect(isSafeLink('https://ejemplo.com/a\\b')).toBe(false);
+    expect(isSafeLink('/contacto')).toBe(true);
+  });
+
   it('rechaza una cadena vacía o solo espacios', () => {
     expect(isSafeLink('')).toBe(false);
     expect(isSafeLink('   ')).toBe(false);
