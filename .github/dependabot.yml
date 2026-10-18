@@ -18,15 +18,7 @@ updates:
       # de actualizaciones que nadie puede revisar acaba mergeándose sin mirar, que es peor
       # que no tenerlo (SPEC §7.1, "Dependencias").
       dev-tooling:
-        patterns:
-          [
-            'eslint*',
-            'prettier*',
-            '@typescript-eslint/*',
-            'typescript-eslint',
-            'husky',
-            'lint-staged',
-          ]
+        patterns: ['eslint*', 'prettier*', 'husky', 'lint-staged']
         update-types: [minor, patch]
       testing:
         patterns: ['vitest', '@vitest/*', '@playwright/*']
@@ -44,8 +36,14 @@ updates:
       #
       # Con el grupo, o suben las dos o no sube ninguna — que es literalmente lo que decía el
       # comentario.
+      #
+      # Y `typescript-eslint` va en el mismo grupo por la misma razón que tiptap (abajo), aprendida
+      # en #320: `eslint-config-next` 15.5.28 pidió `@typescript-eslint/eslint-plugin` ^8.71.2 con
+      # el nuestro fijo en 8.71.0. Dos copias del plugin bajo el mismo nombre y ESLint no carga la
+      # configuración: `lint` e `integration` en rojo dos semanas (#310). Si la config de Next sube,
+      # el plugin que arrastra tiene que poder subir en el mismo PR.
       framework:
-        patterns: ['next', 'eslint-config-next']
+        patterns: ['next', 'eslint-config-next', 'typescript-eslint', '@typescript-eslint/*']
         update-types: [minor, patch]
       # Los paquetes de tiptap **también son una serie**, y esto lo aprendimos rompiéndolo
       # (#261). Dependabot propuso `@tiptap/starter-kit` a 3.31.3 solo, dejando `@tiptap/react`
