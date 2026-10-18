@@ -362,7 +362,7 @@ function NavegacionDelPanel({
   readonly rutaActual: string;
 }) {
   return (
-    <div className="contents lg:sticky lg:top-5 lg:flex lg:h-[calc(100dvh-2.5rem)] lg:shrink-0 lg:items-center lg:self-start xl:top-7 xl:h-[calc(100dvh-3.5rem)]">
+    <div className="contents lg:block lg:sticky lg:top-1/2 lg:shrink-0 lg:-translate-y-1/2 lg:self-center">
       <nav
         aria-label="Secciones del panel"
         className="lamina-fondo fixed inset-x-0 bottom-0 z-30 border-t border-linea pb-[env(safe-area-inset-bottom)] lg:static lg:rounded-3xl lg:border lg:p-2 lg:pb-2"
