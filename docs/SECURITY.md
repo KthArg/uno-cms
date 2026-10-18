@@ -189,8 +189,9 @@ se ejecutara nunca.
 
 Casos: T-60-2 a T-60-6 y T-N-1.
 
-Además de las de §7.2, `Cross-Origin-Opener-Policy: same-origin` en todas (T-S-22): otra pestaña
-no se queda con una referencia a esta ventana. Y la CSP se le pasa a Next en la **petición**, que
+Además de las de §7.2, `Cross-Origin-Opener-Policy: same-origin` en las rutas privadas (T-S-22):
+otra pestaña no se queda con una referencia a esta ventana. **No en la landing**: es de quien monta
+el CMS, y un login social o una pasarela de pago por ventana emergente dependen de `opener`. Y la CSP se le pasa a Next en la **petición**, que
 es de donde saca el nonce para sus propios `<script>`; un caso comprueba que cada uno lo lleva.
 
 `X-Robots-Tag: noindex` va **solo** en `/admin`, `/preview`, `/api` y `/setup`. En la landing

@@ -73,16 +73,20 @@ function applySecurityHeaders(response: NextResponse, request: NextRequest, nonc
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  // Otra pestaña abierta desde aquí, o que nos abra, no se queda con una referencia a esta
-  // ventana (T-S-22). Cierra `window.opener` y las fugas entre orígenes que se apoyan en él. No
-  // toca la vista previa: un iframe es `window.parent`, no `opener`, y nada aquí abre ventanas.
-  response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
 
   // Solo en las rutas privadas. En la landing sería un error caro: costaría el
   // posicionamiento del sitio entero y nadie lo notaría hasta semanas después.
   const path = request.nextUrl.pathname;
   if (esNoIndexable(path)) {
     response.headers.set('X-Robots-Tag', 'noindex');
+    // Otra pestaña abierta desde aquí, o que nos abra, no se queda con una referencia a esta
+    // ventana (T-S-22): cierra `window.opener` y las fugas entre orígenes que se apoyan en él. No
+    // toca la vista previa: un iframe es `window.parent`, no `opener`.
+    //
+    // **Solo en las rutas privadas, no en la landing.** La landing es de quien monta el CMS, y
+    // ahí un login social o una pasarela de pago por ventana emergente dependen de `opener`:
+    // ponérsela rompería algo que no es nuestro decidir. Lo que se protege es el panel.
+    response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
   }
 }
 

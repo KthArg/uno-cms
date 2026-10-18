@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { deleteMedia, updateMediaAlt } from '@/cms/actions';
 import { resetBucketsForTests, setSessionProviderForTests } from '@/cms/actions/pipeline';
 import { listMedia } from '@/cms/core/media';
-import { contentEntries, getDb, media, users } from '@/cms/db';
+import { contentEntries, getDb, media, settings, users } from '@/cms/db';
 import { describeIntegration } from './env';
 
 /**
@@ -140,6 +140,17 @@ describeIntegration('biblioteca de imágenes', () => {
     await usarEn('draft', { mediaId: 'otro-id', url: imagen.url, alt: 'x' });
 
     expect(await deleteMedia({ id: imagen.id })).toMatchObject({ code: 'MEDIA_IN_USE' });
+  });
+
+  it('T-S-15: tampoco la que es la imagen por defecto al compartir (seo.ogImageUrl)', async () => {
+    await crearUsuario('admin');
+    const imagen = await crearImagen();
+    await getDb()
+      .insert(settings)
+      .values({ key: 'seo', value: { title: 'Sitio', ogImageUrl: imagen.url } });
+
+    expect(await deleteMedia({ id: imagen.id })).toMatchObject({ code: 'MEDIA_IN_USE' });
+    expect(borrarEnBlob).not.toHaveBeenCalled();
   });
 
   it('T-S-15: y una que nadie usa se borra, aunque haya contenido con otras', async () => {

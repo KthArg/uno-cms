@@ -18,7 +18,8 @@ test('T-60-2: la landing lleva todas las cabeceras de SPEC §7.2', async ({ requ
   expect(headers['x-content-type-options']).toBe('nosniff');
   expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
   expect(headers['permissions-policy']).toContain('camera=()');
-  expect(headers['cross-origin-opener-policy']).toBe('same-origin');
+  // T-S-22: en la landing **no**. Es de quien monta el CMS, y sus popups dependen de `opener`.
+  expect(headers['cross-origin-opener-policy']).toBeUndefined();
 });
 
 test('T-60-3: la CSP lleva nonce y frame-ancestors self', async ({ request }) => {
@@ -155,8 +156,6 @@ const CABECERAS_DE_TODAS = {
   'referrer-policy': 'strict-origin-when-cross-origin',
   'permissions-policy': 'camera=(), microphone=(), geolocation=()',
   'strict-transport-security': 'max-age=63072000; includeSubDomains; preload',
-  // T-S-22. No está en §7.2; la añadió la auditoría de la spec 19.
-  'cross-origin-opener-policy': 'same-origin',
 };
 
 test('T-N-1: el panel CON sesión lleva las cabeceras y noindex', async ({ page }) => {
@@ -173,6 +172,8 @@ test('T-N-1: el panel CON sesión lleva las cabeceras y noindex', async ({ page 
     expect(cabeceras[nombre], `${nombre} en /admin`).toBe(valor);
   }
   expect(cabeceras['x-robots-tag']).toBe('noindex');
+  // T-S-22: las rutas privadas sí la llevan; la landing no (T-60-2).
+  expect(cabeceras['cross-origin-opener-policy']).toBe('same-origin');
   expect(cabeceras['content-security-policy']).toContain("frame-ancestors 'self'");
 });
 
@@ -186,6 +187,8 @@ test('T-N-1: la vista previa lleva las cabeceras y noindex', async ({ request })
     expect(cabeceras[nombre], `${nombre} en /preview`).toBe(valor);
   }
   expect(cabeceras['x-robots-tag']).toBe('noindex');
+  // T-S-22: las rutas privadas sí la llevan; la landing no (T-60-2).
+  expect(cabeceras['cross-origin-opener-policy']).toBe('same-origin');
 });
 
 test('T-N-1: la ruta de subida lleva las cabeceras, y rechaza sin sesión', async ({ request }) => {
@@ -204,6 +207,8 @@ test('T-N-1: la ruta de subida lleva las cabeceras, y rechaza sin sesión', asyn
     expect(cabeceras[nombre], `${nombre} en /api/media/upload`).toBe(valor);
   }
   expect(cabeceras['x-robots-tag']).toBe('noindex');
+  // T-S-22: las rutas privadas sí la llevan; la landing no (T-60-2).
+  expect(cabeceras['cross-origin-opener-policy']).toBe('same-origin');
 });
 
 /**

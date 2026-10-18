@@ -1,4 +1,4 @@
-import { getSettings } from '@/cms/core/settings';
+import { readSettings } from '@/cms/core/settings';
 
 /**
  * `GET /api/settings`: los ajustes del sitio, para una web que vive fuera (spec 16 §5.7, #284).
@@ -38,9 +38,8 @@ const S_MAXAGE = 60;
 const STALE_WHILE_REVALIDATE = 300;
 
 export async function GET(): Promise<Response> {
-  // Los dos, y en paralelo. Por la caché de datos y no de la base (T-S-20): la CDN distingue cada
-  // query string, así que sin esto `?v=<lo que sea>` era una consulta por petición.
-  const [site, seo] = await Promise.all([getSettings('site'), getSettings('seo')]);
+  // Los dos, y en paralelo: son dos lecturas independientes de la misma tabla.
+  const [site, seo] = await Promise.all([readSettings('site'), readSettings('seo')]);
 
   return Response.json(
     { site, seo },

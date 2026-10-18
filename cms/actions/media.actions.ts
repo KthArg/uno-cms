@@ -4,7 +4,7 @@ import { del } from '@vercel/blob';
 import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { avisar } from '@/cms/core/aviso';
-import { contentEntries, getDb, media } from '@/cms/db';
+import { contentEntries, getDb, media, settings } from '@/cms/db';
 import { esPathnameGenerado, hostDelAlmacen } from '@/cms/nombres-de-subida';
 import { nombreLegible } from '@/cms/security/uploads';
 import { defineAction, fail, ok } from './pipeline';
@@ -144,7 +144,18 @@ async function imagenEnUso(id: string, url: string): Promise<boolean> {
     )
     .limit(1);
 
-  return alguna !== undefined;
+  if (alguna !== undefined) return true;
+
+  // Y los ajustes: la imagen por defecto de las redes (`seo.ogImageUrl`) es una URL suelta, no un
+  // valor de campo `image`, así que se busca la cadena tal cual. Sin esto se podía borrar la
+  // imagen que enseñan todas las páginas al compartirlas.
+  const [ajuste] = await getDb()
+    .select({ key: settings.key })
+    .from(settings)
+    .where(sql`jsonb_path_exists(${settings.value}, '$.** ? (@ == $url)'::jsonpath, ${variables})`)
+    .limit(1);
+
+  return ajuste !== undefined;
 }
 
 export const deleteMedia = defineAction({
@@ -168,7 +179,7 @@ export const deleteMedia = defineAction({
     if (fila === undefined) return fail('NOT_FOUND');
 
     // **Y no se borra lo que se está usando** (SPEC §5.3, T-S-15). Se busca en el borrador y en
-    // lo publicado de todas las entradas, en todos los idiomas: una imagen publicada que
+    // lo publicado de todas las entradas, en todos los idiomas, y en los ajustes: una imagen publicada que
     // desaparece deja la web con un hueco y nadie se entera. Las revisiones no cuentan, son
     // historia; contarlas impediría borrar cualquier imagen que se haya usado alguna vez.
     //

@@ -37,13 +37,7 @@ vi.mock('next/server', () => ({ after }));
 
 vi.mock('next/cache', async () => {
   const actual = await vi.importActual<typeof import('next/cache')>('next/cache');
-  // `unstable_cache` lanza fuera de una petición (ADR-405), y desde T-S-20 la ruta pública lee
-  // por ella. Aquí se prueba qué sirve, no que cachee: eso lo vigila `api-publica-cacheada`.
-  return {
-    ...actual,
-    revalidateTag: vi.fn(),
-    unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
-  };
+  return { ...actual, revalidateTag: vi.fn() };
 });
 
 const ES = '';

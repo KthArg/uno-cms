@@ -57,8 +57,12 @@ había un comentario o una fila de `docs/SECURITY.md` prometiendo lo que el cód
 - **`report-uri` en la CSP.** Exige un sitio donde recibir los informes, y eso es otra pieza.
 - **Comprobar los bytes del fichero subido.** En producción se sirven desde el origen de Blob,
   no el nuestro, así que un políglota no ejecuta en nuestro origen. Se anota en `SECURITY.md`.
-- **Límite de peticiones en la API pública.** Lo que la hace cara es la base de datos, y eso lo
-  quita el caso 14. Un límite por IP encima sería por instancia (ADR-303).
+- **Que la API pública deje de ir a la base en cada petición** (hallazgo 14). Se escribió como
+  T-S-20 y **se retiró en la revisión del PR**: leer por `unstable_cache` hace que la frescura
+  dependa de que `revalidateTag` llegue a la instancia que sirve. En Vercel la caché de datos es
+  compartida; auto-hospedado con varias instancias, no, y sin `revalidate` temporal esas
+  instancias servirían lo viejo **para siempre**. Los e2e que escriben por SQL se volvían además
+  dependientes del orden. El remedio era peor que el problema; va a `PENDIENTES.md`.
 
 ## 4. Contratos
 
@@ -77,8 +81,6 @@ había un comentario o una fila de `docs/SECURITY.md` prometiendo lo que el cód
 - `declarada(registro, clave)` en `cms/core/collections.ts`: la búsqueda en lo que declara
   `cms.config.ts` con `Object.hasOwn`. La usan `definicionDeColeccion` y `schemaForType`, y a
   través de ellas las actions.
-- `getSettings(key)` en `cms/core/settings.ts`: `readSettings` por la caché de datos, con el tag
-  que invalida `updateSettings`.
 - `ActionErrorCode` gana `MEDIA_IN_USE`.
 
 ## 5. Casos
@@ -133,9 +135,9 @@ Cada uno, comprobado por mutación antes de darlo por hecho.
 
 ### API pública y cadena de suministro
 
-- **T-S-20** `/api/content/:key` y `/api/settings` leen por la caché de datos con tag, la que
-  invalida publicar, y no directamente de la base.
+- ~~**T-S-20**~~ Retirado en la revisión del PR; ver §3.
 - **T-S-21** Toda acción de terceros en `.github/workflows` va anclada por SHA, y todo
   `actions/checkout` lleva `persist-credentials: false`.
-- **T-S-22** `Cross-Origin-Opener-Policy: same-origin` en todas las clases de ruta.
+- **T-S-22** `Cross-Origin-Opener-Policy: same-origin` en las rutas privadas (panel, vista
+  previa, API y `/setup`), y **no** en la landing, donde romperían los popups de quien la monta.
 - **T-S-23** `.env.production` y `.env.development` quedan fuera de git; `.env.example` no.

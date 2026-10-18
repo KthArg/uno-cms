@@ -2209,5 +2209,13 @@ comentarios o filas de documentación prometían algo falso, incluida una «deud
   lo que protege es el prefijo. Lo mismo con los atributos de richtext: para cuando se buscan, el
   tipo heredado ya está rechazado. Las dos se quitaron en vez de dejar código que aparenta
   proteger.
+- **El SQL nuevo no se había ejecutado nunca, y no funcionaba.** `make_interval(mins => …)` solo
+  acepta enteros y `power` devuelve `double`: la reserva de intentos fallaba en cada acceso. Docker
+  no arrancaba en local, así que la integración se ejecutó por primera vez en CI, y allí murió con
+  21 casos. La revisión del diff lo había señalado leyendo, sin ejecutar. Es lo que este
+  repositorio repite: lo que no se ha ejecutado no está comprobado, por bien que se lea.
+- **Un arreglo era peor que el problema.** Leer la API pública por `unstable_cache` quitaba la
+  consulta por petición y, a cambio, auto-hospedado con varias instancias servía contenido viejo
+  para siempre. Lo vio la revisión; se retiró (T-S-20) y quedó en `PENDIENTES.md`.
 - **El número de la spec estaba cogido**, como el prefijo de los casos en la de idiomas: #317
   añadió la 18 mientras esta se escribía. Se vio porque ADR-1200 la citaba.
