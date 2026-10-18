@@ -161,6 +161,10 @@ PREVIEW_URL=https://mi-web.com/
 
 **Sin `PREVIEW_ORIGINS` no cambia nada**, así que puedes dejarlo para más adelante sin miedo.
 
+Lo que **no** conviene dejar para más adelante es una línea en `cms.config.ts`, `webExterna: true`:
+es la que hace que la dirección del panel lleve al panel —o a `/setup` la primera vez— en vez de
+enseñar una web de ejemplo. Si alguien montó el proyecto por ti, pregúntale si la puso.
+
 Lo que hay que tocar en tu web, y lo que hay que saber antes de intentarlo, está en
 [`DEVELOPER.md`](DEVELOPER.md#alimentar-una-web-que-vive-fuera-de-este-repositorio). Léelo antes
 de poner las variables: **hay que añadir unas líneas a tu web** y ajustar su política de

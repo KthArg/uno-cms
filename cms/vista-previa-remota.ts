@@ -156,16 +156,19 @@ export function urlDeVistaPreviaRemota(
 }
 
 /**
- * Si la web que alimenta este CMS **vive fuera de este despliegue** (ADR-701, spec 14).
+ * Si la vista previa remota está puesta: la web de fuera según el entorno (ADR-701, spec 14).
  *
  * Es `urlDeVistaPreviaRemota() !== null` con un nombre, y tener el nombre es la mitad del asunto:
- * quien lo lea en la landing no tiene que deducir qué significa que esa función devuelva algo.
+ * quien lo lea no tiene que deducir qué significa que esa función devuelva algo.
  *
- * ## Por qué es **la misma** condición que decide a dónde apunta el iframe
+ * ## No es lo que decide la raíz
  *
- * Porque con dos condiciones distintas existiría un estado en el que la raíz redirige al panel y
- * el iframe apunta a casa, o al revés: media aplicación creyendo que la web está fuera y la otra
- * media que no. Aquí hay una sola respuesta y de ella salen las dos cosas.
+ * La spec 14 la hizo la única condición de la raíz y del iframe, para que no pudieran discrepar.
+ * Desde la spec 18 (ADR-1200) la raíz pregunta a `webExterna()` de `cms/core/web-externa.ts`, que
+ * es esta **o** lo declarado en `cms.config.ts`. Así que el estado que la spec 14 evitaba —raíz al
+ * panel, iframe apuntando a casa— existe a propósito: `webExterna: true` sin vista previa remota.
+ * El otro, iframe fuera y raíz en casa, sigue sin poder darse, porque esta condición entra en la
+ * otra.
  *
  * En particular hereda cómo la spec 08 §4.1 trata la configuración incoherente —`PREVIEW_URL`
  * escrita y su origen fuera de `PREVIEW_ORIGINS`—: **no configurada**. Ahí la CSP bloquearía ese

@@ -267,6 +267,23 @@ Sigue siendo **un CMS por web**: lo único que cambia es que la web puede estar 
 previa funciona sin que nadie configure nada y sin que ningún borrador salga de la aplicación.
 Todo lo de abajo existe porque a veces no se puede.
 
+### 0. Decláralo en `cms.config.ts`
+
+```ts
+export default defineConfig({
+  siteName: 'Mi web',
+  webExterna: true,
+  // …
+});
+```
+
+Con eso, la raíz de este despliegue deja de servir la landing de ejemplo: lleva a `/setup` mientras
+no esté configurado y al panel después, y el sitemap no anuncia nada (spec 18, ADR-1200). **No
+depende de ninguna variable de entorno**, así que funciona aunque todavía no hayas puesto la vista
+previa de abajo. Sin declararlo, la raíz solo lleva al panel si la vista previa remota está bien
+puesta, y mientras no lo esté sirve en el dominio del panel la landing de ejemplo con tu contenido
+dentro.
+
 ### 1. Dos variables de entorno en el CMS
 
 ```sh

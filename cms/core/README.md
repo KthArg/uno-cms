@@ -14,3 +14,7 @@ sin tests.
 guarda la columna `locale`, donde el de por defecto es la cadena vacía (ADR-1100). Ninguna consulta
 escribe esa cadena a mano. `idioma-del-panel.ts` lee y valida la cookie con la que el panel recuerda
 en qué idioma se trabaja (ADR-1102).
+
+`web-externa.ts` decide si la landing vive fuera de este despliegue: lo que declara `cms.config.ts`
+con `webExterna`, o la vista previa remota puesta (spec 18, ADR-1200). Con eso decide la raíz si
+lleva al panel y el sitemap si anuncia algo.
