@@ -106,6 +106,9 @@ export async function reservarIntento(userId: string, now: Date): Promise<Intent
   // En el `SET`, la columna vale lo que valía **antes** del `UPDATE`: las tres expresiones ven
   // el mismo contador viejo, que es lo que hace falta.
   const siguiente = sql`${users.failedLogins} + 1`;
+  // `power` devuelve `double precision`, y `make_interval(mins => …)` solo acepta enteros: así
+  // estaba escrito y fallaba en cada intento. Multiplicar un intervalo por un `double` sí vale, y
+  // los valores son siempre enteros (15·2^k, con tope en 1440).
   const minutos = sql`least(${LOCKOUT_BASE_MINUTES} * power(2, least(${siguiente} - ${LOCKOUT_THRESHOLD}, 20)), ${LOCKOUT_MAX_MINUTES})`;
 
   const [fila] = await getDb()
@@ -113,7 +116,7 @@ export async function reservarIntento(userId: string, now: Date): Promise<Intent
     .set({
       failedLogins: siguiente,
       lockedUntil: sql`case when ${siguiente} >= ${LOCKOUT_THRESHOLD}
-        then ${now.toISOString()}::timestamptz + make_interval(mins => ${minutos})
+        then ${now.toISOString()}::timestamptz + ${minutos} * interval '1 minute'
         else null end`,
       updatedAt: now,
     })
