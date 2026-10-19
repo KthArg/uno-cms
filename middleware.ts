@@ -146,13 +146,14 @@ export default auth((request) => {
     return redirect;
   }
 
-  // **La CSP también va en la petición, y es como Next se entera del nonce.** Next lo saca de la
-  // cabecera `Content-Security-Policy` de la petición para ponérselo a sus propios `<script>`
-  // (`app-render.js`). Antes aquí se ponía una `x-nonce` que no leía nadie, con un comentario
-  // que decía que era el camino; la CSP llegaba igualmente porque Next copia las cabeceras de la
-  // respuesta del middleware a la petición, y eso es un detalle interno, no un contrato.
+  // **Cómo se entera Next del nonce, que no es por aquí.** Next lo saca de la cabecera
+  // `Content-Security-Policy` de la petición (`app-render.js`), y esa cabecera la pone él: copia
+  // las de la **respuesta** del middleware sobre la petición (`resolve-routes.js`), pisando lo que
+  // se haya puesto en esta. Se comprobó por mutación: con otro nonce escrito aquí, los `<script>`
+  // salían igual con el de la respuesta. Es un detalle interno de Next, no un contrato, y lo que
+  // lo vigila es el e2e que compara el nonce de cada `<script>` con el de la cabecera: si Next
+  // dejara de copiarla, los scripts saldrían sin nonce y ese caso moriría.
   const headers = new Headers(request.headers);
-  headers.set('Content-Security-Policy', cspDeLaPeticion(nonce));
   // La ruta, por el mismo camino. La usa el layout del panel para pintar el **primer** render
   // con la sección correcta; a partir de ahí manda `usePathname()` en el cliente.
   //
