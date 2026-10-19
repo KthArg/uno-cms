@@ -335,8 +335,24 @@ export function PanelShell({
  * documento: cada enlace lleva su nombre accesible y su `title`.
  *
  * `pb-[env(safe-area-inset-bottom)]` para que en un teléfono con barra de gestos la fila no
- * quede debajo de ella. `lg:self-start` porque un elemento de un flex se estira a lo alto por
- * defecto, y un `sticky` estirado no se pega a nada: se queda quieto pareciendo que funciona.
+ * quede debajo de ella.
+ *
+ * ## Siempre en el centro de la ventana (issue #318)
+ *
+ * Hasta #318 el rail era él mismo `sticky` con `top: 50%`, dentro de la fila con `self-center`.
+ * Eso lo centraba **en el contenedor**, que mide lo que mida la página: en una pantalla larga
+ * aparecía a media página, fuera de la vista, y solo se quedaba quieto cuando el scroll lo
+ * alcanzaba. Su altura dependía de dónde estuvieras.
+ *
+ * Ahora lo que se pega es **una columna del alto de la ventana**, y el rail se centra dentro de
+ * ella con flex. Las cuentas salen del relleno de la fila de `PanelShell` (`p-5`, y `p-7` en
+ * `xl`): la columna empieza ya en `top-5` sin desplazarse, así que el `sticky` no la mueve nunca,
+ * y mide la ventana menos ese relleno arriba y abajo, así que su centro **es** el de la ventana.
+ * Si cambia ese relleno, estas dos cifras cambian con él; T-318-1 es el que lo detecta.
+ *
+ * `fixed` habría centrado igual sin cuentas, pero saca al rail de la fila y el contenedor grande
+ * tendría que reservarle el ancho a mano. En el móvil la columna es `contents`: no existe, y la
+ * barra sigue siendo `fixed` abajo como antes, sin sumar un hueco más al `gap` de la fila.
  */
 function NavegacionDelPanel({
   entradas,
@@ -346,49 +362,51 @@ function NavegacionDelPanel({
   readonly rutaActual: string;
 }) {
   return (
-    <nav
-      aria-label="Secciones del panel"
-      className="lamina-fondo fixed inset-x-0 bottom-0 z-30 border-t border-linea pb-[env(safe-area-inset-bottom)] lg:sticky lg:inset-x-auto lg:top-1/2 lg:bottom-auto lg:z-auto lg:w-auto lg:shrink-0 lg:-translate-y-1/2 lg:self-center lg:rounded-3xl lg:border lg:p-2 lg:pb-2"
-    >
-      <ul className="mx-auto flex max-w-lg items-stretch justify-around lg:max-w-none lg:flex-col lg:gap-1">
-        {entradas.map((entrada) => {
-          const activa = esActiva(entrada.href, rutaActual);
+    <div className="contents lg:sticky lg:top-5 lg:flex lg:h-[calc(100dvh-2.5rem)] lg:shrink-0 lg:items-center lg:self-start xl:top-7 xl:h-[calc(100dvh-3.5rem)]">
+      <nav
+        aria-label="Secciones del panel"
+        className="lamina-fondo fixed inset-x-0 bottom-0 z-30 border-t border-linea pb-[env(safe-area-inset-bottom)] lg:static lg:rounded-3xl lg:border lg:p-2 lg:pb-2"
+      >
+        <ul className="mx-auto flex max-w-lg items-stretch justify-around lg:max-w-none lg:flex-col lg:gap-1">
+          {entradas.map((entrada) => {
+            const activa = esActiva(entrada.href, rutaActual);
 
-          return (
-            <li key={entrada.href} className="flex-1 lg:flex-none">
-              <Link
-                href={entrada.href}
-                // `aria-current` y no solo un color: quien navega con lector de pantalla
-                // no ve el fondo.
-                aria-current={activa ? 'page' : undefined}
-                // **El nombre accesible y el `title` son la condición de ADR-810**, no un
-                // adorno: son lo que impide que el rail de escritorio se quede mudo de
-                // verdad. Hay un caso que los exige (T-216-2).
-                aria-label={entrada.texto}
-                title={entrada.texto}
-                // 56 px de alto en el móvil y **toda la celda** pulsable, no el icono. El
-                // mínimo de las guías es 44 y aquí sobra a propósito: es el control que más
-                // se usa y el que peor se apunta andando. En el rail es un cuadrado de 44.
-                className={`flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] pulsable lg:size-11 lg:justify-center lg:rounded-2xl lg:text-sm ${ANILLO_DE_FOCO} ${
-                  activa
-                    ? 'font-medium text-acento lg:bg-accion lg:text-sobre-accion'
-                    : 'text-tinta-suave lg:hover:bg-superficie-suave lg:hover:text-tinta'
-                }`}
-              >
-                {/* **El dibujo cambia con la sección activa** (#231): relleno el de la pantalla
+            return (
+              <li key={entrada.href} className="flex-1 lg:flex-none">
+                <Link
+                  href={entrada.href}
+                  // `aria-current` y no solo un color: quien navega con lector de pantalla
+                  // no ve el fondo.
+                  aria-current={activa ? 'page' : undefined}
+                  // **El nombre accesible y el `title` son la condición de ADR-810**, no un
+                  // adorno: son lo que impide que el rail de escritorio se quede mudo de
+                  // verdad. Hay un caso que los exige (T-216-2).
+                  aria-label={entrada.texto}
+                  title={entrada.texto}
+                  // 56 px de alto en el móvil y **toda la celda** pulsable, no el icono. El
+                  // mínimo de las guías es 44 y aquí sobra a propósito: es el control que más
+                  // se usa y el que peor se apunta andando. En el rail es un cuadrado de 44.
+                  className={`flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] pulsable lg:size-11 lg:justify-center lg:rounded-2xl lg:text-sm ${ANILLO_DE_FOCO} ${
+                    activa
+                      ? 'font-medium text-acento lg:bg-accion lg:text-sobre-accion'
+                      : 'text-tinta-suave lg:hover:bg-superficie-suave lg:hover:text-tinta'
+                  }`}
+                >
+                  {/* **El dibujo cambia con la sección activa** (#231): relleno el de la pantalla
                     en la que estás, hueco el resto. Es una señal más, no la única — el color y
                     `aria-current` siguen ahí. */}
-                <Icono de={entrada.icono} tamano={22} relleno={activa} className="lg:size-5" />
-                {/* En escritorio el texto deja de pintarse pero **no se va del documento**:
+                  <Icono de={entrada.icono} tamano={22} relleno={activa} className="lg:size-5" />
+                  {/* En escritorio el texto deja de pintarse pero **no se va del documento**:
                         `sr-only` lo mantiene para quien lo lee en voz alta. Y en el móvil sigue
                         debajo del icono, que es donde hace falta. */}
-                <span className="lg:sr-only">{entrada.texto}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+                  <span className="lg:sr-only">{entrada.texto}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </div>
   );
 }
 
