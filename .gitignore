@@ -21,9 +21,9 @@ blob-report/
 # production
 dist/
 
-# env
-.env
-.env*.local
+# env — todos, menos la plantilla (T-S-23). Con `.env` y `.env*.local` a secas, un
+# `.env.production` o un `.env.development` con secretos se versionaba sin avisar.
+.env*
 !.env.example
 
 # vercel

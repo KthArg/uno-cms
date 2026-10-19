@@ -85,7 +85,7 @@ async function crearEditor(role: 'editor' | 'admin' = 'editor') {
   return user!;
 }
 
-/** Se hace pasar por administradora: `updateSettings` y `deleteMedia` lo exigen. */
+/** Se hace pasar por administradora: `updateSettings`, `deleteMedia` y `deleteItem` lo exigen. */
 async function comoAdmin() {
   const admin = await crearEditor('admin');
   setSessionProviderForTests(() =>
@@ -217,6 +217,7 @@ describeIntegration('el aviso al publicar', () => {
       published: TESTIMONIO,
       status: 'published',
     });
+    await comoAdmin();
 
     expect((await deleteItem({ key: 'testimonials.a1b2' })).ok).toBe(true);
 
@@ -309,6 +310,8 @@ describeIntegration('el aviso al publicar', () => {
     // o `registrarImagen` lo rechaza antes de llegar al aviso.
     const pathname = 'media/2026-09/3f8a1c2e-4b5d-4e6f-8a9b-0c1d2e3f4a5b.webp';
     const url = `https://ejemplo.public.blob.vercel-storage.com/${pathname}`;
+    // El host tiene que ser el del almacén de este despliegue (T-S-13), que sale del token.
+    vi.stubEnv('BLOB_READ_WRITE_TOKEN', 'vercel_blob_rw_ejemplo_secreto-de-usar-y-tirar');
 
     const resultado = await registrarImagen({
       url,
@@ -326,6 +329,7 @@ describeIntegration('el aviso al publicar', () => {
   });
 
   it('registrar la MISMA imagen dos veces avisa una sola vez', async () => {
+    vi.stubEnv('BLOB_READ_WRITE_TOKEN', 'vercel_blob_rw_ejemplo_secreto-de-usar-y-tirar');
     const pathname = 'media/2026-09/11112222-3333-4444-5555-666677778888.webp';
     const entrada = {
       url: `https://ejemplo.public.blob.vercel-storage.com/${pathname}`,

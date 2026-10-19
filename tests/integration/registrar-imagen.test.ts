@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registrarImagen } from '@/cms/actions';
 import { resetBucketsForTests, setSessionProviderForTests } from '@/cms/actions/pipeline';
 import { getDb, media, users } from '@/cms/db';
@@ -13,7 +13,13 @@ import { describeIntegration } from './env';
  * almacén y el CMS no se entera nunca.
  */
 
-const ALMACEN = 'https://9lcnpfkujauvaxx4.public.blob.vercel-storage.com';
+/**
+ * Un almacén inventado. Aquí estaba el identificador del almacén **real** de producción, que no
+ * es un secreto pero se propaga copiando (`PENDIENTES.md`). Desde T-S-13 el host tiene que
+ * coincidir con el del token, así que el test fija los dos y ya no hace falta ninguno real.
+ */
+const TOKEN = 'vercel_blob_rw_TiendaDePrueba1_secreto-de-usar-y-tirar';
+const ALMACEN = 'https://tiendadeprueba1.public.blob.vercel-storage.com';
 const NOMBRE = 'media/2026-08/8a1f0c2e-1111-4222-8333-444455556666.png';
 
 function imagen(pathname = NOMBRE) {
@@ -37,10 +43,12 @@ async function entrarComo(role: 'admin' | 'editor') {
 describeIntegration('registrar una imagen recién subida', () => {
   beforeEach(() => {
     resetBucketsForTests();
+    vi.stubEnv('BLOB_READ_WRITE_TOKEN', TOKEN);
   });
 
   afterEach(() => {
     setSessionProviderForTests(null);
+    vi.unstubAllEnvs();
   });
 
   it('T-205-1: queda registrada, sin que haya llegado ningún aviso', async () => {
@@ -117,6 +125,12 @@ describeIntegration('registrar una imagen recién subida', () => {
         { ...imagen(), url: `https://public.blob.vercel-storage.com.malo.io/${NOMBRE}` },
       ],
       ['algo que no es una url', { ...imagen(), url: 'no es una url' }],
+      // T-S-13: el almacén de **otro** cliente de Vercel, con la forma perfecta. Pasaba porque se
+      // comparaba por el sufijo `.public.blob.vercel-storage.com`, que es de todos.
+      [
+        'el almacén de otro cliente de Vercel',
+        { ...imagen(), url: `https://otratienda9.public.blob.vercel-storage.com/${NOMBRE}` },
+      ],
       // Nombre válido, dominio válido, y la URL apunta a otro objeto: se guardaría un nombre
       // correcto señalando a algo que no es.
       [

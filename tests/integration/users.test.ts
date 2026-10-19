@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { changePassword, deactivateUser, inviteUser, updateUserRole } from '@/cms/actions';
 import { resetBucketsForTests, setSessionProviderForTests } from '@/cms/actions/pipeline';
 import { authenticate, isSessionStillValid } from '@/cms/auth/authenticate';
+import { LOCKOUT_THRESHOLD } from '@/cms/auth/lockout';
 import { hashPassword } from '@/cms/auth/passwords';
 import { getDb, users } from '@/cms/db';
 import { verifyToken } from '@/cms/security/tokens';
@@ -235,6 +236,44 @@ describeIntegration('usuarios', () => {
       password: 'una-contrasena-nueva-y-larga',
     });
     expect(login.ok).toBe(true);
+  });
+
+  it('T-S-6: tantear la actual desde esta pantalla bloquea la cuenta, también para entrar', async () => {
+    const editora = await crearUsuario({ email: 'e@ejemplo.com', role: 'editor' });
+    sesionDe(editora);
+
+    for (let i = 0; i < LOCKOUT_THRESHOLD; i += 1) {
+      const intento = await changePassword({
+        currentPassword: `adivinando-la-actual-${i}`,
+        newPassword: 'otra-contrasena-larga-valida',
+      });
+      expect(intento).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+    }
+
+    // Con la cuenta bloqueada, ni acertando: la contraseña sigue siendo la de antes.
+    const acertando = await changePassword({
+      currentPassword: PASSWORD,
+      newPassword: 'otra-contrasena-larga-valida',
+    });
+    expect(acertando).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+    expect((await leer(editora.id)).passwordHash).toBe(editora.passwordHash);
+
+    // Y es el mismo bloqueo que el del login: entrar tampoco.
+    expect((await leer(editora.id)).lockedUntil).not.toBeNull();
+    expect((await authenticate({ email: 'e@ejemplo.com', password: PASSWORD })).ok).toBe(false);
+  });
+
+  it('T-S-6: un acierto olvida los fallos anteriores', async () => {
+    const editora = await crearUsuario({ email: 'e@ejemplo.com', role: 'editor' });
+    sesionDe(editora);
+
+    await changePassword({ currentPassword: 'una-que-no-es-larga', newPassword: 'x'.repeat(20) });
+    await changePassword({
+      currentPassword: PASSWORD,
+      newPassword: 'una-contrasena-nueva-y-larga',
+    });
+
+    expect((await leer(editora.id)).failedLogins).toBe(0);
   });
 
   it('T-81-7: inviteUser no devuelve la contraseña generada', async () => {

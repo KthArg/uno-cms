@@ -32,12 +32,21 @@ export interface ElementoDeColeccion {
 }
 
 /** La definición de una colección declarada en `cms.config.ts`, o `null` si no existe. */
-export function definicionDeColeccion(key: string): DefinicionDeColeccion | null {
-  const declarada = (appConfig.collections as Record<string, DefinicionDeColeccion | undefined>)[
-    key
-  ];
+/**
+ * Lo que `cms.config.ts` declara con esa clave, **y solo eso** (spec 19, T-S-19).
+ *
+ * `objeto[clave]` también encuentra lo que el objeto hereda: con `__proto__` devolvía
+ * `Object.prototype`, que no es `undefined`, y `reorderItems` respondía `ok`, auditaba y avisaba a
+ * la web de destino por una colección que no existe. `Object.hasOwn` mira solo lo declarado.
+ */
+export function declarada<T>(registro: object, clave: string): T | undefined {
+  return Object.hasOwn(registro, clave)
+    ? ((registro as Record<string, T>)[clave] ?? undefined)
+    : undefined;
+}
 
-  return declarada ?? null;
+export function definicionDeColeccion(key: string): DefinicionDeColeccion | null {
+  return declarada<DefinicionDeColeccion>(appConfig.collections, key) ?? null;
 }
 
 /**
