@@ -2176,9 +2176,9 @@ reproducido.
 
 ---
 
-## La auditoría de seguridad de octubre (spec 19)
+## La auditoría de seguridad de octubre (spec 19) ✅
 
-**En curso.** Spec [`19-auditoria-de-seguridad.md`](specs/19-auditoria-de-seguridad.md), issue
+**Cerrada en #322.** Spec [`19-auditoria-de-seguridad.md`](specs/19-auditoria-de-seguridad.md), issue
 [#319](https://github.com/KthArg/uno-cms/issues/319), ADR-1300 a ADR-1302 y la enmienda de SPEC
 §5.3.
 
@@ -2201,6 +2201,26 @@ comentarios o filas de documentación prometían algo falso, incluida una «deud
 - El token de subida lleva el límite de tamaño firmado, y solo cuenta el almacén de este
   despliegue.
 - Borrar elementos de colección es de admin; borrar una imagen en uso, imposible.
+
+### Lo verificado y lo que no
+
+- **Verificado:** CI entero en verde —lint, typecheck, unit, ui, integración contra Postgres, e2e
+  contra `next start`, audit, build y Lighthouse—, y 31 mutaciones de los casos rápidos, todas
+  muertas.
+- **No verificado por mutación:** los casos de integración (la reserva atómica, `MEDIA_IN_USE`, el
+  rol de `deleteItem`, `changePassword`) y el e2e del nonce. Docker no arranca en la máquina donde
+  se escribió, así que se ejecutaron en CI pero nadie ha roto la línea que protegen para ver si
+  mueren.
+- **No verificado en ningún sitio:** que Vercel Blob aplique `maximumSizeInBytes` al recibir los
+  bytes. Es su contrato documentado; lo cubriría `pnpm test:humo` subiendo un fichero mayor.
+
+### Qué probaría a mano
+
+- Entrar, dejar la pestaña abierta y comprobar en las herramientas del navegador que la cookie de
+  sesión caduca en siete días, no en treinta.
+- Cinco contraseñas mal desde «Cambiar contraseña», y comprobar que el acceso también queda
+  bloqueado.
+- Intentar borrar desde la biblioteca la imagen de la portada publicada.
 
 ### Lo que enseñó esta pasada
 
