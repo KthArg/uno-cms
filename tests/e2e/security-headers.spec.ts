@@ -247,9 +247,10 @@ test('T-R-1: sin PREVIEW_ORIGINS, la ruta de borradores responde 404', async ({ 
 test('la CSP llega a Next: los <script> llevan el nonce de su propia respuesta', async ({
   request,
 }) => {
-  // El nonce le llega a Next por la cabecera de la petición, y es él quien se lo pone a sus
-  // scripts. Si dejara de llegarle, la CSP los bloquearía y la página se quedaría sin hidratar:
-  // es lo que comprueba esto, y lo que ningún unitario puede ver.
+  // Next saca el nonce de la CSP que el middleware pone en la respuesta, que él copia sobre la
+  // petición (`resolve-routes.js`), y se lo pone a sus scripts. Es un detalle interno suyo: si
+  // dejara de hacerlo, la CSP bloquearía los scripts y la página se quedaría sin hidratar. Es lo
+  // que comprueba esto, y lo que ningún unitario puede ver.
   const respuesta = await request.get('/');
   const nonce = /'nonce-([^']+)'/.exec(respuesta.headers()['content-security-policy'] ?? '')?.[1];
   const html = await respuesta.text();
@@ -285,4 +286,20 @@ test('T-S-1: con sesión, ?next= a otro sitio se queda en el panel', async ({ pa
 
   expect(new URL(page.url()).origin).toBe(new URL(baseURL!).origin);
   expect(new URL(page.url()).pathname).toBe('/admin');
+});
+
+test('T-S-24: un acceso fallido enseña el mensaje, no un error del servidor', async ({ page }) => {
+  // Auth.js **lanza** al fallar las credenciales, y la página no lo capturaba: cualquier
+  // contraseña mal acababa en la pantalla de error 500 de Next. Ningún caso miraba el mensaje,
+  // y lo encontró el recorrido a mano de la spec 19.
+  await page.goto('/admin/login');
+  await page.getByLabel('Correo').fill('nadie-con-esta-cuenta@ejemplo.com');
+  await page.getByLabel('Contraseña').fill('una-contrasena-cualquiera-larga');
+  await page.getByRole('button', { name: /entrar/i }).click();
+
+  // Filtrado por el texto: Next pone su propio `role="alert"`, vacío, para anunciar las rutas.
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Revisa el correo y la contraseña' })
+  ).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe('/admin/login');
 });

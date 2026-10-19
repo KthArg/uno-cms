@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { put } from '@vercel/blob/client';
+import { generarPathname } from '../../cms/nombres-de-subida';
 import { leerDestino } from './entorno';
 
 /**
@@ -185,6 +187,63 @@ test('T-207-7: el mismo fichero dos veces no choca', async ({ page }) => {
     .toBe(antes + 2);
 
   await borrarLasNuestras(page, antes);
+});
+
+/**
+ * Lo que un token permite subir: **un poco más** que el límite de `cms/security/uploads.ts` (10
+ * MB). La constante no se importa porque ese módulo es `server-only` y esta suite corre fuera de
+ * Next; si el límite cambia, este número tiene que cambiar con él.
+ */
+const MAS_DE_LO_PERMITIDO = 11 * 1024 * 1024;
+
+test('T-S-11b: Vercel corta una subida más grande de lo que el token permite', async ({ page }) => {
+  // T-S-11 comprueba que `maximumSizeInBytes` **va** en el token; lo que solo se ve aquí es que
+  // Vercel **lo aplica**. Se pide el token como lo haría un cliente que miente —declarando un
+  // kilo— y se sube con él saltándose el navegador, que es exactamente el abuso que cierra.
+  await entrar(page);
+  await page.goto(`${destino.url}/admin/media`);
+  const antes = await cuantasNuestras(page);
+
+  const pathname = generarPathname('image/png');
+  const respuesta = await page.request.post(`${destino.url}/api/media/upload`, {
+    data: {
+      type: 'blob.generate-client-token',
+      payload: {
+        pathname,
+        callbackUrl: `${destino.url}/api/media/upload`,
+        clientPayload: JSON.stringify({
+          contentType: 'image/png',
+          sizeBytes: 1024,
+          filename: FICHERO.name,
+        }),
+        multipart: true,
+      },
+    },
+  });
+  expect(respuesta.status(), 'el despliegue no emitió el token de subida').toBe(200);
+  const { clientToken } = (await respuesta.json()) as { clientToken: string };
+
+  const subida = put(pathname, Buffer.alloc(MAS_DE_LO_PERMITIDO), {
+    access: 'public',
+    token: clientToken,
+    contentType: 'image/png',
+    multipart: true,
+  }).then(
+    () => 'subió',
+    () => 'rechazada'
+  );
+
+  const resultado = await subida;
+
+  // Si pasara, el aviso de Vercel la registraría con nuestro nombre de fichero: se borra como las
+  // demás antes de fallar, para no dejar once megas en un almacén de verdad.
+  if (resultado === 'subió') {
+    await page.reload();
+    await expect.poll(() => cuantasNuestras(page), { timeout: 30_000 }).toBeGreaterThan(antes);
+    await borrarLasNuestras(page, antes);
+  }
+
+  expect(resultado, 'Vercel aceptó una subida mayor que maximumSizeInBytes').toBe('rechazada');
 });
 
 /**

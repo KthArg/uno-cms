@@ -1,3 +1,4 @@
+import { AuthError } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { auth, signIn } from '@/cms/auth';
 import { destinoInterno } from '@/cms/routes';
@@ -41,11 +42,28 @@ export default async function LoginPage({
   async function iniciarSesion(formData: FormData) {
     'use server';
 
-    await signIn('credentials', {
-      email: formData.get('email'),
-      password: formData.get('password'),
-      redirectTo: destino,
-    });
+    try {
+      await signIn('credentials', {
+        email: formData.get('email'),
+        password: formData.get('password'),
+        redirectTo: destino,
+      });
+    } catch (error) {
+      // **Auth.js no redirige con `?error` al fallar: lanza** (`CredentialsSignin`, una
+      // `AuthError`). Sin capturarlo, cualquier contraseña equivocada acababa en la página de
+      // error 500 de Next y el mensaje de abajo no salía nunca. Lo encontró el recorrido a mano
+      // de la spec 19: ningún test comprobaba el mensaje (T-S-24).
+      //
+      // Un acierto también «lanza» —el `redirect` de Next es una excepción—, y no es una
+      // `AuthError`, así que sigue su camino. Lo que no sea de credenciales —un `AUTH_SECRET`
+      // corto, la base caída— va al registro, y la pantalla dice lo mismo que para una
+      // contraseña mal: el mensaje único de SPEC §7.1 no distingue causas.
+      if (!(error instanceof AuthError)) throw error;
+      if (error.type !== 'CredentialsSignin') console.error('[acceso] fallo al entrar', error);
+
+      const vuelta = destino === '/admin' ? '' : `&next=${encodeURIComponent(destino)}`;
+      redirect(`/admin/login?error=1${vuelta}`);
+    }
   }
 
   return (

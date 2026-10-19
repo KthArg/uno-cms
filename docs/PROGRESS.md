@@ -2205,22 +2205,27 @@ comentarios o filas de documentación prometían algo falso, incluida una «deud
 ### Lo verificado y lo que no
 
 - **Verificado:** CI entero en verde —lint, typecheck, unit, ui, integración contra Postgres, e2e
-  contra `next start`, audit, build y Lighthouse—, y 31 mutaciones de los casos rápidos, todas
-  muertas.
-- **No verificado por mutación:** los casos de integración (la reserva atómica, `MEDIA_IN_USE`, el
-  rol de `deleteItem`, `changePassword`) y el e2e del nonce. Docker no arranca en la máquina donde
-  se escribió, así que se ejecutaron en CI pero nadie ha roto la línea que protegen para ver si
-  mueren.
-- **No verificado en ningún sitio:** que Vercel Blob aplique `maximumSizeInBytes` al recibir los
-  bytes. Es su contrato documentado; lo cubriría `pnpm test:humo` subiendo un fichero mayor.
+  contra `next start`, audit, build y Lighthouse—. Y por mutación, todo lo que protege: 31 casos
+  rápidos, 16 de integración (la reserva atómica, `MEDIA_IN_USE` en sus cuatro formas, el rol de
+  `deleteItem`, `changePassword`, el almacén propio, `Object.hasOwn`) y el e2e del acceso fallido.
+- **Recorrido a mano, contra `pnpm dev`:** cinco contraseñas mal en «Cambiar contraseña» bloquean
+  también el acceso, y no se puede borrar una imagen que usa la portada publicada. La caducidad de
+  la cookie no se puede leer desde la página (`httpOnly`); la mira T-S-7 desde Playwright.
+- **No verificado:** que Vercel Blob aplique `maximumSizeInBytes`. El caso existe, T-S-11b en la
+  suite de humo, y necesita `HUMO_URL`, `HUMO_EMAIL` y `HUMO_PASSWORD` de un despliegue de verdad.
 
-### Qué probaría a mano
+### Lo que encontró la verificación
 
-- Entrar, dejar la pestaña abierta y comprobar en las herramientas del navegador que la cookie de
-  sesión caduca en siete días, no en treinta.
-- Cinco contraseñas mal desde «Cambiar contraseña», y comprobar que el acceso también queda
-  bloqueado.
-- Intentar borrar desde la biblioteca la imagen de la portada publicada.
+- **Cualquier acceso fallido daba un error 500.** Auth.js lanza `CredentialsSignin` y la página no
+  lo capturaba: «Revisa el correo y la contraseña» no salía nunca. No lo trajo esta spec —la
+  llamada sin `try` es anterior— y ningún test miraba el mensaje. Lo vio el recorrido a mano, que
+  es para lo que está. Cerrado con T-S-24, comprobado por mutación.
+- **El nonce no le llegaba a Next por donde #322 decía.** La mutación del e2e demostró que la
+  cabecera de petición que se añadió no hacía nada: Next copia la de la respuesta encima. Se quitó,
+  y el comentario dice ahora el mecanismo real.
+- **Un e2e en local midió otro servidor.** Con otra sesión trabajando en el mismo repositorio, el
+  puerto 3100 respondía con código viejo, y cinco casos fallaron por eso. En una máquina compartida
+  conviene `E2E_PORT` propio.
 
 ### Lo que enseñó esta pasada
 
