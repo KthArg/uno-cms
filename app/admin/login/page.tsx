@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { auth, signIn } from '@/cms/auth';
+import { destinoInterno } from '@/cms/routes';
 import { EnvoltorioDeTema } from '@/app/envoltorio-de-tema';
 import { Icono } from '@/cms/ui/iconos';
 import { Logotipo } from '@/cms/ui/Logotipo';
@@ -30,19 +31,20 @@ export default async function LoginPage({
   const session = await auth();
   const params = await searchParams;
 
-  if (session !== null) redirect(params.next ?? '/admin');
+  // Las dos ramas pasan por la misma función (T-S-1). Esta, la de quien ya tiene sesión, era
+  // una redirección abierta: redirigía a lo que trajera `?next=` sin mirar, y la comprobación solo
+  // existía en la del formulario.
+  const destino = destinoInterno(params.next);
+
+  if (session !== null) redirect(destino);
 
   async function iniciarSesion(formData: FormData) {
     'use server';
 
-    const destino = typeof params.next === 'string' ? params.next : '/admin';
-
-    // `redirectTo` fijado a una ruta interna: si viniera del formulario sin validar, sería
-    // una redirección abierta hacia donde quisiera quien envíe el enlace.
     await signIn('credentials', {
       email: formData.get('email'),
       password: formData.get('password'),
-      redirectTo: destino.startsWith('/') && !destino.startsWith('//') ? destino : '/admin',
+      redirectTo: destino,
     });
   }
 

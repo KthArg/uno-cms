@@ -178,3 +178,65 @@ describe('T-201-1 a T-201-3 — dos caminos, dos credenciales', () => {
     expect(await respuesta.text()).not.toMatch(/signature|vercel/i);
   });
 });
+
+describe('T-S-11 — el límite de tamaño va dentro del token, no en lo que declara el cliente', () => {
+  it('el token lleva maximumSizeInBytes y caduca en cinco minutos como mucho', async () => {
+    sesion.mockResolvedValue({ user: { id: 'u1', email: 'a@b.c', role: 'admin' } });
+
+    // Se captura lo que la ruta le devuelve a la librería: es lo que el SDK firma con
+    // `BLOB_READ_WRITE_TOKEN` y lo que Vercel aplica al recibir los bytes.
+    let opciones: Record<string, unknown> | undefined;
+    manejarSubida.mockImplementationOnce(
+      async ({
+        body,
+        onBeforeGenerateToken,
+      }: {
+        body: { payload: { pathname: string; clientPayload: string } };
+        onBeforeGenerateToken: (p: string, c: string | null, m: boolean) => Promise<unknown>;
+      }) => {
+        opciones = (await onBeforeGenerateToken(
+          body.payload.pathname,
+          body.payload.clientPayload,
+          false
+        )) as Record<string, unknown>;
+        return { type: 'blob.generate-client-token', clientToken: 'un-token' };
+      }
+    );
+
+    const { POST } = await import('@/app/api/media/upload/route');
+    const { TAMANO_MAXIMO_BYTES } = await import('@/cms/security/uploads');
+    const antes = Date.now();
+
+    const respuesta = await POST(peticion(generarPathname('image/png')));
+
+    expect(respuesta.status).toBe(200);
+    expect(opciones?.['maximumSizeInBytes']).toBe(TAMANO_MAXIMO_BYTES);
+    expect(opciones?.['validUntil']).toBeTypeOf('number');
+    expect(opciones?.['validUntil'] as number).toBeLessThanOrEqual(antes + 5 * 60_000 + 1000);
+    expect(opciones?.['allowOverwrite']).toBe(false);
+    expect(opciones?.['addRandomSuffix']).toBe(false);
+  });
+});
+
+describe('T-S-12 — un cuerpo que no se entiende es un 400, no un 500', () => {
+  it.each([
+    ['que no es JSON', 'esto no es json'],
+    ['null', 'null'],
+    ['sin payload', JSON.stringify({ type: 'blob.generate-client-token' })],
+    ['con un tipo inventado', JSON.stringify({ type: 'otra-cosa', payload: {} })],
+    [
+      'sin pathname',
+      JSON.stringify({ type: 'blob.generate-client-token', payload: { clientPayload: '{}' } }),
+    ],
+  ])('%s', async (_caso, cuerpo) => {
+    sesion.mockResolvedValue({ user: { id: 'u1', email: 'a@b.c', role: 'admin' } });
+    const { POST } = await import('@/app/api/media/upload/route');
+
+    const respuesta = await POST(
+      new Request('https://ejemplo.test/api/media/upload', { method: 'POST', body: cuerpo })
+    );
+
+    expect(respuesta.status).toBe(400);
+    expect(manejarSubida).not.toHaveBeenCalled();
+  });
+});

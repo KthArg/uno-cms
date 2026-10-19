@@ -7,7 +7,8 @@ import appConfig from '@/cms.config';
 import type { AnyField, ObjectSchema } from '@/cms/core/config';
 import { sanitizeRichText } from '@/cms/core/richtext';
 import { buildObjectSchema } from '@/cms/core/schema-gen';
-import { contentTag } from '@/cms/core/content';
+import { definicionDeColeccion } from '@/cms/core/collections';
+import { contentTag, schemaForType } from '@/cms/core/content';
 import {
   COLUMNA_DEL_IDIOMA_POR_DEFECTO,
   codigoDeColumna,
@@ -34,13 +35,7 @@ import { defineAction, fail, failFields, fieldsFromZod, ok } from './pipeline';
  * el guardado de un testimonio declarando `type: 'hero'` para validarlo con otro esquema.
  */
 function schemaFor(type: string): ObjectSchema | null {
-  const singleton = (appConfig.singletons as Record<string, ObjectSchema | undefined>)[type];
-  if (singleton !== undefined) return singleton;
-
-  const collection = (
-    appConfig.collections as Record<string, { schema: ObjectSchema } | undefined>
-  )[type];
-  return collection?.schema ?? null;
+  return schemaForType(type);
 }
 
 /**
@@ -226,10 +221,7 @@ const MAX_PUBLISH_ALL = 100;
  * añadiendo la etiqueta, en vez de quedarse en un valor inventado que parece correcto.
  */
 function sectionLabel(type: string, schema: ObjectSchema): string {
-  const collection = (appConfig.collections as Record<string, { label?: string } | undefined>)[
-    type
-  ];
-  return schema.label ?? collection?.label ?? type;
+  return schema.label ?? definicionDeColeccion(type)?.label ?? type;
 }
 
 /**
@@ -897,10 +889,7 @@ function newItemKey(collection: string): string {
 
 /** La definición de una colección declarada en `cms.config.ts`, o `null` si no existe. */
 function collectionDefinition(name: string): { schema: ObjectSchema } | null {
-  const declared = (appConfig.collections as Record<string, { schema: ObjectSchema } | undefined>)[
-    name
-  ];
-  return declared ?? null;
+  return definicionDeColeccion(name);
 }
 
 const collectionInput = z.object({ collection: z.string().min(1).max(100), idioma: idiomaInput });
@@ -987,7 +976,11 @@ export const createItem = defineAction({
 
 export const deleteItem = defineAction({
   name: 'content.deleteItem',
-  role: 'editor',
+  // `admin` (ADR-1300, T-S-17). SPEC §5.3 decía `editor` y la pantalla le escondía el botón al
+  // editor: la restricción vivía solo en la interfaz, y cualquier editor podía llamar a esta
+  // action a mano y borrar un elemento publicado con todas sus revisiones. Igual que borrar una
+  // imagen: quita contenido que puede estar en la web y no tiene deshacer.
+  role: 'admin',
   bucket: 'admin',
   input: z.object({ key: z.string().min(1).max(200), idioma: idiomaInput }),
   targetType: 'content',

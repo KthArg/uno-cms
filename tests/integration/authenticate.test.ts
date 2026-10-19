@@ -1,7 +1,18 @@
 import { eq } from 'drizzle-orm';
 import { beforeEach, expect, it, vi } from 'vitest';
-import { authenticate, invalidateSessions, isSessionStillValid } from '@/cms/auth/authenticate';
-import { hashPassword, verifyDecoy, verifyPassword } from '@/cms/auth/passwords';
+import {
+  authenticate,
+  invalidateSessions,
+  isSessionStillValid,
+  reservarIntento,
+} from '@/cms/auth/authenticate';
+import { LOCKOUT_THRESHOLD, nextFailureState } from '@/cms/auth/lockout';
+import {
+  hashPassword,
+  MAX_PASSWORD_LENGTH,
+  verifyDecoy,
+  verifyPassword,
+} from '@/cms/auth/passwords';
 import { auditLog, getDb, users } from '@/cms/db';
 import { getLoginRateLimiter } from '@/cms/security/ratelimit';
 import { describeIntegration } from './env';
@@ -306,5 +317,81 @@ describeIntegration('autenticación', () => {
 
     const rows = await getDb().select().from(auditLog);
     expect(JSON.stringify(rows)).not.toContain('secreto-que-no-debe-aparecer');
+  });
+
+  it('T-S-3: veinte intentos a la vez prueban como mucho el umbral, y la cuenta queda bloqueada', async () => {
+    const user = await crearUsuario();
+
+    // Cada uno desde su IP: lo que se prueba es el bloqueo de la cuenta, que es global, no el
+    // limitador por IP, que es por instancia y se salta cambiando de IP.
+    const resultados = await Promise.all(
+      Array.from({ length: 20 }, (_, i) =>
+        authenticate({ email: EMAIL, password: `incorrecta-numero-${i}`, ip: `10.0.0.${i}` })
+      )
+    );
+
+    expect(resultados.every((r) => !r.ok)).toBe(true);
+
+    const fila = await leerUsuario(user!.id);
+    // Exactamente el umbral. Antes de ADR-1301 los veinte leían el mismo contador y lo dejaban
+    // en uno: la ráfaga entera costaba un fallo.
+    expect(fila?.failedLogins).toBe(LOCKOUT_THRESHOLD);
+    expect(fila?.lockedUntil).not.toBeNull();
+
+    // Y los que llegaron con el bloqueo puesto no verificaron: quedan auditados como tales.
+    const bloqueados = (await acciones()).filter((a) => a === 'login.locked');
+    expect(bloqueados).toHaveLength(20 - LOCKOUT_THRESHOLD);
+  });
+
+  it('T-S-3: la sentencia deja la fila igual que nextFailureState, intento a intento', async () => {
+    // `nextFailureState` es la referencia (y tiene sus propios tests); esto comprueba que el SQL
+    // de `reservarIntento` dice lo mismo, incluido el crecimiento exponencial y el tope.
+    const user = await crearUsuario();
+    let esperado = { failedLogins: 0, lockedUntil: null as Date | null };
+    let ahora = new Date('2026-10-18T10:00:00.000Z');
+
+    for (let i = 0; i < 14; i += 1) {
+      // Se avanza el reloj más allá del bloqueo, si lo hay, para que el siguiente cuente.
+      if (esperado.lockedUntil !== null) ahora = new Date(esperado.lockedUntil.getTime() + 1000);
+      esperado = nextFailureState(esperado, ahora);
+
+      const reserva = await reservarIntento(user!.id, ahora);
+      expect(reserva, `intento ${i + 1}`).toEqual(esperado);
+    }
+  });
+
+  it('T-S-3: durante el bloqueo no se reserva nada, y el contador no se mueve', async () => {
+    const user = await crearUsuario();
+    const ahora = new Date();
+    for (let i = 0; i < LOCKOUT_THRESHOLD; i += 1) await reservarIntento(user!.id, ahora);
+
+    expect(await reservarIntento(user!.id, ahora)).toBeNull();
+    expect((await leerUsuario(user!.id))?.failedLogins).toBe(LOCKOUT_THRESHOLD);
+  });
+
+  it('T-S-4: con la cuenta bloqueada, el intento paga el señuelo igual que un correo que no existe', async () => {
+    const user = await crearUsuario();
+    await getDb()
+      .update(users)
+      .set({ failedLogins: 5, lockedUntil: new Date(Date.now() + 60_000) })
+      .where(eq(users.id, user!.id));
+
+    await authenticate({ email: EMAIL, password: 'probando-una-bloqueada' });
+
+    expect(vi.mocked(verifyDecoy)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(verifyDecoy)).toHaveBeenCalledWith('probando-una-bloqueada');
+  });
+
+  it('T-S-5: una contraseña más larga que el tope no llega a Argon2 entera ni toca la cuenta', async () => {
+    const user = await crearUsuario();
+    const enorme = 'x'.repeat(MAX_PASSWORD_LENGTH + 1);
+
+    const resultado = await authenticate({ email: EMAIL, password: enorme });
+
+    expect(resultado).toEqual({ ok: false });
+    expect(vi.mocked(verifyDecoy)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(verifyDecoy).mock.calls[0]?.[0]).toHaveLength(MAX_PASSWORD_LENGTH);
+    // No se buscó la cuenta: el contador ni se entera.
+    expect((await leerUsuario(user!.id))?.failedLogins).toBe(0);
   });
 });

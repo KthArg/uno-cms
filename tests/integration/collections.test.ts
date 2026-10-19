@@ -42,6 +42,20 @@ async function crearTres() {
   return creadas;
 }
 
+/**
+ * Borrar es de administración (ADR-1300): los casos que borran lo hacen como admin. Se cambia
+ * solo el rol de la sesión, que es lo único que mira el pipeline.
+ */
+async function comoAdmin() {
+  const [admin] = await getDb()
+    .insert(users)
+    .values({ email: 'a@ejemplo.com', name: 'Admin', passwordHash: 'x', role: 'admin' })
+    .returning();
+  setSessionProviderForTests(() =>
+    Promise.resolve({ userId: admin!.id, email: admin!.email, role: 'admin' as const })
+  );
+}
+
 describeIntegration('colecciones', () => {
   beforeEach(async () => {
     resetBucketsForTests();
@@ -139,6 +153,8 @@ describeIntegration('colecciones', () => {
         { entryKey: key!, data: { author: 'v2' } },
       ]);
 
+    await comoAdmin();
+
     const result = await deleteItem({ key: key! });
 
     expect(result.ok).toBe(true);
@@ -159,6 +175,8 @@ describeIntegration('colecciones', () => {
         { entryKey: segunda!, data: { author: 'de la segunda' } },
       ]);
 
+    await comoAdmin();
+
     await deleteItem({ key: primera! });
 
     expect(
@@ -168,6 +186,8 @@ describeIntegration('colecciones', () => {
 
   it('deleteItem revalida el tag de la colección', async () => {
     const [key] = await crearTres();
+
+    await comoAdmin();
 
     await deleteItem({ key: key! });
 
@@ -232,12 +252,46 @@ describeIntegration('colecciones', () => {
     expect(tags).toEqual(['content:hero']);
   });
 
+  it('T-S-17: un editor no puede borrar un elemento, aunque llame a la action a mano', async () => {
+    // La pantalla ya le escondía el botón; lo que no hacía nada era el servidor.
+    const [key] = await crearTres();
+
+    const result = await deleteItem({ key: key! });
+
+    expect(result).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+    expect(await claves('testimonials')).toHaveLength(3);
+  });
+
+  it.each(['__proto__', 'constructor', 'toString'])(
+    'T-S-19: la colección %s no existe, aunque la herede cualquier objeto',
+    async (coleccion) => {
+      const { auditLog } = await import('@/cms/db');
+
+      expect(await createItem({ collection: coleccion })).toMatchObject({
+        ok: false,
+        code: 'NOT_FOUND',
+      });
+      expect(await reorderItems({ collection: coleccion, orderedKeys: [] })).toMatchObject({
+        ok: false,
+        code: 'NOT_FOUND',
+      });
+
+      // Antes `reorderItems` respondía `ok`, auditaba, revalidaba y avisaba a la web de destino.
+      expect(revalidateTag).not.toHaveBeenCalled();
+      const acciones = (await getDb().select().from(auditLog)).map((row) => row.action);
+      expect(acciones).not.toContain('content.reorderItems');
+      expect(await getDb().select().from(contentEntries)).toHaveLength(0);
+    }
+  );
+
   it('un singleton no se puede borrar', async () => {
     // Sin su fila, la lectura devolvería valores vacíos para siempre y nadie podría recrear
     // la sección desde el panel.
     await getDb()
       .insert(contentEntries)
       .values({ key: 'hero', type: 'hero', draft: {}, status: 'draft' });
+
+    await comoAdmin();
 
     const result = await deleteItem({ key: 'hero' });
 
@@ -319,6 +373,7 @@ describeIntegration('colecciones', () => {
         ...(await claves('testimonials')).map((r) => r.key).filter((k) => k !== key),
       ],
     });
+    await comoAdmin();
     await deleteItem({ key: key! });
 
     const { auditLog } = await import('@/cms/db');

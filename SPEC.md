@@ -355,7 +355,7 @@ Todas las actions comparten un pipeline obligatorio, en este orden:
 | `revertDraft` | editor | `{ key }` | `draft = published`, `status='published'` | `NEVER_PUBLISHED` |
 | `restoreRevision` | editor | `{ key, revisionId }` | Copia snapshot → `draft`, `status='changed'` (no publica) | |
 | `createItem` | editor | `{ collection }` | Inserta entry `type=collection`, `key=collection+'.'+nanoid`, draft con defaults, `sortOrder` al final | |
-| `deleteItem` | editor | `{ key }` | Soft-flow: exige confirmación en UI; borra entry y sus revisiones | |
+| `deleteItem` | admin | `{ key }` | Soft-flow: exige confirmación en UI; borra entry y sus revisiones | |
 | `reorderItems` | editor | `{ collection, orderedKeys[] }` | Tx: reasigna `sortOrder`, revalida tag de la colección | |
 | `getUploadToken` | editor | (route handler, no action) | Valida sesión, MIME ∈ allowlist (`image/jpeg,png,webp,avif,gif,svg→rechazado`), tamaño ≤ 10 MB → token Blob | SVG se rechaza en MVP (vector XSS) |
 | `finalizeUpload` | editor | `{ url, pathname, filename, mimeType, sizeBytes, width, height }` | Verifica que el blob existe y pertenece al store propio, inserta en `media` | |
@@ -365,6 +365,12 @@ Todas las actions comparten un pipeline obligatorio, en este orden:
 | `changePassword` | self | `{ current, next }` | Verifica actual, política: ≥ 12 chars, chequeo contra lista de comunes, re-hash | |
 | `updateSettings` | admin | `{ key: 'seo'\|'site', value }` | Valida por schema, revalida tags globales | |
 | `createPreviewToken` | editor | `{ key }` | Token HMAC (`APP_SECRET`) con `{key, exp: now+2h}` para el iframe / link compartible | |
+
+> **Enmienda — ADR-1300 y ADR-1301 (issue #319).** Dos filas de esta tabla cambian. `deleteItem`
+> pasa de `editor` a `admin`: la interfaz ya lo trataba así y el servidor no, y la defensa tiene
+> que estar en el servidor. Y `changePassword` cuenta cada contraseña actual equivocada como un
+> fallo de acceso, con el mismo bloqueo: sin eso, una sesión robada servía para tantear la
+> contraseña sin límite real.
 
 **Rutas HTTP públicas (mínimas):**
 

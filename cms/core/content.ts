@@ -8,6 +8,7 @@ import type { AnyField, ObjectSchema } from './config';
 import { COLUMNA_DEL_IDIOMA_POR_DEFECTO, columnaDeIdiomaDeclarado } from './idiomas';
 import { buildObjectSchema } from './schema-gen';
 import { ensureSingletonRow } from './seed';
+import { declarada } from './collections';
 import type { CollectionItem, CollectionKey, Content, Draft, SingletonKey } from './types';
 
 /**
@@ -487,11 +488,9 @@ export async function readEntryForEditor(
 
 /** El esquema de un `type`, sea singleton o colección. */
 export function schemaForType(type: string): ObjectSchema | null {
-  const singleton = (appConfig.singletons as Record<string, ObjectSchema | undefined>)[type];
+  // `declarada` y no `objeto[type]`: ver allí por qué (T-S-19).
+  const singleton = declarada<ObjectSchema>(appConfig.singletons, type);
   if (singleton !== undefined) return singleton;
 
-  const coleccion = (appConfig.collections as Record<string, { schema: ObjectSchema } | undefined>)[
-    type
-  ];
-  return coleccion?.schema ?? null;
+  return declarada<{ schema: ObjectSchema }>(appConfig.collections, type)?.schema ?? null;
 }

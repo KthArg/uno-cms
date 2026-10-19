@@ -2173,3 +2173,73 @@ Los casos T-18-1 a T-18-10 pasan, y las nueve mutaciones de las líneas que prot
 está verificado contra un despliegue**: desde la sesión donde se escribió no se podía llegar al
 dominio del panel de Boka Verde, así que lo que se vio allí se conoce por quien lo vio, no se ha
 reproducido.
+
+---
+
+## La auditoría de seguridad de octubre (spec 19) ✅
+
+**Cerrada en #322.** Spec [`19-auditoria-de-seguridad.md`](specs/19-auditoria-de-seguridad.md), issue
+[#319](https://github.com/KthArg/uno-cms/issues/319), ADR-1300 a ADR-1302 y la enmienda de SPEC
+§5.3.
+
+### De dónde salió
+
+De una revisión del repositorio entero contra OWASP ASVS 5.0 nivel 2, en cuatro partes en
+paralelo —autenticación, rutas y medios, actions, cabeceras y cadena de suministro—, con cada
+hallazgo comprobado después contra el código. Veinte hallazgos, ninguno crítico ni alto, y casi
+todos con la misma forma: **una defensa que existía y no cubría lo que su comentario decía**. Seis
+comentarios o filas de documentación prometían algo falso, incluida una «deuda aceptada» de
+`PENDIENTES.md` cuyo motivo no era cierto.
+
+### Qué funciona
+
+- Tras entrar solo se va al panel, también con la sesión ya abierta.
+- Intentos de contraseña en paralelo prueban como mucho el umbral, también desde «Cambiar
+  contraseña».
+- La sesión vive siete días de verdad, y siete como mucho desde que se entra.
+- La IP del límite ya no la elige el cliente.
+- El token de subida lleva el límite de tamaño firmado, y solo cuenta el almacén de este
+  despliegue.
+- Borrar elementos de colección es de admin; borrar una imagen en uso, imposible.
+
+### Lo verificado y lo que no
+
+- **Verificado:** CI entero en verde —lint, typecheck, unit, ui, integración contra Postgres, e2e
+  contra `next start`, audit, build y Lighthouse—, y 31 mutaciones de los casos rápidos, todas
+  muertas.
+- **No verificado por mutación:** los casos de integración (la reserva atómica, `MEDIA_IN_USE`, el
+  rol de `deleteItem`, `changePassword`) y el e2e del nonce. Docker no arranca en la máquina donde
+  se escribió, así que se ejecutaron en CI pero nadie ha roto la línea que protegen para ver si
+  mueren.
+- **No verificado en ningún sitio:** que Vercel Blob aplique `maximumSizeInBytes` al recibir los
+  bytes. Es su contrato documentado; lo cubriría `pnpm test:humo` subiendo un fichero mayor.
+
+### Qué probaría a mano
+
+- Entrar, dejar la pestaña abierta y comprobar en las herramientas del navegador que la cookie de
+  sesión caduca en siete días, no en treinta.
+- Cinco contraseñas mal desde «Cambiar contraseña», y comprobar que el acceso también queda
+  bloqueado.
+- Intentar borrar desde la biblioteca la imagen de la portada publicada.
+
+### Lo que enseñó esta pasada
+
+- **La mutación desmontó dos comprobaciones mías.** En `destinoInterno`, las de `//` y `\` no
+  mataban ninguna mutación: una ruta que empieza por `/admin/` no puede cambiar de host, así que
+  lo que protege es el prefijo. Lo mismo con los atributos de richtext: para cuando se buscan, el
+  tipo heredado ya está rechazado. Las dos se quitaron en vez de dejar código que aparenta
+  proteger.
+- **El SQL nuevo no se había ejecutado nunca, y no funcionaba.** `make_interval(mins => …)` solo
+  acepta enteros y `power` devuelve `double`: la reserva de intentos fallaba en cada acceso. Docker
+  no arrancaba en local, así que la integración se ejecutó por primera vez en CI, y allí murió con
+  21 casos. La revisión del diff lo había señalado leyendo, sin ejecutar. Es lo que este
+  repositorio repite: lo que no se ha ejecutado no está comprobado, por bien que se lea.
+- **Un arreglo era peor que el problema.** Leer la API pública por `unstable_cache` quitaba la
+  consulta por petición y, a cambio, auto-hospedado con varias instancias servía contenido viejo
+  para siempre. Lo vio la revisión; se retiró (T-S-20) y quedó en `PENDIENTES.md`.
+- **Un test de e2e falló por un carácter invisible.** Al escribir el fichero desde un script, el
+  `\b` de una expresión regular se convirtió en un retroceso literal. El caso decía que la página
+  no tenía ningún `<script>`, y lo que no tenía era una expresión capaz de encontrarlos. En CI se
+  ve igual un test roto que un código roto; hay que leer cuál de los dos es antes de tocar nada.
+- **El número de la spec estaba cogido**, como el prefijo de los casos en la de idiomas: #317
+  añadió la 18 mientras esta se escribía. Se vio porque ADR-1200 la citaba.

@@ -71,3 +71,43 @@ export function esPathnameGenerado(pathname: unknown, contentType: unknown): boo
 
   return esperada !== undefined && pathname.endsWith(`.${esperada}`);
 }
+
+/**
+ * El host público del almacén de Blob **de este despliegue**, sacado de su token (spec 19,
+ * T-S-13 y T-S-14). `null` si no hay token o no tiene la forma esperada.
+ *
+ * ## Por qué hace falta
+ *
+ * «Nuestro almacén» se comprobaba por el sufijo `.public.blob.vercel-storage.com`, y ese sufijo
+ * lo comparten **todos** los almacenes de todos los clientes de Vercel. Cualquiera con una cuenta
+ * gratuita sube una imagen al suyo y la cuela en la biblioteca, o le pide a nuestro optimizador
+ * de imágenes que la procese con nuestra factura.
+ *
+ * ## De dónde sale, y cómo se sabe
+ *
+ * El token tiene la forma `vercel_blob_rw_<id del almacén>_<secreto>`, y el SDK construye la URL
+ * pública con ese id: `https://${storeId}.public.blob.vercel-storage.com` en
+ * `@vercel/blob/dist/chunk-*.js`. Comprobado además contra el host real de producción. Si Vercel
+ * cambiara la forma del token, esto devolvería `null` y las imágenes nuevas se rechazarían: falla
+ * cerrado, y lo verían `pnpm test:humo` y el primer editor que suba una foto.
+ *
+ * **Solo devuelve el host, nunca el token.** Es seguro llamarla desde `next.config.ts`: el host
+ * va en la URL de cada imagen que sirve la web.
+ */
+export function hostDelAlmacen(token: string | undefined): string | null {
+  const id = token?.trim().split('_')[3];
+  if (id === undefined || !/^[A-Za-z0-9]+$/.test(id)) return null;
+  return `${id.toLowerCase()}.public.blob.vercel-storage.com`;
+}
+
+/**
+ * Los `remotePatterns` de `next/image`: el host del almacén propio, o ninguno (T-S-14). Vive
+ * aquí y no en `next.config.ts` para que la comprobación de `registrarImagen` y la del
+ * optimizador no puedan discrepar.
+ */
+export function patronesDeImagenes(
+  token: string | undefined
+): { protocol: 'https'; hostname: string }[] {
+  const host = hostDelAlmacen(token);
+  return host === null ? [] : [{ protocol: 'https', hostname: host }];
+}

@@ -37,6 +37,7 @@ export type ActionErrorCode =
   | 'NEVER_PUBLISHED'
   | 'LAST_ADMIN'
   | 'CONFLICT'
+  | 'MEDIA_IN_USE'
   | 'INTERNAL';
 
 export interface ActionFieldError {
@@ -72,6 +73,8 @@ const DEFAULT_MESSAGES: Record<ActionErrorCode, string> = {
   NEVER_PUBLISHED: 'Esta sección todavía no se ha publicado nunca.',
   LAST_ADMIN: 'No puedes dejar el sitio sin ningún administrador.',
   CONFLICT: 'Ese cambio choca con el estado actual. Vuelve a cargar la página.',
+  MEDIA_IN_USE:
+    'Esta imagen se está usando en el contenido. Quítala de donde aparece antes de eliminarla.',
   INTERNAL: 'Algo ha fallado por nuestra parte. Vuelve a intentarlo.',
 };
 

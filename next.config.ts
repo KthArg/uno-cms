@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { NextConfig } from 'next';
+import { patronesDeImagenes } from './cms/nombres-de-subida';
 
 const nextConfig: NextConfig = {
   /**
@@ -45,10 +46,14 @@ const nextConfig: NextConfig = {
      * sirva una imagen de otro sitio desde nuestro dominio, con nuestro ancho de banda y
      * nuestra factura.
      *
-     * El patrón cubre los subdominios de Blob, que es donde acaban nuestras subidas y solo
-     * ellas.
+     * **Y solo el almacén de este despliegue** (T-S-14). Aquí había
+     * `**.public.blob.vercel-storage.com` con un comentario que decía «solo nuestras subidas»,
+     * y ese sufijo lo comparten todos los almacenes de todos los clientes de Vercel: el proxy
+     * abierto que este bloque decía cerrar seguía abierto a cualquiera con una cuenta gratuita.
+     * El host sale del token (`hostDelAlmacen`); sin token, las imágenes van al almacén local
+     * (ADR-700) y no hace falta ningún host remoto.
      */
-    remotePatterns: [{ protocol: 'https', hostname: '**.public.blob.vercel-storage.com' }],
+    remotePatterns: patronesDeImagenes(process.env['BLOB_READ_WRITE_TOKEN']),
   },
 };
 

@@ -18,6 +18,8 @@ test('T-60-2: la landing lleva todas las cabeceras de SPEC §7.2', async ({ requ
   expect(headers['x-content-type-options']).toBe('nosniff');
   expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
   expect(headers['permissions-policy']).toContain('camera=()');
+  // T-S-22: en la landing **no**. Es de quien monta el CMS, y sus popups dependen de `opener`.
+  expect(headers['cross-origin-opener-policy']).toBeUndefined();
 });
 
 test('T-60-3: la CSP lleva nonce y frame-ancestors self', async ({ request }) => {
@@ -170,6 +172,8 @@ test('T-N-1: el panel CON sesión lleva las cabeceras y noindex', async ({ page 
     expect(cabeceras[nombre], `${nombre} en /admin`).toBe(valor);
   }
   expect(cabeceras['x-robots-tag']).toBe('noindex');
+  // T-S-22: las rutas privadas sí la llevan; la landing no (T-60-2).
+  expect(cabeceras['cross-origin-opener-policy']).toBe('same-origin');
   expect(cabeceras['content-security-policy']).toContain("frame-ancestors 'self'");
 });
 
@@ -183,6 +187,8 @@ test('T-N-1: la vista previa lleva las cabeceras y noindex', async ({ request })
     expect(cabeceras[nombre], `${nombre} en /preview`).toBe(valor);
   }
   expect(cabeceras['x-robots-tag']).toBe('noindex');
+  // T-S-22: las rutas privadas sí la llevan; la landing no (T-60-2).
+  expect(cabeceras['cross-origin-opener-policy']).toBe('same-origin');
 });
 
 test('T-N-1: la ruta de subida lleva las cabeceras, y rechaza sin sesión', async ({ request }) => {
@@ -201,6 +207,8 @@ test('T-N-1: la ruta de subida lleva las cabeceras, y rechaza sin sesión', asyn
     expect(cabeceras[nombre], `${nombre} en /api/media/upload`).toBe(valor);
   }
   expect(cabeceras['x-robots-tag']).toBe('noindex');
+  // T-S-22: las rutas privadas sí la llevan; la landing no (T-60-2).
+  expect(cabeceras['cross-origin-opener-policy']).toBe('same-origin');
 });
 
 /**
@@ -230,4 +238,51 @@ test('T-R-1: sin PREVIEW_ORIGINS, la ruta de borradores responde 404', async ({ 
 
   expect(respuesta.status()).toBe(404);
   expect(await respuesta.text()).toBe('');
+});
+
+/**
+ * Lo que añadió la auditoría de la spec 19, sobre la respuesta real.
+ */
+
+test('la CSP llega a Next: los <script> llevan el nonce de su propia respuesta', async ({
+  request,
+}) => {
+  // El nonce le llega a Next por la cabecera de la petición, y es él quien se lo pone a sus
+  // scripts. Si dejara de llegarle, la CSP los bloquearía y la página se quedaría sin hidratar:
+  // es lo que comprueba esto, y lo que ningún unitario puede ver.
+  const respuesta = await request.get('/');
+  const nonce = /'nonce-([^']+)'/.exec(respuesta.headers()['content-security-policy'] ?? '')?.[1];
+  const html = await respuesta.text();
+
+  const scripts = html.match(/<script\b[^>]*>/g) ?? [];
+  expect(nonce).toBeTruthy();
+  expect(scripts.length).toBeGreaterThan(0);
+  for (const script of scripts) {
+    expect(script, 'cada <script> con el nonce de esta respuesta').toContain(`nonce="${nonce}"`);
+  }
+});
+
+test('T-S-7: la cookie de sesión que reemite el middleware vive siete días, no treinta', async ({
+  page,
+}) => {
+  await crearYEntrar(page, { email: 'vida-de-la-sesion@ejemplo.com', role: 'editor' });
+  // Una petición cualquiera que pase por el middleware: es él quien reemite la cookie.
+  await page.goto('/admin');
+
+  const sesion = (await page.context().cookies()).find((c) => c.name.endsWith('session-token'));
+  const siete = 7 * 24 * 60 * 60;
+
+  expect(sesion, 'la cookie de sesión').toBeDefined();
+  // Un minuto de margen por lo que tarda el test; sin el arreglo serían treinta días.
+  expect(sesion!.expires).toBeLessThanOrEqual(Date.now() / 1000 + siete + 60);
+  expect(sesion!.expires).toBeGreaterThan(Date.now() / 1000 + siete - 3600);
+});
+
+test('T-S-1: con sesión, ?next= a otro sitio se queda en el panel', async ({ page, baseURL }) => {
+  await crearYEntrar(page, { email: 'redireccion-abierta@ejemplo.com', role: 'editor' });
+
+  await page.goto('/admin/login?next=https://ajeno.example/admin/login');
+
+  expect(new URL(page.url()).origin).toBe(new URL(baseURL!).origin);
+  expect(new URL(page.url()).pathname).toBe('/admin');
 });

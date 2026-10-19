@@ -5,6 +5,7 @@ import { completeSetup, isSetupCompleted } from '@/cms/auth/setup';
 import { SETTINGS_TAG } from '@/cms/core/settings';
 import { EnvoltorioDeTema } from '@/app/envoltorio-de-tema';
 import { CAMPO, TITULO } from '@/cms/ui/estilos';
+import { ipDelCliente } from '@/cms/security/ip';
 
 /**
  * Configuración inicial (SPEC §7.3).
@@ -30,14 +31,14 @@ export default async function SetupPage({
     'use server';
 
     const cabeceras = await headers();
-    const forwarded = cabeceras.get('x-forwarded-for');
+    const ip = ipDelCliente(cabeceras);
 
     const result = await completeSetup({
       token: String(formData.get('token') ?? ''),
       email: String(formData.get('email') ?? ''),
       name: String(formData.get('name') ?? ''),
       password: String(formData.get('password') ?? ''),
-      ...(forwarded === null ? {} : { ip: forwarded.split(',')[0]?.trim() }),
+      ...(ip === undefined ? {} : { ip }),
     });
 
     if (result.ok) {

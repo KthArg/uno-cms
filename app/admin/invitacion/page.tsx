@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { checkInvitation, redeemInvitation, type DatosDeInvitacion } from '@/cms/auth/invitations';
 import { EnvoltorioDeTema } from '@/app/envoltorio-de-tema';
 import { AVISO_ALARMA, BOTON_PRINCIPAL, CAMPO, TITULO } from '@/cms/ui/estilos';
+import { ipDelCliente } from '@/cms/security/ip';
 
 /**
  * Canje de la invitación (SPEC §5.3, §10.2; issue #95).
@@ -74,12 +75,12 @@ export default async function PantallaDeInvitacion({
     if (password !== repetida) redirect(`${enlace}&error=repetida`);
 
     const cabeceras = await headers();
-    const reenviada = cabeceras.get('x-forwarded-for');
+    const ip = ipDelCliente(cabeceras);
 
     const resultado = await redeemInvitation({
       token: codigo,
       password,
-      ...(reenviada === null ? {} : { ip: reenviada.split(',')[0]?.trim() }),
+      ...(ip === undefined ? {} : { ip }),
     });
 
     if (resultado.ok) redirect('/admin/login?lista=1');

@@ -200,3 +200,37 @@ describe('sanitizeRichText', () => {
     }
   });
 });
+
+describe('T-S-18 — lo heredado no está en la allowlist', () => {
+  // `'constructor' in {}` es `true`: todo objeto lo hereda. Con `in` y `lista[tipo]`, estos tipos
+  // pasaban la allowlist, se guardaban y se publicaban.
+  const HEREDADOS = ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf'];
+
+  function doc(content: unknown[]) {
+    return { type: 'doc', content };
+  }
+
+  it.each(HEREDADOS)('un nodo %s se descarta al sanear y no pasa el esquema', (tipo) => {
+    const sucio = doc([{ type: tipo, text: 'x' }]);
+
+    expect(sanitizeRichText(sucio).content).toEqual([]);
+    expect(richTextDocSchema.safeParse(sucio).success).toBe(false);
+  });
+
+  it.each(HEREDADOS)('una marca %s se descarta al sanear y no pasa el esquema', (tipo) => {
+    const sucio = doc([
+      { type: 'paragraph', content: [{ type: 'text', text: 'hola', marks: [{ type: tipo }] }] },
+    ]);
+
+    expect(JSON.stringify(sanitizeRichText(sucio))).not.toContain(`"type":"${tipo}"`);
+    expect(richTextDocSchema.safeParse(sucio).success).toBe(false);
+  });
+
+  it('y con atributos no revienta: se rechaza como cualquier otro tipo desconocido', () => {
+    // `ALLOWED_NODE_ATTRS.constructor` era la función `Object`, y recorrerla lanzaba.
+    const sucio = doc([{ type: 'constructor', attrs: { level: 2 }, text: 'x' }]);
+
+    expect(() => sanitizeRichText(sucio)).not.toThrow();
+    expect(() => richTextDocSchema.safeParse(sucio)).not.toThrow();
+  });
+});
