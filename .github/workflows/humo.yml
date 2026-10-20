@@ -1,0 +1,74 @@
+name: humo
+
+# La suite de humo contra el despliegue de pruebas, sin que nadie tenga que acordarse (#279).
+#
+# Es lo único que ejercita Vercel Blob, Neon y la CSP de verdad (spec 09), y hasta aquí había que
+# lanzarla a mano. Corre:
+# - cuando Vercel termina un despliegue de **producción** del proyecto `uno-cms-pruebas`, que es
+#   el único proyecto conectado a este repositorio: los clientes despliegan desde sus forks;
+# - una vez por semana, porque lo que se rompe ahí suele ser de fuera (un cambio de Vercel, una
+#   cuota) y no llega con ningún commit;
+# - y a mano, desde la pestaña Actions.
+#
+# **Nunca contra un despliegue de un cliente.** `HUMO_URL` es una variable del repositorio que
+# apunta a `uno-cms-pruebas`, no algo que venga del evento: la URL del despliegue que trae
+# `deployment_status` la escribe Vercel, pero esta suite escribe en lo que toca, y lo que toca
+# tiene que decidirlo el repositorio, no el evento.
+#
+# Sin las credenciales (`HUMO_EMAIL`, `HUMO_PASSWORD`) la suite se salta avisando, y el job sale
+# en verde con el aviso en el registro: es el estado de un fork que no ha montado su despliegue
+# de pruebas, y no debe ponerle CI en rojo a nadie.
+
+on:
+  deployment_status:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+# Ningún paso escribe en el repositorio.
+permissions:
+  contents: read
+
+concurrency:
+  group: humo
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  humo:
+    name: humo
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Solo los despliegues de producción terminados de este proyecto. Las vistas previas comparten
+    # base con producción (PENDIENTES.md) y el nombre del entorno lo pone Vercel con el del proyecto.
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production – uno-cms-pruebas')
+    env:
+      HUMO_URL: ${{ vars.HUMO_URL }}
+      HUMO_EMAIL: ${{ secrets.HUMO_EMAIL }}
+      HUMO_PASSWORD: ${{ secrets.HUMO_PASSWORD }}
+      # Desde la spec 20 la cuenta necesita su segundo factor: el secreto TOTP en base32.
+      HUMO_TOTP_SECRET: ${{ secrets.HUMO_TOTP_SECRET }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      # Sin scripts de instalación: aquí no se construye nada, solo se lanza Playwright.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm exec playwright install chromium
+      - run: pnpm test:humo
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: humo-trazas
+          path: test-results/
+          retention-days: 7
