@@ -6,6 +6,7 @@ import { SETTINGS_TAG } from '@/cms/core/settings';
 import { EnvoltorioDeTema } from '@/app/envoltorio-de-tema';
 import { CAMPO, TITULO } from '@/cms/ui/estilos';
 import { ipDelCliente } from '@/cms/security/ip';
+import { mensajeDeSetup } from '@/cms/mensajes-de-setup';
 
 /**
  * Configuración inicial (SPEC §7.3).
@@ -99,9 +100,7 @@ export default async function SetupPage({
 
         {params.error !== undefined && (
           <p role="alert" className="text-sm text-alarma">
-            {params.error === 'password'
-              ? 'Esa contraseña no vale: debe tener al menos 12 caracteres y no aparecer en listas públicas.'
-              : 'El código de instalación no es correcto.'}
+            {mensajeDeSetup(params.error)}
           </p>
         )}
       </main>
