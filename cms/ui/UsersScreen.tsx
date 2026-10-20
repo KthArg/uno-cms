@@ -104,7 +104,7 @@ export function UsersScreen({
     // incomprensible al usar algo que la pantalla le acaba de ofrecer.
     setLista((previas) => [
       ...previas,
-      { id: userId, nombre, correo, rol, activa: true, sinEstrenar: true },
+      { id: userId, nombre, correo, rol, activa: true, dosPasos: false, sinEstrenar: true },
     ]);
   };
 
@@ -226,6 +226,14 @@ export function UsersScreen({
             {persona.activa && persona.sinEstrenar && (
               <span className="rounded-full bg-pendiente-fondo px-2.5 py-1 text-xs font-medium text-pendiente-tinta">
                 Todavía no ha entrado
+              </span>
+            )}
+
+            {/* Solo se señala lo que falta, no lo que está bien: una etiqueta en cada fila que
+                diga «con 2FA» se deja de leer, y esta es la que tiene que verse (#333). */}
+            {persona.activa && !persona.sinEstrenar && !persona.dosPasos && (
+              <span className="rounded-full bg-pendiente-fondo px-2.5 py-1 text-xs font-medium text-pendiente-tinta">
+                Sin verificación en dos pasos
               </span>
             )}
 

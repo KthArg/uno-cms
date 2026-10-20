@@ -73,6 +73,7 @@ describe('personas', () => {
       correo: 'b@ejemplo.com',
       rol: 'editor' as const,
       activa: true,
+      dosPasos: true,
       sinEstrenar: false,
     },
   ];
