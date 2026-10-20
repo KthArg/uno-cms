@@ -57,6 +57,11 @@ El contenido NO se modela como tablas por tipo (eso obligaría a migraciones cad
 - Bootstrap del primer admin vía `SETUP_TOKEN` de un solo uso (ver §7.3), nunca con credenciales por defecto.
 - 2FA TOTP: post-MVP (hito v1.1), el esquema ya reserva las columnas.
 
+> **Enmienda — ADR-1400 (issue #10).** La 2FA TOTP ya no es post-MVP: está implementada y es
+> **obligatoria para todas las cuentas** (spec 20). Quien entra sin ella llega a una sesión que solo
+> sirve para darla de alta. El secreto va cifrado con una clave derivada de `APP_SECRET`, como
+> decía esta línea, y `users` gana `totp_activado_en`, `totp_ultimo_paso` y `codigos_recuperacion`.
+
 ### ADR-005 — Media: Vercel Blob
 
 Uploads directos desde el navegador con URL firmada de un solo uso (`@vercel/blob/client` + handler `onBeforeGenerateToken` que valida sesión, MIME y tamaño). Metadatos en tabla `media`. Optimización de imágenes delegada a `next/image` (el CMS no re-procesa).

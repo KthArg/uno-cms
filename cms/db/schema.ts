@@ -58,7 +58,23 @@ export const users = pgTable(
     name: text('name').notNull(),
     passwordHash: text('password_hash').notNull(), // argon2id (ADR-004)
     role: text('role', { enum: USER_ROLES }).notNull().default('editor'),
-    totpSecret: text('totp_secret'), // reservado v1.1, cifrado at-rest con APP_SECRET
+    /**
+     * El secreto TOTP, cifrado con una clave derivada de `APP_SECRET` (ADR-004, spec 20). Puede
+     * existir sin `totp_activado_en`: es un alta empezada y sin confirmar, y no cuenta como 2FA.
+     */
+    totpSecret: text('totp_secret'),
+    /** Cuándo se confirmó la 2FA. `null` es «todavía no la tiene»: entra solo a darla de alta. */
+    totpActivadoEn: timestamp('totp_activado_en', { withTimezone: true }),
+    /**
+     * El último paso de 30 s aceptado. Solo vale un código de un paso posterior, así que el mismo
+     * código no sirve dos veces aunque siga dentro de su ventana (T-V-5).
+     */
+    totpUltimoPaso: integer('totp_ultimo_paso'),
+    /** Las huellas SHA-256 de los códigos de recuperación sin usar. Usar uno lo quita de aquí. */
+    codigosRecuperacion: text('codigos_recuperacion')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     /**
      * Contador para invalidar sesiones al cambiar la contraseña (ADR-301, SPEC §7.1
      * "Robo de sesión", claim `pwdV`).

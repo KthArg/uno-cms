@@ -299,7 +299,7 @@ test('T-S-24: un acceso fallido enseña el mensaje, no un error del servidor', a
 
   // Filtrado por el texto: Next pone su propio `role="alert"`, vacío, para anunciar las rutas.
   await expect(
-    page.getByRole('alert').filter({ hasText: 'Revisa el correo y la contraseña' })
+    page.getByRole('alert').filter({ hasText: 'Revisa el correo, la contraseña y el código' })
   ).toBeVisible();
   expect(new URL(page.url()).pathname).toBe('/admin/login');
 });

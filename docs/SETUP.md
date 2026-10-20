@@ -124,6 +124,12 @@ y raro.
 
 Esto se hace **una sola vez**. Después, `/setup` deja de existir.
 
+**Al entrar por primera vez te pedirá activar la verificación en dos pasos.** Es obligatoria para
+todas las cuentas. Necesitas una app de códigos en el móvil (Google Authenticator, Microsoft
+Authenticator, 1Password, Authy…): escaneas el QR, escribes el código que enseña y te da **diez
+códigos de recuperación**. Guárdalos lejos del móvil, porque no se vuelven a enseñar. Desde
+entonces, para entrar se piden el correo, la contraseña y el código de la app.
+
 ## 6. Borra el código de instalación
 
 En Vercel: **Settings → Environment Variables**, busca `SETUP_TOKEN` y bórralo. Luego
@@ -212,6 +218,12 @@ no «Con cambios» en el panel.
 **Perdí el código de instalación antes de crear mi cuenta.**
 Ponlo otra vez en Vercel (Settings → Environment Variables), vuelve a desplegar, y repite el
 paso 5.
+
+**Perdí el móvil con la app de códigos.**
+Entra con uno de tus códigos de recuperación en el campo del código: cada uno sirve una vez.
+Después, en **Tu cuenta**, genera otros. Si tampoco tienes los códigos, quien tenga acceso a la
+base de datos puede quitarte la verificación con `pnpm mfa:quitar tu@correo.com`, con
+`DATABASE_URL` apuntando a la de producción. Al entrar la activarás otra vez.
 
 **Quiero que otra persona pueda editar.**
 En **Personas → Invitar**. Te dará un enlace que tienes que mandarle tú: no se envía ningún

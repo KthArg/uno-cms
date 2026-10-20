@@ -22,11 +22,36 @@ import { BOTON_PRINCIPAL, CAMPO, TARJETA, TITULO } from './estilos';
 export interface AccountScreenProps {
   readonly correo: string;
   readonly onCambiar: (actual: string, nueva: string) => Promise<{ ok: boolean; message?: string }>;
+  /** Cuántos códigos de recuperación le quedan sin usar (spec 20). */
+  readonly codigosRestantes: number;
+  readonly onRegenerar: (
+    codigo: string
+  ) => Promise<{ ok: true; codigos: string[] } | { ok: false; message?: string }>;
 }
 
-export function AccountScreen({ correo, onCambiar }: AccountScreenProps) {
+export function AccountScreen({
+  correo,
+  onCambiar,
+  codigosRestantes,
+  onRegenerar,
+}: AccountScreenProps) {
   const [aviso, setAviso] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const [codigosNuevos, setCodigosNuevos] = useState<string[] | null>(null);
+  const [avisoDeCodigos, setAvisoDeCodigos] = useState<string | null>(null);
+
+  const regenerar = async (formData: FormData): Promise<void> => {
+    setAvisoDeCodigos(null);
+    let resultado;
+    try {
+      resultado = await onRegenerar(String(formData.get('codigo') ?? ''));
+    } catch {
+      setAvisoDeCodigos(FALLO_DE_RED);
+      return;
+    }
+    if (resultado.ok) setCodigosNuevos(resultado.codigos);
+    else setAvisoDeCodigos(resultado.message ?? 'No se han podido generar los códigos.');
+  };
 
   const cambiar = async (formData: FormData): Promise<void> => {
     const actual = String(formData.get('actual') ?? '');
@@ -134,6 +159,59 @@ export function AccountScreen({ correo, onCambiar }: AccountScreenProps) {
             </p>
           </div>
         </form>
+      </section>
+
+      {/* La verificación en dos pasos no se puede apagar desde aquí: es obligatoria (spec 20).
+          Lo único que se hace es renovar los códigos de recuperación, que se gastan. */}
+      <section className={`${TARJETA} p-5`}>
+        <h2 className="text-lg font-semibold text-tinta">Códigos de recuperación</h2>
+        <p className="mt-1 text-sm text-tinta-suave">
+          Te quedan <strong>{codigosNuevos?.length ?? codigosRestantes}</strong> de 10. Cada uno te
+          deja entrar una vez si pierdes el móvil. Generar otros invalida los que tengas.
+        </p>
+
+        {codigosNuevos === null ? (
+          <form
+            action={(formData) => {
+              void regenerar(formData);
+            }}
+            className="mt-4 space-y-4"
+          >
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-tinta">El código que enseña tu app</span>
+              <input
+                name="codigo"
+                required
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={7}
+                className={CAMPO}
+              />
+            </label>
+            <div className="flex items-center gap-3">
+              <button type="submit" className={BOTON_PRINCIPAL}>
+                Generar códigos nuevos
+              </button>
+              <p aria-live="polite" className="text-sm text-alarma">
+                {avisoDeCodigos}
+              </p>
+            </div>
+          </form>
+        ) : (
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-tinta">
+              Guárdalos ahora: <strong>no se vuelven a enseñar</strong>.
+            </p>
+            <ul
+              aria-label="Códigos de recuperación nuevos"
+              className="grid grid-cols-2 gap-2 rounded-2xl border border-linea bg-superficie p-4 font-mono text-sm text-tinta"
+            >
+              {codigosNuevos.map((codigo) => (
+                <li key={codigo}>{codigo}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
     </div>
   );

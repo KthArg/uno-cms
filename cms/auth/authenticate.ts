@@ -5,6 +5,7 @@ import { audit } from '@/cms/security/audit';
 import { getLoginRateLimiter, loginRateLimitKey } from '@/cms/security/ratelimit';
 import { isLocked, LOCKOUT_BASE_MINUTES, LOCKOUT_MAX_MINUTES, LOCKOUT_THRESHOLD } from './lockout';
 import { MAX_PASSWORD_LENGTH, verifyDecoy, verifyPassword } from './passwords';
+import { comprobarSegundoFactor } from './segundo-factor';
 
 /**
  * El núcleo de la autenticación (SPEC ADR-004, §7.1).
@@ -41,6 +42,11 @@ export interface AuthenticateInput {
   readonly password: string;
   /** Para el límite por IP+correo y para la auditoría. */
   readonly ip?: string;
+  /**
+   * El código de la app de autenticación, o uno de recuperación (spec 20). Va en el mismo envío
+   * que la contraseña: pedirlo en un segundo paso diría que la contraseña era buena.
+   */
+  readonly codigo?: string;
   readonly userAgent?: string;
 }
 
@@ -50,6 +56,11 @@ export interface AuthenticatedUser {
   readonly name: string;
   readonly role: 'admin' | 'editor';
   readonly passwordVersion: number;
+  /**
+   * `'ok'` si entró con su segundo factor; `'alta'` si todavía no lo tiene y la sesión solo sirve
+   * para darlo de alta (spec 20 §3).
+   */
+  readonly mfa: 'ok' | 'alta';
 }
 
 export type AuthenticateResult =
@@ -263,6 +274,30 @@ export async function authenticate(
     return FAILED;
   }
 
+  // El segundo factor, **después** de la contraseña y dentro del mismo intento reservado: un
+  // código mal cuenta en el bloqueo igual que una contraseña mal (T-V-7), y hacia fuera es el
+  // mismo fallo. Que la contraseña era buena no se le dice a nadie.
+  const segundo = await comprobarSegundoFactor(user, input.codigo, now);
+
+  if (segundo.resultado === 'falla') {
+    limiter.check(limitKey);
+
+    await audit({
+      action: 'login.fail',
+      actorId: user.id,
+      actorEmail: user.email,
+      ip: input.ip,
+      userAgent: input.userAgent,
+      meta: {
+        motivo: 'segundo-factor',
+        intentosFallidos: reserva.failedLogins,
+        bloqueada: reserva.lockedUntil !== null,
+      },
+    });
+
+    return FAILED;
+  }
+
   await olvidarFallos(user.id, now);
 
   limiter.reset(limitKey);
@@ -273,6 +308,7 @@ export async function authenticate(
     actorEmail: user.email,
     ip: input.ip,
     userAgent: input.userAgent,
+    meta: { segundoFactor: segundo.resultado },
   });
 
   return {
@@ -283,6 +319,7 @@ export async function authenticate(
       name: user.name,
       role: user.role,
       passwordVersion: user.passwordVersion,
+      mfa: segundo.resultado === 'sin-alta' ? 'alta' : 'ok',
     },
   };
 }

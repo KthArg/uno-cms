@@ -137,3 +137,28 @@ describe('T-207-9 — no toca nada que no haya creado ella', () => {
     expect(CODIGO).toMatch(/borrarLasNuestras\(page, antes\)/);
   });
 });
+
+describe('T-V-19 — la suite de humo entra con segundo factor', () => {
+  it('lee el secreto de HUMO_TOTP_SECRET, sin espacios', () => {
+    const lectura = leerDestino({
+      HUMO_URL: 'https://uno-cms-pruebas.vercel.app',
+      HUMO_EMAIL: 'humo@ejemplo.com',
+      HUMO_PASSWORD: 'una-contrasena-larga',
+      HUMO_TOTP_SECRET: 'ABCD EFGH IJKL',
+    });
+    expect(lectura.hay && lectura.destino.totp).toBe('ABCDEFGHIJKL');
+  });
+
+  it('y sin él, la lectura sigue valiendo: la cuenta llegaría a la pantalla de alta', () => {
+    const lectura = leerDestino({
+      HUMO_URL: 'https://uno-cms-pruebas.vercel.app',
+      HUMO_EMAIL: 'humo@ejemplo.com',
+      HUMO_PASSWORD: 'una-contrasena-larga',
+    });
+    expect(lectura.hay && lectura.destino.totp).toBeUndefined();
+  });
+
+  it('y rellena el código al entrar', () => {
+    expect(CODIGO).toContain("getByLabel('Código de verificación').fill(codigoTotp(destino.totp))");
+  });
+});
