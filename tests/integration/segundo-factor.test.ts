@@ -196,6 +196,12 @@ describeIntegration('verificación en dos pasos', () => {
     const comoSeVe = async () => (await listUsers()).find((p) => p.id === user.id)!;
 
     expect((await comoSeVe()).dosPasos).toBe(false);
+
+    // El hueco que más importa: canjeó la invitación (la versión sube) y no ha activado la 2FA.
+    // Para la pantalla es «ya entró» y «sin 2FA» a la vez, que es lo que lleva la etiqueta.
+    await getDb().update(users).set({ passwordVersion: 1 }).where(eq(users.id, user.id));
+    expect(await comoSeVe()).toMatchObject({ sinEstrenar: false, dosPasos: false });
+
     // Un alta empezada y sin confirmar no cuenta: el secreto existe, pero no protege nada.
     const secreto = (await secretoPendiente(user.id))!;
     expect((await comoSeVe()).dosPasos).toBe(false);
