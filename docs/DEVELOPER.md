@@ -524,13 +524,13 @@ redirección (#336). Antes de eso, una parte pasaba en vacío mirando la pantall
 
 Lo que hay que hacer con cada uno es probar **lo que tu despliegue sí sirve**:
 
-| Lo que probaba                           | Lo que se prueba con la web fuera                                       |
-| ---------------------------------------- | ----------------------------------------------------------------------- |
-| Que `/` pinta la landing                 | Que `/` y `/<idioma>` dan 307 a `/admin`, y no se pinta ninguna sección |
-| Las cabeceras de la landing              | Las mismas, sobre el 307 de `/` sin seguirlo (`maxRedirects: 0`)        |
-| Que publicar cambia la landing (T-K-2)   | Que publicar cambia `GET /api/content/:key`, que es lo que lee tu web   |
-| Que `/<idioma>` enseña su idioma         | Que `GET /api/content/:key?idioma=…` devuelve el suyo                   |
-| Que el sitemap anuncia `/` y sus idiomas | Que el sitemap está vacío; los idiomas los anuncia el sitemap de tu web |
+| Lo que probaba                           | Lo que se prueba con la web fuera                                                                                                              |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Que `/` pinta la landing                 | Que `/` y `/<idioma>` dan 307 a `/admin`, y no se pinta ninguna sección                                                                        |
+| Las cabeceras de la landing              | Las mismas, sobre el 307 de `/`: con `request.get('/', { maxRedirects: 0 })` y comprobando el 307, **no** con `pedirLanding`, que exige un 200 |
+| Que publicar cambia la landing (T-K-2)   | Que publicar cambia `GET /api/content/:key`, que es lo que lee tu web                                                                          |
+| Que `/<idioma>` enseña su idioma         | Que `GET /api/content/:key?idioma=…` devuelve el suyo                                                                                          |
+| Que el sitemap anuncia `/` y sus idiomas | Que el sitemap está vacío; los idiomas los anuncia el sitemap de tu web                                                                        |
 
 Una diferencia que cambia lo que demuestra T-K-2: la ruta pública lee la base **sin**
 `unstable_cache`, así que contra ella el test ya no prueba la invalidación por tag de la landing,

@@ -20,7 +20,8 @@ function noEsLaLanding(ruta: string, acabo: string): string {
   return (
     `«${ruta}» no sirvió la landing: ${acabo}. Si cms.config.ts declara \`webExterna: true\`, ` +
     'este despliegue no sirve landing y este test no aplica tal cual: hay que adaptarlo a lo que ' +
-    'sí se sirve (docs/DEVELOPER.md, «Alimentar una web que vive fuera»).'
+    'sí se sirve. Cómo, test a test: docs/DEVELOPER.md, «Los tests e2e de la landing, que tendrás ' +
+    'que adaptar».'
   );
 }
 
