@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { abrirLanding } from './support/landing';
 
 /**
  * T-G-5 y T-G-6: la landing pública contra un servidor de verdad (SPEC §6.3, §8).
@@ -32,8 +33,7 @@ test('T-G-6: el navegador no pide datos, ni una vez', async ({ page }) => {
     }
   });
 
-  const respuesta = await page.goto('/');
-  expect(respuesta?.status()).toBe(200);
+  await abrirLanding(page);
 
   // Se espera a que la página quede quieta: sin esto, el test podría pasar por mirar demasiado
   // pronto, que es la forma más común de que un test de red no pruebe nada.
@@ -50,7 +50,7 @@ test('la landing se sirve sin errores de cliente', async ({ page }) => {
     if (mensaje.type() === 'error') errores.push(mensaje.text());
   });
 
-  await page.goto('/');
+  await abrirLanding(page);
   await page.waitForLoadState('networkidle');
 
   // Una sección que revienta en el navegador deja el resto de la página muerta y no se nota

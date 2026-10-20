@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { ejecutarSql } from './support/db';
 import { crearYEntrar } from './support/session';
+import { abrirLanding } from './support/landing';
 
 /**
  * T-K-2: **publicar cambia lo que sirve la landing**, de extremo a extremo.
@@ -48,7 +49,7 @@ test('T-K-2: publicar cambia la landing, sin reiniciar nada', async ({ page }) =
 
   // 2. Ahora sí aparece, y esta visita deja **el caché caliente con el texto viejo**, que es lo
   //    que hace útil el resto: sin ella, la lectura final podría acertar por ser la primera.
-  await page.goto('/');
+  await abrirLanding(page);
   await expect(page.getByText(ANTES)).toBeVisible({ timeout: 10_000 });
 
   // 3. Se edita y se publica.
@@ -60,7 +61,7 @@ test('T-K-2: publicar cambia la landing, sin reiniciar nada', async ({ page }) =
 
   // 4. Y la landing enseña lo nuevo. **Esto es lo que ningún test anterior podía demostrar**:
   //    que la invalidación por tag funciona de verdad, no que se llame a la función.
-  await page.goto('/');
+  await abrirLanding(page);
   await expect(page.getByText(DESPUES)).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText(ANTES)).toHaveCount(0);
 });
@@ -74,7 +75,7 @@ test('un borrador sin publicar NO se asoma a la landing', async ({ page }) => {
 
   // La columna `published` separada existe justo para esto (SPEC §4). Es la propiedad que hace
   // que un CMS sirva para trabajar: se puede escribir a medias sin que lo vea nadie.
-  await page.goto('/');
+  await abrirLanding(page);
   await expect(page.getByText('ESTO NO SE PUBLICA')).toHaveCount(0);
   await expect(page.getByText(DESPUES)).toBeVisible();
 });

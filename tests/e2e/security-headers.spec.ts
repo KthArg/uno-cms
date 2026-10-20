@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { crearYEntrar } from './support/session';
+import { pedirLanding } from './support/landing';
 
 /**
  * T-60-1 a T-60-6: cabeceras de seguridad y guard de `/admin` (SPEC §7.2, §7.1).
@@ -10,7 +11,7 @@ import { crearYEntrar } from './support/session';
  */
 
 test('T-60-2: la landing lleva todas las cabeceras de SPEC §7.2', async ({ request }) => {
-  const response = await request.get('/');
+  const response = await pedirLanding(request);
   const headers = response.headers();
 
   expect(headers['content-security-policy']).toBeDefined();
@@ -23,7 +24,7 @@ test('T-60-2: la landing lleva todas las cabeceras de SPEC §7.2', async ({ requ
 });
 
 test('T-60-3: la CSP lleva nonce y frame-ancestors self', async ({ request }) => {
-  const csp = (await request.get('/')).headers()['content-security-policy'] ?? '';
+  const csp = (await pedirLanding(request)).headers()['content-security-policy'] ?? '';
 
   expect(csp).toMatch(/script-src [^;]*'nonce-[^']+'/);
   expect(csp).toContain("'strict-dynamic'");
@@ -37,8 +38,8 @@ test('T-60-3: la CSP lleva nonce y frame-ancestors self', async ({ request }) =>
 test('T-60-4: el nonce cambia en cada petición', async ({ request }) => {
   const extraer = (csp: string) => /'nonce-([^']+)'/.exec(csp)?.[1];
 
-  const primero = extraer((await request.get('/')).headers()['content-security-policy'] ?? '');
-  const segundo = extraer((await request.get('/')).headers()['content-security-policy'] ?? '');
+  const primero = extraer((await pedirLanding(request)).headers()['content-security-policy'] ?? '');
+  const segundo = extraer((await pedirLanding(request)).headers()['content-security-policy'] ?? '');
 
   expect(primero).toBeDefined();
   // Un nonce reutilizado no es un nonce: su sentido es que no se pueda conocer de antemano.
@@ -48,7 +49,7 @@ test('T-60-4: el nonce cambia en cada petición', async ({ request }) => {
 test('T-60-5: X-Robots-Tag ausente en la landing', async ({ request }) => {
   // En la landing sería un error caro: costaría el posicionamiento del sitio entero y nadie
   // lo notaría hasta semanas después.
-  expect((await request.get('/')).headers()['x-robots-tag']).toBeUndefined();
+  expect((await pedirLanding(request)).headers()['x-robots-tag']).toBeUndefined();
 });
 
 test('T-60-5: X-Robots-Tag en respuestas 200 de rutas privadas', async ({ request }) => {
@@ -78,7 +79,7 @@ test('T-60-5: X-Robots-Tag también en la redirección de /admin', async ({ requ
 });
 
 test('T-60-6: la CSP de producción no lleva unsafe-eval', async ({ request }) => {
-  const csp = (await request.get('/')).headers()['content-security-policy'] ?? '';
+  const csp = (await pedirLanding(request)).headers()['content-security-policy'] ?? '';
 
   // El e2e corre contra `next build && next start`, o sea producción. En desarrollo Next
   // necesita `unsafe-eval` para la recarga en caliente; dejarlo aquí anularía buena parte
@@ -113,7 +114,7 @@ test('T-60-7: una mutación con Origin ajeno se rechaza', async ({ request }) =>
 test('T-60-7: una petición GET con Origin ajeno NO se rechaza', async ({ request }) => {
   // Solo se comprueban los métodos que modifican estado: bloquear GET rompería enlaces
   // legítimos desde otros sitios sin aportar nada, porque un GET no debe mutar.
-  const response = await request.get('/', {
+  const response = await pedirLanding(request, '/', {
     headers: { origin: 'https://sitio-ajeno.example' },
   });
 
@@ -223,7 +224,7 @@ test('T-N-1: la ruta de subida lleva las cabeceras, y rechaza sin sesión', asyn
  */
 
 test('T-R-2: sin PREVIEW_ORIGINS, la CSP que sale no lleva frame-src', async ({ request }) => {
-  const csp = (await request.get('/')).headers()['content-security-policy'] ?? '';
+  const csp = (await pedirLanding(request)).headers()['content-security-policy'] ?? '';
 
   expect(csp).not.toContain('frame-src');
   // Y lo que ya había sigue: la comprobación de arriba pasaría también con una CSP vacía.
@@ -251,7 +252,7 @@ test('la CSP llega a Next: los <script> llevan el nonce de su propia respuesta',
   // petición (`resolve-routes.js`), y se lo pone a sus scripts. Es un detalle interno suyo: si
   // dejara de hacerlo, la CSP bloquearía los scripts y la página se quedaría sin hidratar. Es lo
   // que comprueba esto, y lo que ningún unitario puede ver.
-  const respuesta = await request.get('/');
+  const respuesta = await pedirLanding(request);
   const nonce = /'nonce-([^']+)'/.exec(respuesta.headers()['content-security-policy'] ?? '')?.[1];
   const html = await respuesta.text();
 

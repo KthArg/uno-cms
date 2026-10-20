@@ -510,7 +510,32 @@ sigue abierto.
 
 ### Lo que NO se lleva la web remota
 
-- **La landing de este repositorio**, que sigue existiendo y sirviéndose aunque no la uses.
+- **La landing de este repositorio**, que sigue en el código aunque no la uses. Con
+  `webExterna: true` deja de servirse en `/`, que lleva al panel (spec 18). Sin declararlo, se
+  sigue sirviendo hasta que la vista previa remota esté bien puesta.
+
+### Los tests e2e de la landing, que tendrás que adaptar
+
+La suite e2e de este repositorio prueba la landing de ejemplo: que `/` se pinte sin errores, sus
+cabeceras de seguridad, que publicar cambie lo que enseña, `/<idioma>`. Con `webExterna: true` esa
+landing no se sirve, y esos tests **fallan a propósito**, con un mensaje que lo dice: pasan por
+`tests/e2e/support/landing.ts`, que comprueba que `/` respondió ella misma con un 200 y no una
+redirección (#336). Antes de eso, una parte pasaba en vacío mirando la pantalla de login.
+
+Lo que hay que hacer con cada uno es probar **lo que tu despliegue sí sirve**:
+
+| Lo que probaba                           | Lo que se prueba con la web fuera                                       |
+| ---------------------------------------- | ----------------------------------------------------------------------- |
+| Que `/` pinta la landing                 | Que `/` y `/<idioma>` dan 307 a `/admin`, y no se pinta ninguna sección |
+| Las cabeceras de la landing              | Las mismas, sobre el 307 de `/` sin seguirlo (`maxRedirects: 0`)        |
+| Que publicar cambia la landing (T-K-2)   | Que publicar cambia `GET /api/content/:key`, que es lo que lee tu web   |
+| Que `/<idioma>` enseña su idioma         | Que `GET /api/content/:key?idioma=…` devuelve el suyo                   |
+| Que el sitemap anuncia `/` y sus idiomas | Que el sitemap está vacío; los idiomas los anuncia el sitemap de tu web |
+
+Una diferencia que cambia lo que demuestra T-K-2: la ruta pública lee la base **sin**
+`unstable_cache`, así que contra ella el test ya no prueba la invalidación por tag de la landing,
+solo que lo publicado es lo servido. El caché que sí tiene tu web lo refresca el aviso al publicar
+(sección 5), que tiene su propio e2e.
 
 ### Qué esperar de la vista previa remota, con sus límites
 
