@@ -18,6 +18,14 @@ export interface PersonaDelPanel {
   readonly rol: 'admin' | 'editor';
   readonly activa: boolean;
   /**
+   * Si la cuenta ya tiene la verificación en dos pasos (spec 20, #333).
+   *
+   * Es obligatoria, pero cada cuenta la activa en su siguiente acceso, y mientras no lo hace su
+   * contraseña sola basta para entrar y atarle un autenticador ajeno. Verlo es lo que permite
+   * cerrar esa ventana antes: avisar a esa persona, o quitarle el acceso si ya no lo usa.
+   */
+  readonly dosPasos: boolean;
+  /**
    * Si la cuenta todavía no ha entrado nunca.
    *
    * Se deduce de `passwordVersion === 0`: la contraseña que pone `inviteUser` es aleatoria y no
@@ -47,6 +55,7 @@ export async function listUsers(): Promise<PersonaDelPanel[]> {
       role: users.role,
       active: users.active,
       passwordVersion: users.passwordVersion,
+      totpActivadoEn: users.totpActivadoEn,
     })
     .from(users)
     .orderBy(asc(users.name), asc(users.email));
@@ -59,6 +68,7 @@ export async function listUsers(): Promise<PersonaDelPanel[]> {
     // estrecha aquí en vez de dejar que la pantalla reciba cualquier cadena.
     rol: fila.role === 'admin' ? 'admin' : 'editor',
     activa: fila.active,
+    dosPasos: fila.totpActivadoEn !== null,
     sinEstrenar: fila.passwordVersion === 0,
   }));
 }

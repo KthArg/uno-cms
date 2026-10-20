@@ -190,6 +190,26 @@ describeIntegration('verificación en dos pasos', () => {
     expect(fila.codigosRecuperacion).toEqual(codigos!.map(huellaDeRecuperacion));
   });
 
+  it('#333: la lista de personas dice quién tiene ya la verificación', async () => {
+    const user = await sinSegundoFactor();
+    const { listUsers } = await import('@/cms/core/users');
+    const comoSeVe = async () => (await listUsers()).find((p) => p.id === user.id)!;
+
+    expect((await comoSeVe()).dosPasos).toBe(false);
+
+    // El hueco que más importa: canjeó la invitación (la versión sube) y no ha activado la 2FA.
+    // Para la pantalla es «ya entró» y «sin 2FA» a la vez, que es lo que lleva la etiqueta.
+    await getDb().update(users).set({ passwordVersion: 1 }).where(eq(users.id, user.id));
+    expect(await comoSeVe()).toMatchObject({ sinEstrenar: false, dosPasos: false });
+
+    // Un alta empezada y sin confirmar no cuenta: el secreto existe, pero no protege nada.
+    const secreto = (await secretoPendiente(user.id))!;
+    expect((await comoSeVe()).dosPasos).toBe(false);
+
+    await confirmarAlta(user.id, codigoTotp(secreto, AHORA), AHORA);
+    expect((await comoSeVe()).dosPasos).toBe(true);
+  });
+
   it('T-V-12: pedir el pendiente dos veces da el mismo secreto, no uno nuevo', async () => {
     const user = await sinSegundoFactor();
     expect(await secretoPendiente(user.id)).toBe(await secretoPendiente(user.id));

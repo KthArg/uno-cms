@@ -15,6 +15,7 @@ const PERSONAS: PersonaDelPanel[] = [
     correo: 'ana@ejemplo.com',
     rol: 'admin',
     activa: true,
+    dosPasos: true,
     sinEstrenar: false,
   },
   {
@@ -23,6 +24,7 @@ const PERSONAS: PersonaDelPanel[] = [
     correo: 'bruno@ejemplo.com',
     rol: 'editor',
     activa: true,
+    dosPasos: false,
     sinEstrenar: true,
   },
 ];
@@ -193,5 +195,34 @@ describe('quitar acceso', () => {
     expect(
       await screen.findByText(/es la única persona que puede administrar/)
     ).toBeInTheDocument();
+  });
+});
+
+describe('#333 — quién no tiene todavía la verificación en dos pasos', () => {
+  const CARLA: PersonaDelPanel = {
+    id: 'cccccccc-3333-4333-8333-cccccccccccc',
+    nombre: 'Carla',
+    correo: 'carla@ejemplo.com',
+    rol: 'editor',
+    activa: true,
+    dosPasos: false,
+    sinEstrenar: false,
+  };
+
+  it('se señala a quien ya entró y sigue sin ella', () => {
+    montar({ personas: [...PERSONAS, CARLA] });
+    const fila = screen.getByText('Carla').closest('li')!;
+    expect(fila).toHaveTextContent('Sin verificación en dos pasos');
+  });
+
+  it('y no a quien la tiene, ni a quien todavía no ha entrado: ahí lo que falta es otra cosa', () => {
+    montar({ personas: [...PERSONAS, CARLA] });
+    expect(screen.getByText('Ana').closest('li')).not.toHaveTextContent(
+      'Sin verificación en dos pasos'
+    );
+    expect(screen.getByText('Bruno').closest('li')).not.toHaveTextContent(
+      'Sin verificación en dos pasos'
+    );
+    expect(screen.getAllByText('Sin verificación en dos pasos')).toHaveLength(1);
   });
 });
