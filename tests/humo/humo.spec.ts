@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { put } from '@vercel/blob/client';
 import { generarPathname } from '../../cms/nombres-de-subida';
-import { leerDestino } from './entorno';
+import { codigoTotp } from '../../cms/segundo-factor';
+import { leerDestino, type Destino } from './entorno';
 
 /**
  * T-207-4 … T-207-8: **el despliegue de verdad, visto desde fuera** (spec 09, issue #207).
@@ -36,7 +37,7 @@ const lectura = leerDestino();
 if (!lectura.hay) console.warn(`\n[humo] ${lectura.motivo}\n`);
 test.skip(!lectura.hay, lectura.hay ? '' : lectura.motivo);
 
-const destino = lectura.hay ? lectura.destino : { url: '', email: '', password: '' };
+const destino: Destino = lectura.hay ? lectura.destino : { url: '', email: '', password: '' };
 
 test.beforeAll(() => {
   if (lectura.hay) {
@@ -63,6 +64,11 @@ async function entrar(page: import('@playwright/test').Page): Promise<void> {
   await page.goto(`${destino.url}/admin/login`);
   await page.getByLabel('Correo').fill(destino.email);
   await page.getByLabel('Contraseña').fill(destino.password);
+  // Desde la spec 20 el panel exige segundo factor. El código se calcula como lo haría la app,
+  // con el secreto de `HUMO_TOTP_SECRET`; sin él, la cuenta solo llegaría a la pantalla de alta.
+  if (destino.totp !== undefined) {
+    await page.getByLabel('Código de verificación').fill(codigoTotp(destino.totp));
+  }
   await page.getByRole('button', { name: /entrar/i }).click();
 
   // El mensaje del formulario, no un `waitForURL` a secas: si las credenciales están mal, el

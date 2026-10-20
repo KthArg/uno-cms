@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { RUTA_DE_ALTA_DEL_SEGUNDO_FACTOR } from '@/cms/routes';
 import { RUTAS_PUBLICAS, rutasDelPanel } from '../support/admin-routes';
 
 /**
@@ -38,10 +40,15 @@ const MIDDLEWARE = readFileSync(
 
 describe('#70 — los dos guards de /admin cubren lo mismo', () => {
   it('toda página del panel vive dentro del grupo que lleva el guard autoritativo', () => {
-    const publicas = new Set(RUTAS_PUBLICAS.map((ruta) => ruta.url));
+    // La de alta del segundo factor es la tercera excepción, y no es pública: tiene su propio
+    // guard, comprobado en el caso de abajo (spec 20 §3).
+    const exentas = new Set([
+      ...RUTAS_PUBLICAS.map((ruta) => ruta.url),
+      RUTA_DE_ALTA_DEL_SEGUNDO_FACTOR,
+    ]);
 
     const desprotegidas = rutasDelPanel()
-      .filter((ruta) => !ruta.dentroDelGrupo && !publicas.has(ruta.url))
+      .filter((ruta) => !ruta.dentroDelGrupo && !exentas.has(ruta.url))
       .map((ruta) => `${ruta.fichero} → ${ruta.url}`);
 
     expect(
@@ -51,6 +58,19 @@ describe('#70 — los dos guards de /admin cubren lo mismo', () => {
         'desactivado ni a quien cambió su contraseña (ADR-301).\n' +
         'Muévelas dentro de app/admin/(panel)/ o añádelas a RUTAS_PUBLICAS con su motivo.'
     ).toEqual([]);
+  });
+
+  it('T-V-11: la página de alta, fuera del grupo, lleva su propio guard', () => {
+    // Fuera del grupo no la cubre el layout de `(panel)`, así que tiene que hacer ella lo mismo:
+    // pedir la sesión a `auth()` —que pasa por el callback que expulsa a desactivados y a quien
+    // cambió la contraseña— y mandar al acceso sin sesión y al panel con la verificación hecha.
+    const pagina = readFileSync(
+      join(process.cwd(), 'app', 'admin', 'verificacion', 'page.tsx'),
+      'utf8'
+    );
+    expect(pagina).toContain('const session = await auth();');
+    expect(pagina).toContain("if (session === null) redirect('/admin/login');");
+    expect(pagina).toContain("if (session.user.mfa === 'ok') redirect('/admin');");
   });
 
   it('el middleware cubre /admin por prefijo, no ruta a ruta', () => {
@@ -162,6 +182,11 @@ describe('T-E-4 — cada pantalla del panel declara qué acceso pide', () => {
       nivel: 'sesion',
       motivo:
         'Es pública y está declarada como tal en cms/routes.ts; lo que autoriza es el enlace firmado, no una sesión.',
+    },
+    '/admin/verificacion': {
+      nivel: 'sesion',
+      motivo:
+        'Cualquier cuenta da de alta su propio segundo factor, y solo el suyo: todo va contra la fila de la sesión (spec 20).',
     },
   };
 

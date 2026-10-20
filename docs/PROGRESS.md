@@ -2248,3 +2248,42 @@ comentarios o filas de documentación prometían algo falso, incluida una «deud
   ve igual un test roto que un código roto; hay que leer cuál de los dos es antes de tocar nada.
 - **El número de la spec estaba cogido**, como el prefijo de los casos en la de idiomas: #317
   añadió la 18 mientras esta se escribía. Se vio porque ADR-1200 la citaba.
+
+---
+
+## Verificación en dos pasos (spec 20)
+
+**En curso.** Spec [`20-verificacion-en-dos-pasos.md`](specs/20-verificacion-en-dos-pasos.md),
+issue [#10](https://github.com/KthArg/uno-cms/issues/10), ADR-1400 y la enmienda de SPEC §ADR-004.
+
+### Qué funciona
+
+- Entrar pide correo, contraseña y código, en un solo envío. Sin 2FA activada, la cuenta llega a
+  una pantalla que solo sirve para activarla.
+- El alta: QR o clave en texto, confirmación con un código, diez códigos de recuperación que se
+  enseñan una vez, y volver a entrar.
+- En «Tu cuenta», códigos de recuperación nuevos a cambio de un código de la app.
+- `pnpm mfa:quitar <correo>` para quien perdió el móvil y los códigos.
+
+### Lo verificado y lo que no
+
+- **Verificado:** lint, typecheck y unit + ui (1202). Integración contra Postgres (381). Los dos
+  e2e de 2FA, en local. Diez mutaciones de lo que protege, todas muertas. Y el recorrido entero a
+  mano contra `pnpm dev`, con una cuenta de prueba que se borró al terminar.
+- **No verificado:** la suite de humo con 2FA, que necesita una cuenta con su secreto en
+  `HUMO_TOTP_SECRET`.
+
+### Qué probaría a mano
+
+- Entrar desde el móvil y escanear el QR con la app de verdad, no calculando el código.
+- Un fork de cliente al traerse esto: todas sus cuentas tendrán que activarla en el siguiente
+  acceso.
+
+### Lo que enseñó esta pasada
+
+- **Una mutación sobrevivió y no era redundante.** Quitar el rechazo de un código de recuperación
+  al regenerar no cambiaba el resultado —se rechazaba igual más abajo—, pero el código **se
+  gastaba** al intentarlo. El test miraba la respuesta y no la fila; ahora mira las dos.
+- **La primera comprobación de dirección del e2e era demasiado estricta.** Tras entrar, Next sirve
+  la pantalla de alta con la barra aún en `/admin`: la redirección ocurre dentro de la navegación
+  de la action. Lo que importa —que no se pinte el panel— se comprueba por contenido.

@@ -9,6 +9,12 @@ export interface Destino {
   readonly url: string;
   readonly email: string;
   readonly password: string;
+  /**
+   * El secreto TOTP de la cuenta, en base32 (spec 20). Opcional en la lectura porque una cuenta
+   * todavía sin 2FA entra sin él; desde la spec 20 ninguna llega al panel sin tenerlo, así que en
+   * la práctica hace falta.
+   */
+  readonly totp?: string;
 }
 
 export type Lectura =
@@ -74,6 +80,9 @@ export function leerDestino(env: Record<string, string | undefined> = process.en
       url,
       email: (env['HUMO_EMAIL'] ?? '').trim(),
       password: env['HUMO_PASSWORD'] ?? '',
+      ...((env['HUMO_TOTP_SECRET'] ?? '').trim() === ''
+        ? {}
+        : { totp: (env['HUMO_TOTP_SECRET'] ?? '').replace(/\s/g, '') }),
     },
     avisos,
   };
