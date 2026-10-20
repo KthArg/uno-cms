@@ -189,8 +189,11 @@ const defaultSessionProvider: SessionProvider = async () => {
   const session = await auth();
   if (session === null) return null;
 
-  const { id, email, role } = session.user;
+  const { id, email, role, mfa } = session.user;
   if (typeof id !== 'string' || typeof email !== 'string') return null;
+  // Una sesión a medio entrar no es una sesión para las actions (T-V-10): sin esto, el layout
+  // la frenaría en pantalla y cualquiera con su cookie podría llamar a `publish` a mano.
+  if (mfa !== 'ok') return null;
   if (role !== 'admin' && role !== 'editor') return null;
 
   return { userId: id, email, role };

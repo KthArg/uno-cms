@@ -182,7 +182,14 @@ describe('ajustes', () => {
 
 describe('tu cuenta', () => {
   it('lo dice y el formulario sigue vivo', async () => {
-    render(<AccountScreen correo="ana@ejemplo.com" onCambiar={seCae()} />);
+    render(
+      <AccountScreen
+        correo="ana@ejemplo.com"
+        onCambiar={seCae()}
+        codigosRestantes={10}
+        onRegenerar={seCae()}
+      />
+    );
 
     await userEvent.type(screen.getByLabelText('Tu contraseña actual'), 'la-de-siempre-larga');
     await userEvent.type(screen.getByLabelText('La nueva'), 'una-contrasena-larga');

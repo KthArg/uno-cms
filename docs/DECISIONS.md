@@ -1772,3 +1772,23 @@ Y de un caso raro que se acepta sabiendo que existe: si alguien declara `en` com
 **A cambio de qué.** Detrás de **dos** proxys (una CDN y un nginx, por ejemplo), la última entrada es la de la CDN y todos los visitantes comparten límite. Falla del lado seguro —limita de más, no de menos— y se arregla con una variable de saltos de confianza si alguien lo necesita. Y con `next start` expuesto directamente no hay forma fiable: Next no deja leer la dirección del socket. Está dicho en `.env.example`.
 
 **Qué lo revertiría.** Que Next expusiera la dirección de la conexión a las rutas.
+
+## ADR-1400 — Verificación en dos pasos obligatoria, con códigos de recuperación y sin «un admin te la quita» (resuelve #10)
+
+**Contexto.** La auditoría de la spec 19 cerró agujeros, pero la contraseña seguía siendo el único factor: una contraseña filtrada en otro sitio y reutilizada aquí bastaba para entrar en el panel, y desde el panel se publica en la web de alguien. SPEC §10.1 dejaba la 2FA para después, con la columna ya reservada.
+
+**Decisión.** Las tres respuestas las dio el dueño del producto:
+
+1. **Obligatoria para todas las cuentas**, sin distinguir rol. Quien entra sin ella llega a una sesión `mfa: 'alta'` que solo abre `/admin/verificacion`. La frenan tres capas —middleware, layout de `(panel)` y pipeline de actions— porque Next no vuelve a ejecutar un layout en las navegaciones de cliente (#234).
+2. **Diez códigos de recuperación** de un solo uso, que se enseñan una vez y se guardan como SHA-256.
+3. **Sin «un admin te la quita»** desde el panel. Una cuenta de admin robada podría quitársela a cualquiera. La salida es `pnpm mfa:quitar <correo>`, que exige la base de datos.
+
+El código va **en el mismo envío** que la contraseña, no en un paso aparte: un segundo paso confirmaría que la contraseña era buena. Un código mal cuenta en el bloqueo igual que una contraseña mal (ADR-1301). El mismo código no vale dos veces: se guarda el último paso aceptado, en una sentencia condicionada. El secreto va cifrado con AES-256-GCM y una clave derivada de `APP_SECRET` por HKDF, como pedía ADR-004.
+
+**A cambio de qué.**
+
+- Cambiar `APP_SECRET` deja inservibles todos los secretos de 2FA. El código no lo trata como «no hay 2FA», que dejaría entrar con la contraseña sola: lo trata como fallo. Rotar `APP_SECRET` exige pasar `pnpm mfa:quitar` a cada cuenta, y está dicho en `.env.example`.
+- Si el único admin pierde el móvil y los códigos, solo puede volver a entrar quien tenga la base de datos.
+- Se añade una dependencia, `uqr`, para el QR. No tiene dependencias propias.
+
+**Qué lo revertiría.** Llaves físicas (WebAuthn). Con ellas, TOTP pasaría a ser la segunda opción y no la única.

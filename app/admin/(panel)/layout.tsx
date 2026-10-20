@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { auth, signOut } from '@/cms/auth';
+import { RUTA_DE_ALTA_DEL_SEGUNDO_FACTOR } from '@/cms/routes';
 import { invalidateSessions } from '@/cms/auth/authenticate';
 import { fuenteDelPanel } from '@/app/fuente';
 import { hayVariosIdiomas, idiomas } from '@/cms/core/idiomas';
@@ -36,6 +37,9 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   const session = await auth();
 
   if (session === null) redirect('/admin/login');
+  // La sesión a medio entrar no ve nada del panel (spec 20 §3, T-V-9). Este es el guard que vale:
+  // el del middleware solo mira la firma del token.
+  if (session.user.mfa !== 'ok') redirect(RUTA_DE_ALTA_DEL_SEGUNDO_FACTOR);
 
   // La ruta actual se lee de la cabecera que pone el middleware, y sirve **solo para el primer
   // render**: este layout es común a todas las rutas de `/admin` y Next no lo vuelve a ejecutar

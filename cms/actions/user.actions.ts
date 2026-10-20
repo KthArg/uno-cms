@@ -3,6 +3,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { olvidarFallos, reservarIntento } from '@/cms/auth/authenticate';
+import { regenerarCodigos } from '@/cms/auth/segundo-factor';
 import { checkPasswordPolicy, hashPassword, verifyPassword } from '@/cms/auth/passwords';
 import { getDb, users } from '@/cms/db';
 import { signToken } from '@/cms/security/tokens';
@@ -308,4 +309,29 @@ export const changePassword = defineAction({
 
     return ok({ sessionsInvalidated: true });
   },
+});
+
+/**
+ * Códigos de recuperación nuevos (spec 20, T-V-17). Invalida los anteriores en la misma escritura.
+ *
+ * Exige un código **de la app**, no uno de recuperación: con uno de esos se fabricarían diez más,
+ * y perder la hoja de códigos no debería servir para conseguir otra. Un código mal no cuenta en el
+ * bloqueo de acceso porque quien llega aquí ya tiene sesión completa; lo frena el bucket `admin`.
+ */
+export const regenerarCodigosDeRecuperacion = defineAction({
+  name: 'user.regenerarCodigos',
+  role: 'editor',
+  bucket: 'admin',
+  input: z.object({ codigo: z.string().trim().min(6).max(11) }),
+  targetType: 'user',
+  handler: async (input, session) => {
+    const codigos = await regenerarCodigos(session.userId, input.codigo);
+    if (codigos === null) {
+      return fail('FORBIDDEN', 'Ese código no vale. Escribe el que enseña ahora tu app.');
+    }
+    return ok({ codigos });
+  },
+  // Los códigos son la respuesta, y no pueden acabar en la auditoría: ahí los leería cualquier
+  // admin, y valen para entrar en la cuenta de otro.
+  auditMeta: () => ({}),
 });

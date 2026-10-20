@@ -52,6 +52,8 @@ declare module 'next-auth' {
       email: string;
       name: string;
       role: 'admin' | 'editor';
+      /** `'alta'`: entró sin segundo factor y solo puede darlo de alta (spec 20 §3). */
+      mfa: 'ok' | 'alta';
     };
   }
 }
@@ -80,10 +82,11 @@ export const authConfig = {
   pages: { signIn: '/admin/login' },
   providers: [
     Credentials({
-      credentials: { email: {}, password: {} },
+      credentials: { email: {}, password: {}, codigo: {} },
       async authorize(credentials, request) {
         const email = credentials?.['email'];
         const password = credentials?.['password'];
+        const codigo = credentials?.['codigo'];
 
         if (typeof email !== 'string' || typeof password !== 'string') return null;
 
@@ -97,6 +100,7 @@ export const authConfig = {
           email,
           password,
           ...(ip === undefined ? {} : { ip }),
+          ...(typeof codigo === 'string' && codigo !== '' ? { codigo } : {}),
           ...(request.headers.get('user-agent') === null
             ? {}
             : { userAgent: request.headers.get('user-agent') as string }),
@@ -112,6 +116,7 @@ export const authConfig = {
           name: result.user.name,
           role: result.user.role,
           passwordVersion: result.user.passwordVersion,
+          mfa: result.user.mfa,
         };
       },
     }),
@@ -124,10 +129,14 @@ export const authConfig = {
           id: string;
           role: 'admin' | 'editor';
           passwordVersion: number;
+          mfa: 'ok' | 'alta';
         };
         token.sub = authenticated.id;
         token['role'] = authenticated.role;
         token['pwdV'] = authenticated.passwordVersion;
+        // No se refresca nunca: terminar el alta sube `password_version` y obliga a entrar otra
+        // vez, ya con código (T-V-15). Así una sesión `alta` no se convierte en `ok` sola.
+        token['mfa'] = authenticated.mfa;
         // Cuándo se entró, y no se mueve: es lo que pone la caducidad absoluta (T-S-8).
         token['authTime'] = Math.floor(Date.now() / 1000);
         return token;
@@ -156,6 +165,8 @@ export const authConfig = {
       if (typeof token.sub === 'string') session.user.id = token.sub;
       const role = token['role'];
       if (role === 'admin' || role === 'editor') session.user.role = role;
+      // Sin el claim —un token de antes de la spec 20— cuenta como `alta`: deja fuera, no dentro.
+      session.user.mfa = token['mfa'] === 'ok' ? 'ok' : 'alta';
       return session;
     },
   },

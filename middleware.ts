@@ -1,7 +1,11 @@
 import NextAuth from 'next-auth';
 import { NextResponse, type NextRequest } from 'next/server';
 import { construirCsp } from '@/cms/csp';
-import { esNoIndexable, esRutaPublicaDelPanel } from '@/cms/routes';
+import {
+  esNoIndexable,
+  esRutaPublicaDelPanel,
+  RUTA_DE_ALTA_DEL_SEGUNDO_FACTOR,
+} from '@/cms/routes';
 import { SESSION_MAX_AGE_SECONDS } from '@/cms/sesion';
 import { origenesDeVistaPreviaRemota } from '@/cms/vista-previa-remota';
 
@@ -43,6 +47,13 @@ const { auth } = NextAuth({
   callbacks: {
     // Sin callbacks de base de datos: en edge no hay base de datos.
     authorized: ({ auth: session }) => session !== null,
+    // El claim `mfa` del JWT, para el filtro de abajo. Solo lee el token ya verificado; quien
+    // decide de verdad es el layout de `(panel)` y el pipeline de actions (spec 20 §3).
+    session: ({ session, token }) => {
+      const usuario = session.user as { mfa?: string } | undefined;
+      if (usuario !== undefined) usuario.mfa = token['mfa'] === 'ok' ? 'ok' : 'alta';
+      return session;
+    },
   },
 });
 
@@ -144,6 +155,20 @@ export default auth((request) => {
     const redirect = NextResponse.redirect(login);
     applySecurityHeaders(redirect, request, nonce);
     return redirect;
+  }
+
+  // Una sesión **a medio entrar** —contraseña buena, sin segundo factor todavía— solo puede ir a
+  // darlo de alta (T-V-9). Primer filtro, barato; el layout de `(panel)` y el pipeline repiten la
+  // comprobación en Node, que es donde vale.
+  const mfa = (request.auth?.user as { mfa?: string } | undefined)?.mfa;
+  if (isAdmin && !esPublica && request.auth !== null && mfa !== 'ok') {
+    if (path !== RUTA_DE_ALTA_DEL_SEGUNDO_FACTOR) {
+      const alta = NextResponse.redirect(
+        new URL(RUTA_DE_ALTA_DEL_SEGUNDO_FACTOR, request.nextUrl.origin)
+      );
+      applySecurityHeaders(alta, request, nonce);
+      return alta;
+    }
   }
 
   // **Cómo se entera Next del nonce, que no es por aquí.** Next lo saca de la cabecera

@@ -47,6 +47,17 @@ export const RUTAS_PUBLICAS_DEL_PANEL: readonly {
   },
 ];
 
+/**
+ * La única ruta del panel que admite una sesión **a medio entrar**: la contraseña es buena pero
+ * la cuenta todavía no tiene segundo factor (spec 20 §3).
+ *
+ * Vive fuera del grupo `(panel)` a propósito y tiene su propio guard: el layout de `(panel)`
+ * rechaza las sesiones `alta`, y meterla dentro obligaría a hacerle una excepción justo al guard
+ * autoritativo. La comparten el middleware, que manda aquí cualquier otra ruta del panel, y el
+ * test estructural de #70, que la acepta fuera del grupo solo por estar en esta lista.
+ */
+export const RUTA_DE_ALTA_DEL_SEGUNDO_FACTOR = '/admin/verificacion';
+
 /** Si una ruta del panel se sirve sin sesión. */
 export function esRutaPublicaDelPanel(path: string): boolean {
   return RUTAS_PUBLICAS_DEL_PANEL.some((ruta) => ruta.url === path);

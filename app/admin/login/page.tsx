@@ -27,7 +27,13 @@ import { AVISO_ALARMA, AVISO_PUBLICADO, BOTON_PRINCIPAL, CAMPO } from '@/cms/ui/
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string; lista?: string; cambiada?: string }>;
+  searchParams: Promise<{
+    next?: string;
+    error?: string;
+    lista?: string;
+    cambiada?: string;
+    verificada?: string;
+  }>;
 }) {
   const session = await auth();
   const params = await searchParams;
@@ -46,6 +52,7 @@ export default async function LoginPage({
       await signIn('credentials', {
         email: formData.get('email'),
         password: formData.get('password'),
+        codigo: formData.get('codigo') ?? '',
         redirectTo: destino,
       });
     } catch (error) {
@@ -99,6 +106,13 @@ export default async function LoginPage({
             </p>
           )}
 
+          {params.verificada !== undefined && (
+            <p className={`${AVISO_PUBLICADO} mt-5`}>
+              <Icono de="publicado" tamano={16} className="mt-0.5" />
+              Verificación en dos pasos activada. Entra otra vez, ahora con el código de tu app.
+            </p>
+          )}
+
           <form action={iniciarSesion} className="mt-6 flex flex-col gap-4">
             <label className="flex flex-col gap-1.5">
               <span className="text-sm font-medium text-tinta-suave">Correo</span>
@@ -116,6 +130,25 @@ export default async function LoginPage({
               />
             </label>
 
+            {/* En el mismo envío que la contraseña, no en un paso aparte: un segundo paso
+                diría que la contraseña era buena antes de pedir el código (spec 20 §3). Por eso
+                no es obligatorio en el formulario: quien todavía no tiene la verificación en dos
+                pasos entra sin él, y es el servidor quien decide. */}
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-tinta-suave">Código de verificación</span>
+              <input
+                name="codigo"
+                type="text"
+                inputMode="text"
+                autoComplete="one-time-code"
+                maxLength={11}
+                className={CAMPO}
+              />
+              <span className="text-xs text-tinta-tenue">
+                El de tu app de autenticación, o uno de recuperación. La primera vez, déjalo vacío.
+              </span>
+            </label>
+
             <button type="submit" className={`${BOTON_PRINCIPAL} mt-1 w-full`}>
               Entrar
             </button>
@@ -127,7 +160,7 @@ export default async function LoginPage({
           {params.error !== undefined && (
             <p role="alert" className={`${AVISO_ALARMA} mt-5`}>
               <Icono de="alerta" tamano={16} className="mt-0.5" />
-              Revisa el correo y la contraseña.
+              Revisa el correo, la contraseña y el código.
             </p>
           )}
         </div>
