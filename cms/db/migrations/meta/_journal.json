@@ -36,6 +36,13 @@
       "when": 1790996176369,
       "tag": "0004_idiomas",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792496443091,
+      "tag": "0005_segundo_factor",
+      "breakpoints": true
     }
   ]
 }

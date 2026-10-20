@@ -568,12 +568,13 @@ su propia base Neon y su propio almacén Blob, así que la suite no toca nada de
 
 Lo que necesita, y dónde vive:
 
-| Qué             | Dónde                                           | Por qué ahí                                                        |
-| --------------- | ----------------------------------------------- | ------------------------------------------------------------------ |
-| `HUMO_URL`      | Variable del repositorio (Settings → Variables) | No es secreta, y es lo que impide que la suite apunte a otro sitio |
-| `HUMO_EMAIL`    | Secreto del repositorio                         | La cuenta con la que entra en `uno-cms-pruebas`                    |
-| `HUMO_PASSWORD` | Secreto del repositorio                         | Ídem                                                               |
+| Qué                | Dónde                                           | Por qué ahí                                                                            |
+| ------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `HUMO_URL`         | Variable del repositorio (Settings → Variables) | No es secreta, y es lo que impide que la suite apunte a otro sitio                     |
+| `HUMO_EMAIL`       | Secreto del repositorio                         | La cuenta con la que entra en `uno-cms-pruebas`                                        |
+| `HUMO_PASSWORD`    | Secreto del repositorio                         | Ídem                                                                                   |
+| `HUMO_TOTP_SECRET` | Secreto del repositorio                         | El secreto de 2FA de esa cuenta (spec 20). Se ve en texto al darla de alta, bajo el QR |
 
-Sin los dos secretos la suite se salta avisando y el job sale en verde: es el estado de un fork
+Sin el correo y la contraseña la suite se salta avisando y el job sale en verde: es el estado de un fork
 que no ha montado el suyo. En un fork, el job no corre nunca contra nada, porque el nombre del
 entorno que filtra es el de este proyecto.

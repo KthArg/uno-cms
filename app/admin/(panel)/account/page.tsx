@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
-import { changePassword } from '@/cms/actions';
+import { changePassword, regenerarCodigosDeRecuperacion } from '@/cms/actions';
+import { codigosRestantes } from '@/cms/auth/segundo-factor';
 import { auth } from '@/cms/auth';
 import { AccountScreen } from '@/cms/ui/AccountScreen';
 
@@ -35,5 +36,23 @@ export default async function PantallaDeCuenta() {
     redirect('/admin/login?cambiada=1');
   }
 
-  return <AccountScreen correo={correo} onCambiar={cambiar} />;
+  async function regenerar(
+    codigo: string
+  ): Promise<{ ok: true; codigos: string[] } | { ok: false; message?: string }> {
+    'use server';
+
+    const resultado = await regenerarCodigosDeRecuperacion({ codigo });
+    return resultado.ok
+      ? { ok: true, codigos: resultado.data.codigos }
+      : { ok: false, message: resultado.message };
+  }
+
+  return (
+    <AccountScreen
+      correo={correo}
+      onCambiar={cambiar}
+      codigosRestantes={await codigosRestantes(session.user.id)}
+      onRegenerar={regenerar}
+    />
+  );
 }

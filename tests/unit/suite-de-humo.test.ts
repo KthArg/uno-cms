@@ -162,6 +162,7 @@ describe('T-279-1 — la suite corre sola en CI, y solo contra el despliegue de 
   it('las credenciales salen de los secretos, y ningún paso interpola el evento en un shell', () => {
     expect(PASOS).toContain('HUMO_EMAIL: ${{ secrets.HUMO_EMAIL }}');
     expect(PASOS).toContain('HUMO_PASSWORD: ${{ secrets.HUMO_PASSWORD }}');
+    expect(PASOS).toContain('HUMO_TOTP_SECRET: ${{ secrets.HUMO_TOTP_SECRET }}');
     const comandos = PASOS.split('\n').filter((l) => {
       const paso = l.trimStart();
       return paso.startsWith('run:') || paso.startsWith('- run:');
@@ -173,5 +174,30 @@ describe('T-279-1 — la suite corre sola en CI, y solo contra el despliegue de 
   it('y no tiene más permisos que leer', () => {
     expect(PASOS).toMatch(/permissions:\s*\n\s+contents: read/);
     expect(PASOS).not.toMatch(/:\s*write/);
+  });
+});
+
+describe('T-V-19 — la suite de humo entra con segundo factor', () => {
+  it('lee el secreto de HUMO_TOTP_SECRET, sin espacios', () => {
+    const lectura = leerDestino({
+      HUMO_URL: 'https://uno-cms-pruebas.vercel.app',
+      HUMO_EMAIL: 'humo@ejemplo.com',
+      HUMO_PASSWORD: 'una-contrasena-larga',
+      HUMO_TOTP_SECRET: 'ABCD EFGH IJKL',
+    });
+    expect(lectura.hay && lectura.destino.totp).toBe('ABCDEFGHIJKL');
+  });
+
+  it('y sin él, la lectura sigue valiendo: la cuenta llegaría a la pantalla de alta', () => {
+    const lectura = leerDestino({
+      HUMO_URL: 'https://uno-cms-pruebas.vercel.app',
+      HUMO_EMAIL: 'humo@ejemplo.com',
+      HUMO_PASSWORD: 'una-contrasena-larga',
+    });
+    expect(lectura.hay && lectura.destino.totp).toBeUndefined();
+  });
+
+  it('y rellena el código al entrar', () => {
+    expect(CODIGO).toContain("getByLabel('Código de verificación').fill(codigoTotp(destino.totp))");
   });
 });

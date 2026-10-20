@@ -1,10 +1,11 @@
 Utilidades que **no** son parte de la aplicación: miden o preparan.
 
-| Script                 | Qué hace                                                                                                          |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `presupuesto-js.mjs`   | El presupuesto de JavaScript de la landing (SPEC §8, ADR-601). Bloqueante en CI, tras `pnpm build`                |
-| `seed-demo.mjs`        | Contenido de ejemplo publicado, para que Lighthouse mida contra algo y siempre contra lo mismo                    |
-| `medios-huerfanos.mjs` | Compara el almacén de imágenes con la tabla `media` y **enseña** lo que sobra por cada lado (#206). No borra nada |
+| Script                      | Qué hace                                                                                                                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `presupuesto-js.mjs`        | El presupuesto de JavaScript de la landing (SPEC §8, ADR-601). Bloqueante en CI, tras `pnpm build`                                                                                                            |
+| `seed-demo.mjs`             | Contenido de ejemplo publicado, para que Lighthouse mida contra algo y siempre contra lo mismo                                                                                                                |
+| `quitar-segundo-factor.mjs` | `pnpm mfa:quitar <correo>`: quita la verificación en dos pasos a una cuenta que perdió el móvil y los códigos, y cierra sus sesiones (spec 20). Exige la base de datos, a propósito: no hay botón en el panel |
+| `medios-huerfanos.mjs`      | Compara el almacén de imágenes con la tabla `media` y **enseña** lo que sobra por cada lado (#206). No borra nada                                                                                             |
 
 `migrar-al-desplegar.mjs` no está en la tabla porque no es una utilidad: lo ejecuta `pnpm build`.
 

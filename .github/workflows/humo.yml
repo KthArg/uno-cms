@@ -51,6 +51,8 @@ jobs:
       HUMO_URL: ${{ vars.HUMO_URL }}
       HUMO_EMAIL: ${{ secrets.HUMO_EMAIL }}
       HUMO_PASSWORD: ${{ secrets.HUMO_PASSWORD }}
+      # Desde la spec 20 la cuenta necesita su segundo factor: el secreto TOTP en base32.
+      HUMO_TOTP_SECRET: ${{ secrets.HUMO_TOTP_SECRET }}
     steps:
       - uses: actions/checkout@v7
         with:

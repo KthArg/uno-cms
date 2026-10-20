@@ -39,7 +39,13 @@ export {
   saveDraft,
 } from './content.actions';
 
-export { changePassword, deactivateUser, inviteUser, updateUserRole } from './user.actions';
+export {
+  changePassword,
+  deactivateUser,
+  inviteUser,
+  regenerarCodigosDeRecuperacion,
+  updateUserRole,
+} from './user.actions';
 
 export {
   createPreviewToken,
