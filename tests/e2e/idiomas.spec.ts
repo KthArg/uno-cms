@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { consultarValor, ejecutarSql } from './support/db';
 import { crearYEntrar } from './support/session';
+import { abrirLanding } from './support/landing';
 
 /**
  * Spec 17, idiomas: lo que solo se ve con un servidor delante (T-ID-30 a T-ID-34, T-ID-44).
@@ -56,12 +57,12 @@ test('T-ID-44: elegir English, editar la portada, publicar, y el español sigue 
   await expect(page.getByText(/Publicado/)).toBeVisible({ timeout: 10_000 });
 
   // T-ID-30: `/en` enseña el inglés, dentro de un elemento que lo dice.
-  await page.goto('/en');
+  await abrirLanding(page, '/en');
   await expect(page.getByText(INGLES)).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('main[lang="en"]')).toBeVisible();
 
   // Y `/` sigue en español, sin una letra del inglés.
-  await page.goto('/');
+  await abrirLanding(page);
   await expect(page.getByText(ESPANOL)).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText(INGLES)).toHaveCount(0);
 
@@ -90,7 +91,7 @@ test('T-ID-32: un idioma que no existe es 404', async ({ page }) => {
 });
 
 test('T-ID-33: el `<html lang>` es el del idioma por defecto', async ({ page }) => {
-  await page.goto('/en');
+  await abrirLanding(page, '/en');
 
   // El `<html>` lo comparte el layout raíz; el inglés lo dice su `<main>` (spec 17 §5.6).
   await expect(page.locator('html')).toHaveAttribute('lang', 'es');
