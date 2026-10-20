@@ -66,10 +66,17 @@ datos. No lo cierres.
 En tu proyecto de Vercel, entra en la pestaña **Storage** y crea dos cosas:
 
 - **Una base de datos Postgres** (Vercel te ofrecerá Neon). Es donde se guarda lo que escribas.
-- **Un Blob store**. Es donde se guardan las imágenes que subas.
+- **Un Blob store**, con acceso **Public**. Es donde se guardan las imágenes que subas.
 
 Las dos, al crearlas desde ahí, **añaden sus códigos al proyecto solas**. No tienes que copiar
 nada.
+
+> **Al conectar el Blob store al proyecto, marca «Add a read-write token env var to this
+> connection».** Vercel ya no la marca por defecto: sin ella crea `BLOB_STORE_ID` pero no
+> `BLOB_READ_WRITE_TOKEN`, y el CMS necesita ese token para subir y para saber cuál es tu almacén.
+> Si te lo saltaste, las imágenes no suben: desconecta el almacén en **Storage** y vuelve a
+> conectarlo con la casilla marcada. (Comprobado el 20 de octubre de 2026 montando el despliegue
+> de pruebas.)
 
 Si te pregunta por un plan, el gratuito sirve.
 
@@ -202,7 +209,8 @@ que la página se quedó guardada un momento; se arregla sola en unos segundos.
 Tras cinco intentos fallidos la cuenta se bloquea quince minutos. Espera y vuelve.
 
 **«No hemos podido subir la imagen».**
-El límite son 10 MB por imagen y solo se aceptan JPG, PNG, WebP, AVIF y GIF. Los SVG se
+Si no sube **ninguna**, mira en Vercel (Settings → Environment Variables) que exista
+`BLOB_READ_WRITE_TOKEN`: ver el aviso del paso 3. Si sube alguna y otra no, el límite son 10 MB por imagen y solo se aceptan JPG, PNG, WebP, AVIF y GIF. Los SVG se
 rechazan a propósito: pueden llevar código dentro.
 
 **Publiqué y mi web no cambia.**

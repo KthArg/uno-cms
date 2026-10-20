@@ -558,3 +558,22 @@ defecto y no su código (ADR-1100): nunca la escribas a mano, usa `cms/core/idio
 migraciones se generan con `pnpm db:generate` y se aplican con `pnpm db:migrate`.
 
 Cambiar `cms.config.ts` **no** genera migraciones: el contenido es JSONB.
+
+## La suite de humo en CI (#279)
+
+`.github/workflows/humo.yml` lanza `pnpm test:humo` cada vez que Vercel termina un despliegue de
+producción del proyecto **`uno-cms-pruebas`**, una vez por semana y a mano. Ese proyecto existe
+solo para esto: el repositorio no tiene despliegue propio, cada cliente despliega su fork. Tiene
+su propia base Neon y su propio almacén Blob, así que la suite no toca nada de nadie.
+
+Lo que necesita, y dónde vive:
+
+| Qué             | Dónde                                           | Por qué ahí                                                        |
+| --------------- | ----------------------------------------------- | ------------------------------------------------------------------ |
+| `HUMO_URL`      | Variable del repositorio (Settings → Variables) | No es secreta, y es lo que impide que la suite apunte a otro sitio |
+| `HUMO_EMAIL`    | Secreto del repositorio                         | La cuenta con la que entra en `uno-cms-pruebas`                    |
+| `HUMO_PASSWORD` | Secreto del repositorio                         | Ídem                                                               |
+
+Sin los dos secretos la suite se salta avisando y el job sale en verde: es el estado de un fork
+que no ha montado el suyo. En un fork, el job no corre nunca contra nada, porque el nombre del
+entorno que filtra es el de este proyecto.
