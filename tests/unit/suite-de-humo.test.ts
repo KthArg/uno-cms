@@ -138,6 +138,45 @@ describe('T-207-9 — no toca nada que no haya creado ella', () => {
   });
 });
 
+describe('T-279-1 — la suite corre sola en CI, y solo contra el despliegue de pruebas', () => {
+  const WORKFLOW = readFileSync(join(REPO_ROOT, '.github', 'workflows', 'humo.yml'), 'utf8');
+  /** Lo que se ejecuta, sin los comentarios, que explican el evento y por eso lo nombran. */
+  const PASOS = WORKFLOW.split('\n')
+    .filter((linea) => !linea.trim().startsWith('#'))
+    .join('\n');
+
+  it('se dispara con cada despliegue de producción, cada semana y a mano', () => {
+    expect(PASOS).toMatch(/^\s+deployment_status:/m);
+    expect(PASOS).toMatch(/^\s+schedule:/m);
+    expect(PASOS).toMatch(/^\s+workflow_dispatch:/m);
+    expect(PASOS).toContain("github.event.deployment_status.state == 'success'");
+  });
+
+  it('el destino es una variable del repositorio, nunca algo que traiga el evento', () => {
+    // La suite escribe en lo que toca. La URL del despliegue que trae `deployment_status` la
+    // escribe un tercero; a dónde se escribe lo decide el repositorio.
+    expect(PASOS).toContain('HUMO_URL: ${{ vars.HUMO_URL }}');
+    expect(PASOS).not.toMatch(/target_url|environment_url|deployment\.payload/);
+  });
+
+  it('las credenciales salen de los secretos, y ningún paso interpola el evento en un shell', () => {
+    expect(PASOS).toContain('HUMO_EMAIL: ${{ secrets.HUMO_EMAIL }}');
+    expect(PASOS).toContain('HUMO_PASSWORD: ${{ secrets.HUMO_PASSWORD }}');
+    expect(PASOS).toContain('HUMO_TOTP_SECRET: ${{ secrets.HUMO_TOTP_SECRET }}');
+    const comandos = PASOS.split('\n').filter((l) => {
+      const paso = l.trimStart();
+      return paso.startsWith('run:') || paso.startsWith('- run:');
+    });
+    expect(comandos.length).toBeGreaterThan(0);
+    for (const comando of comandos) expect(comando).not.toContain('${{');
+  });
+
+  it('y no tiene más permisos que leer', () => {
+    expect(PASOS).toMatch(/permissions:\s*\n\s+contents: read/);
+    expect(PASOS).not.toMatch(/:\s*write/);
+  });
+});
+
 describe('T-V-19 — la suite de humo entra con segundo factor', () => {
   it('lee el secreto de HUMO_TOTP_SECRET, sin espacios', () => {
     const lectura = leerDestino({
