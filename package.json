@@ -28,7 +28,6 @@
     "// auditConfig": "GHSA-vfj7-8cjw-p6xm (braces <=3.0.3, high) no tiene versión parcheada publicada (#304). Solo llega por eslint-config-next, una herramienta de desarrollo que nunca se despliega, y los patrones que expande son los de nuestra propia configuración, no entrada de nadie. Quitar en cuanto salga el parche: está en docs/PENDIENTES.md.",
     "auditConfig": {
       "ignoreGhsas": [
-        "GHSA-vfj7-8cjw-p6xm"
       ]
     }
   },
